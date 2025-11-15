@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quadrant Timers — Dual Overlay</title>
+  <style>
+    :root{ --bg:#0b0e14; --fg:#eaeef5; --muted:#9aa4b2; --panelBorder:#1a2030; --dockH:64px; }
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    .dock{position:fixed; left:0; right:0; top:0; height:var(--dockH); display:flex; align-items:center; gap:.5rem; padding:0 .75rem; background:#0f1422; border-bottom:1px solid var(--panelBorder); z-index:100}
+    .dock .spacer{flex:1}
+    .dock button, .dock label{background:#141b2b; color:var(--fg); border:1px solid var(--panelBorder); padding:.5rem .7rem; border-radius:.6rem; cursor:pointer; font-weight:600}
+    .dock input[type=file]{display:none}
+    .hint{opacity:.9; font-size:.9rem}
+    .stage{position:fixed; left:0; right:0; top:var(--dockH); bottom:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr; background:black; transition: filter .25s ease; gap:1px}
+    .quadrant{position:relative; overflow:hidden; border:1px solid var(--panelBorder); transition: transform .25s ease, opacity .2s ease, filter .2s ease; background: #000;}
+    .quadrant.dimmed{opacity:.22; filter:grayscale(.8) brightness(.55)}
+
+    /* --- Dual Video Setup --- */
+    .quad-video{position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; background:black;}
+    .video-fg {
+      mix-blend-mode: lighten;
+      z-index: 2;
+      transition: clip-path 0.5s ease-in-out; /* Added transition */
+    }
+    .video-bg { z-index: 1; }
+    /* --- End Dual Video --- */
+
+    .overlay{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; pointer-events:none; opacity:0; transition: opacity .12s ease; z-index: 200;}
+    .overlay.show{opacity:1;}
+    .overlay .inner{padding:0; color:white; text-shadow:0 4px 20px rgba(0,0,0,.9), 0 0 60px var(--themeAccent, transparent); text-align:center; border-radius:0; background:transparent; box-shadow:none; width:100%; height:100%; position: relative; z-index: 202;}
+
+    /* --- Text & Timer Redesign --- */
+    .display-xxl{font-size:clamp(3.2rem, 10vw, 8rem); font-weight:900; letter-spacing:-.02em; color:var(--themeAccent, white); text-shadow:0 0 20px var(--themeBase, transparent), 0 4px 15px rgba(0,0,0,.9); line-height:1; text-transform:uppercase; z-index: 205; position: relative;}
+    .display-lg{font-size:clamp(1.2rem, 4vw, 3.2rem); font-weight:800; opacity:.95; color:var(--themeAccent, white); text-transform:uppercase; letter-spacing:.1em; z-index: 205; position: relative;}
+
+    .cue-timer-bg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(20rem, 60vw, 40rem);
+      font-weight: 900;
+      color: white;
+      opacity: 0.5;
+      z-index: 203; /* Behind text, in front of video */
+      line-height: 1;
+      font-family: Arial, sans-serif;
+    }
+    .cue-countdown {
+      font-size:clamp(1.2rem, 4vw, 3.2rem);
+      opacity:.95;
+      margin-top:.35rem;
+      z-index: 205;
+      position: relative;
+    }
+    /* --- End Text & Timer Redesign --- */
+
+    .nextTimer{position:absolute; left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
+    .nextTimer .bar{height:3px; background:var(--themeAccent, #8ab4ff);}
+    .tally{ display: none !important; } /* --- Removed as requested --- */
+
+    .task-buttons{position:absolute; bottom:5rem; left:50%; transform:translateX(-50%); display:none; gap:1rem; z-index:250; pointer-events:auto;}
+    .task-buttons.show{display:flex;}
+    .task-buttons button{font-size:clamp(2rem, 5vw, 4rem); padding:.8rem 1.5rem; border-radius:1rem; border:3px solid white; cursor:pointer; font-weight:900; transition:transform .1s, opacity .1s;}
+    .task-buttons button:hover{transform:scale(1.05);}
+    .task-buttons button:active{transform:scale(0.95);}
+    .btn-task-fail{background:#ff4444; color:white;}
+    .btn-task-complete{background:#44ff44; color:white;}
+    .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300;}
+    .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
+    .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
+    .emojisPlan{font-size:clamp(1.1rem,2.6vw,1.9rem); letter-spacing:.22rem; margin-top:.35rem}
+    .btn-change-theme { pointer-events:auto; cursor:pointer; font-size:1rem; padding:.5rem 1rem; margin-top:1rem; border-radius:.5rem; background:rgba(255,255,255,.1); color:white; border:1px solid white; font-weight: 600; }
+    .btn-change-theme:hover { background:rgba(255,255,255,.2); }
+    .clip-option:hover { border-color:rgba(255,255,255,.5) !important; }
+    .clip-option.selected { border-color:#44ff44 !important; box-shadow:0 0 20px #44ff44; }
+    .selectBadge{position:absolute; top:.5rem; left:.5rem; background:var(--themeBase, rgba(0,0,0,.6)); border:1px solid rgba(255,255,255,.25); padding:.15rem .45rem; border-radius:.4rem; font-weight:800; pointer-events:none; z-index: 70;}
+    .quadrant.selected .selectBadge{background:rgba(46,204,113,.9); border-color:rgba(255,255,255,.7)}
+    .quadrant.selected .selectBadge::after{content:' IN PLAY';}
+    .quadrant:not(.selected) .selectBadge::after{content:' TAP TO PLAY';}
+    .quadrant.choose-phase{cursor:pointer}
+    .quadrant.choose-phase:hover .chooseTint{transform:scale(1.02)}
+    .qcontrols{position:absolute; right:.4rem; top:.4rem; z-index:50; display:flex; gap:.25rem}
+    .qcontrols button{background:rgba(0,0,0,.6); color:#fff; border:1px solid rgba(255,255,255,.2); padding:.2rem .45rem; border-radius:.4rem; cursor:pointer; font-weight:700}
+    .qcontrols button:hover{background:rgba(255,255,255,.1)}
+    .qcontrols .active{background:rgba(46,204,113,.9)}
+    .corners{position:absolute; inset:0; pointer-events:none; z-index: 10;}
+    .corners::before{content:""; position:absolute; inset:0; background:
+      radial-gradient(240px 240px at 0% 0%, var(--pulseColor,transparent), transparent 60%),
+      radial-gradient(240px 240px at 100% 0%, var(--pulseColor,transparent), transparent 60%),
+      radial-gradient(240px 240px at 0% 100%, var(--pulseColor,transparent), transparent 60%),
+      radial-gradient(240px 240px at 100% 100%, var(--pulseColor,transparent), transparent 60%);
+      opacity:0; transition:opacity .15s ease; filter:blur(2px); mix-blend-mode:screen}
+    .quadrant.bulge .corners::before{opacity:1}
+    .quadrant.bulge{transform:scale(1.06); box-shadow:0 0 0 2px var(--pulseColor,transparent), 0 0 40px 10px rgba(255,255,255,.07), 0 0 28px 8px var(--pulseColor,transparent)}
+    .quadrant.bulge .quad-video{transform:scale(1.02)}
+
+    /* [REMOVED] .phaseTint CSS rules */
+
+    /* [REMOVED] Theme-specific text positioning */
+
+    /* Video effects during events */
+    .video-effect { transition: all 0.3s; }
+
+    @keyframes videoFlicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    @keyframes videoPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    @keyframes videoGlitch { 0%, 100% { transform: translate(0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } }
+    @keyframes videoHeartbeat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.05); } 30% { transform: scale(1); } }
+
+    /* [REMOVED] Theme-specific dramatic effects */
+
+    /* Remove container boxes - make overlays full screen */
+    .overlay .inner { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .overlay.show { background: rgba(0,0,0,0.3); }
+
+    /* Animations */
+    @keyframes neonPulse { from {opacity: 0.7;} to {opacity: 1;} }
+    @keyframes textStrobe { 0%, 100% {opacity: 1;} 50% {opacity: 0.6;} }
+    @keyframes fireFlicker { 0%, 100% {opacity: 1; transform: scale(1);} 50% {opacity: 0.85; transform: scale(1.03);} }
+    @keyframes voidPulse { 0%, 100% {transform: scale(1);} 50% {transform: scale(1.05);} }
+    @keyframes toxicGlitch { 0%, 100% {transform: translate(0);} 33% {transform: translate(-2px, 2px);} 66% {transform: translate(2px, -2px);} }
+    @keyframes heartbeat { 0%, 100% {transform: scale(1);} 10% {transform: scale(1.1);} 20% {transform: scale(1);} 30% {transform: scale(1.05);} 40% {transform: scale(1);} }
+
+    /* Full-screen overlays for different stages - [DEPRECATED, REPLACED] */
+    .stage-overlay { display: none; }
+
+    /* --- New Event-Specific Overlays --- */
+    .event-overlay-custom {
+      position: absolute;
+      inset: 0;
+      z-index: 100; /* In front of video, behind cues */
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      mix-blend-mode: overlay; /* Default blend mode */
+    }
+    .event-overlay-custom.active { opacity: 1; }
+
+    .event-overlay-light { background: rgba(255, 68, 0, 0.7); mix-blend-mode: overlay; }
+    .event-overlay-fill {
+      background: linear-gradient(135deg, white, orange);
+      mix-blend-mode: overlay;
+      animation: pulse-fill 1s infinite alternate;
+    }
+    @keyframes pulse-fill {
+      from { opacity: 0.6; }
+      to { opacity: 1; }
+    }
+    .event-overlay-inhale { background: rgba(0, 0, 255, 0.5); }
+    .event-overlay-hold { background: rgba(128, 128, 128, 0.8); mix-blend-mode: normal; }
+    .event-overlay-exhale { background: rgba(0, 255, 0, 0.5); }
+
+    /* Bubbles for Inhale/Exhale */
+    .bubble-container {
+      position: absolute;
+      inset: 0;
+      z-index: 101;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .bubble-container.active { opacity: 1; }
+    .bubble {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .event-overlay-inhale .bubble { animation: move-up 3s linear infinite; }
+    .event-overlay-exhale .bubble { animation: move-down 3s linear infinite; }
+
+    @keyframes move-up {
+      0% { transform: translateY(100vh) scale(0.5); opacity: 0; left: var(--x-start); }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-100px) scale(1); opacity: 0; left: var(--x-end); }
+    }
+    @keyframes move-down {
+      0% { transform: translateY(-100px) scale(1); opacity: 0; left: var(--x-start); }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(100vh) scale(0.5); opacity: 0; left: var(--x-end); }
+    }
+
+    /* Sniff Effect */
+    .event-overlay-sniff { background: black; mix-blend-mode: normal; }
+    .quadrant.sniff-effect .quad-video {
+      animation: sniff-zoom 0.3s infinite alternate;
+    }
+    @keyframes sniff-zoom {
+      from { transform: scale(1); opacity: 0.8; }
+      to { transform: scale(1.2); opacity: 1; }
+    }
+    .overlay[data-type="sniff"].show .display-xxl {
+      color: yellow;
+    }
+
+    /* Mask Effect */
+    .overlay[data-type="mask"].show .inner {
+      background: radial-gradient(circle at center, black 40%, transparent 41%);
+    }
+    .overlay[data-type="mask"].show .display-xxl {
+      color: white;
+    }
+    /* --- End New Overlays --- */
+
+    /* FX */
+    .fx-strobe{animation: strobe 95ms steps(2, jump-none) infinite}
+    .fx-chroma{filter: drop-shadow(2px 0 0 rgba(255,0,120,.5)) drop-shadow(-2px 0 0 rgba(0,200,255,.5))}
+    .fx-shake{animation: shake .35s cubic-bezier(.36,.07,.19,.97) both}
+    @keyframes strobe{from{opacity:.3} to{opacity:1}}
+    @keyframes shake{10%,90%{transform:translate3d(-1px,0,0)}20%,80%{transform:translate3d(2px,0,0)}30%,50%,70%{transform:translate3d(-4px,0,0)}40%,60%{transform:translate3d(4px,0,0)}}
+
+    /* --- Grid Choice Styles --- */
+    .grid-choice-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.85);
+      z-index: 400; /* High z-index */
+      display: none; /* Show with a class */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      gap: 1rem;
+      pointer-events: none;
+    }
+    .grid-choice-overlay.show { display: flex; pointer-events: auto; }
+    .grid-choice-title { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 700; color: white; text-shadow: 0 1px 3px #000; }
+    .grid-choice-timer { position: absolute; top: 1rem; right: 1rem; font-size: 1.5rem; font-weight: 800; color: #fff; background: #c00; padding: .2rem .5rem; border-radius: .4rem; }
+    .grid-choice-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: .5rem; width: 80%; height: 70%; max-width: 800px; }
+    .grid-choice-item { position: relative; cursor: pointer; border: 2px solid #555; border-radius: .5rem; overflow: hidden; transition: border-color .2s; }
+    .grid-choice-item:hover { border-color: #fff; transform: scale(1.03); }
+    .grid-choice-item video { width: 100%; height: 100%; object-fit: cover; }
+    .grid-choice-item .item-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,.7); color: white; padding: .2rem .4rem; font-size: .8rem; text-align: center; }
+    .grid-choice-item.correct { border-color: #0F0; box-shadow: 0 0 20px #0F0; }
+    .grid-choice-item.wrong { border-color: #F00; box-shadow: 0 0 20px #F00; }
+
+    /* --- Action Choice Styles (Now "Choice Event") --- */
+    .action-choice-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.85);
+      z-index: 450; /* High z-index */
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      gap: 1rem;
+      pointer-events: none;
+    }
+    .action-choice-overlay.show { display: flex; pointer-events: auto; }
+    .action-choice-title { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 700; color: white; }
+    .action-choice-timer { position: absolute; top: 1rem; right: 1rem; font-size: 1.5rem; font-weight: 800; color: #fff; background: #c00; padding: .2rem .5rem; border-radius: .4rem; }
+
+    /* make choice timers more prominent */
+    .grid-choice-timer, .action-choice-timer { font-size: clamp(1.2rem, 3vw, 2.4rem); padding:.25rem .6rem; background: rgba(192,0,0,0.95); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+    .action-choice-list { display: flex; flex-direction: column; gap: .75rem; width: 80%; max-width: 600px; }
+    .action-choice-item {
+      background: #141b2b;
+      color: var(--fg);
+      border: 1px solid var(--panelBorder);
+      padding: 1rem 1.2rem;
+      border-radius: .6rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1.2rem;
+      transition: transform .1s ease, background .1s ease;
+    }
+    .action-choice-item:hover { background: #1a2030; transform: scale(1.03); }
+    /* --- End Choice --- */
+
+  video, .quadrant {will-change: transform; transform: translateZ(0);}
+/* --- PATCH: hidden plan, enhanced tint overlay --- */
+.emojisPlan{ display:none !important; }
+/* [REMOVED] .phaseTint mix-blend-mode */
+.clip-option:hover { border-color:rgba(255,255,255,.5) !important; }
+.clip-option.selected { border-color:#44ff44 !important; box-shadow:0 0 20px #44ff44; }
+
+/* --- Reduced-intensity & performance-friendly overrides --- */
+.nextTimer{position:absolute; left:1rem; bottom:1.25rem; top:auto; right:auto; min-width:0; font-size:clamp(1.8rem, 4vw, 4rem); padding:0; background:transparent; box-shadow:none; border-radius:0; display:flex; align-items:center; justify-content:flex-start; color:rgba(255,255,255,.95); opacity:.88; pointer-events:none; z-index:60;}
+.nextTimer .bar{position:absolute; left:0; right:0; bottom:-6px; height:4px; background:var(--themeAccent, #8ab4ff); opacity:.6; border-radius:2px;}
+/* [REMOVED] .phaseTint.show */
+.overlay.show{background:rgba(0,0,0,0.12) !important}
+.quadrant.bulge{transform:scale(1.03) !important; box-shadow:none !important}
+.video-effect.active{filter:none !important; animation:none !important; transition:transform .18s ease, opacity .12s ease;}
+.display-xxl, .display-lg{ text-shadow: none; }
+.emojisPlan{display:none !important}
+/* [REMOVED] Theme-specific display-xxl animations */
+
+/* --- [REMOVED] Persistent Color Overlay --- */
+
+</style>
+</head>
+<body>
+  <div class="dock">
+    <label for="folderPicker">🎬 Pick videos</label>
+    <input id="folderPicker" type="file" webkitdirectory directory multiple accept="video/*" />
+    <button id="btnStart">▶︎ Start</button>
+    <button id="btnStop">⏹ Stop</button> <button id="btnFury" style="display:none">Fury Off</button>
+    <button id="btnFSAll" title="Fullscreen app">⛶</button>
+    <span class="spacer"></span>
+    <button id="btnMuteAll" title="Mute/Unmute all">🔇</button>
+    <span id="status" class="hint">Load ≥4 vids, Start, then pick theme.</span>
+  </div>
+
+  <div class="stage">
+<div class="quadrant" id="q1">
+  <div class="selectBadge"></div>
+  <div class="corners"></div>
+  <!-- [REMOVED] <div class="phaseTint"></div> -->
+  <div class="qcontrols">
+    <button class="shuffleVideo" title="Next video">⇄</button>
+    <button class="btnFS" title="Fullscreen this quad">⛶</button>
+    <button class="btnSound" title="Play this quad's audio">🔈</button>
+  </div>
+  <!-- Dual Video Players -->
+  <video playsinline webkit-playsinline muted preload="metadata" class="quad-video video-bg"></video>
+  <video playsinline webkit-playsinline muted preload="metadata" class="quad-video video-fg"></video>
+
+  <!-- New Event Overlays -->
+  <div class="event-overlay-custom event-overlay-light"></div>
+  <div class="event-overlay-custom event-overlay-fill"></div>
+  <div class="bubble-container event-overlay-inhale"></div>
+  <div class="event-overlay-custom event-overlay-hold"></div>
+  <div class="bubble-container event-overlay-exhale"></div>
+  <div class="event-overlay-custom event-overlay-sniff"></div>
+  <!-- (Mask is handled by the cue overlay) -->
+
+  <div class="overlay chooseTint">
+    <div class="chooseTitle">CHOOSE THEME</div>
+    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
+    <button class="btn-change-theme" style="margin-bottom:1rem;">Change Theme</button>
+    <!-- Clip selection grid removed, as videos auto-load -->
+    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+    <div class="emojisPlan"></div>
+  </div>
+
+  <!-- Cue Overlays -->
+  <div class="overlay cue" data-type="pre"><div class="inner"><div class="display-lg">NEXT</div></div></div>
+  <div class="overlay cue" data-type="ready"><div class="inner"><div class="display-xxl">GET&nbsp;READY</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="light"><div class="inner"><div class="display-xxl">LIGHT</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="fill"><div class="inner"><div class="display-xxl">FILL&nbsp;THE&nbsp;BAG</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="sniff"><div class="inner"><div class="display-xxl">SNIFF</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="action"><div class="inner">
+    <div class="display-xxl">ACTION</div>
+    <div class="display-lg">ACTION</div>
+    <button class="btn-action-complete" style="pointer-events:auto; cursor:pointer; font-size:1.5rem; padding:.5rem 1rem; margin-top:1rem; border-radius:.5rem; background:rgba(46,204,113,.9); color:white; border:1px solid white;">COMPLETE</button>
+    <div class="cue-timer-bg"></div><div class="cue-countdown"></div>
+  </div></div>
+  <div class="overlay cue" data-type="inhale"><div class="inner"><div class="display-xxl">INHALE</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="hold"><div class="inner"><div class="display-xxl">HOLD</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="exhale"><div class="inner"><div class="display-xxl">EXHALE</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="mask"><div class="inner"><div class="display-xxl">MASK</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+
+
+  <div class="nextTimer"><div class="bar"></div></div>
+  <div class="tally"></div>
+  <div class="task-buttons">
+    <button class="btn-task-fail">✗</button>
+    <button class="btn-task-complete">✓</button>
+  </div>
+  <div class="grid-choice-overlay">
+    <div class="grid-choice-timer">20</div>
+    <div class="grid-choice-title">CHOOSE NEW VIDEO</div>
+    <div class="grid-choice-grid">
+      <div class="grid-choice-item" data-idx="0"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="grid-choice-item" data-idx="1"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="grid-choice-item" data-idx="2"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="grid-choice-item" data-idx="3"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+    </div>
+  </div>
+  <div class="action-choice-overlay">
+    <div class="action-choice-timer">20</div>
+    <div class="action-choice-title">CHOOSE NEXT EVENT</div>
+    <div class="action-choice-list"></div>
+  </div>
+</div>
+
+
+<div class="quadrant" id="q2">
+  <div class="selectBadge"></div>
+  <div class="corners"></div>
+  <!-- [REMOVED] <div class="phaseTint"></div> -->
+  <div class="qcontrols">
+    <button class="shuffleVideo" title="Next video">⇄</button>
+    <button class="btnFS" title="Fullscreen this quad">⛶</button>
+    <button class="btnSound" title="Play this quad's audio">🔈</button>
+  </div>
+  <!-- Dual Video Players -->
+  <video playsinline webkit-playsinline muted preload="metadata" class="quad-video video-bg"></video>
+  <video playsinline webkit-playsinline muted preload="metadata" class="quad-video video-fg"></video>
+
+  <!-- New Event Overlays -->
+  <div class="event-overlay-custom event-overlay-light"></div>
+  <div class="event-overlay-custom event-overlay-fill"></div>
+  <div class="bubble-container event-overlay-inhale"></div>
+  <div class="event-overlay-custom event-overlay-hold"></div>
+  <div class="bubble-container event-overlay-exhale"></div>
+  <div class="event-overlay-custom event-overlay-sniff"></div>
+  <!-- (Mask is handled by the cue overlay) -->
+
+  <div class="overlay chooseTint">
+    <div class="chooseTitle">CHOOSE THEME</div>
+    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
+    <button class="btn-change-theme" style="margin-bottom:1rem;">Change Theme</button>
+    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+    <div class="emojisPlan"></div>
+  </div>
+
+  <!-- Cue Overlays -->
+  <div class="overlay cue" data-type="pre"><div class="inner"><div class="display-lg">NEXT</div></div></div>
+  <div class="overlay cue" data-type="ready"><div class="inner"><div class="display-xxl">GET&nbsp;READY</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="light"><div class="inner"><div class="display-xxl">LIGHT</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="fill"><div class="inner"><div class="display-xxl">FILL&nbsp;THE&nbsp;BAG</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="sniff"><div class="inner"><div class="display-xxl">SNIFF</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="action"><div class="inner">
+    <div class="display-xxl">ACTION</div>
+    <div class="display-lg">ACTION</div>
+    <div class="cue-timer-bg"></div><div class="cue-countdown"></div>
+  </div></div>
+  <div class="overlay cue" data-type="inhale"><div class="inner"><div class="display-xxl">INHALE</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="hold"><div class="inner"><div class="display-xxl">HOLD</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="exhale"><div class="inner"><div class="display-xxl">EXHALE</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+  <div class="overlay cue" data-type="mask"><div class="inner"><div class="display-xxl">MASK</div><div class="cue-timer-bg"></div><div class="cue-countdown"></div></div></div>
+
+
+  <div class="nextTimer"><div class="bar"></div></div>
+  <div class="tally"></div>
+  <div class="task-buttons">
+    <button class="btn-task-fail">✗</button>
+    <button class="btn-task-complete">✓</button>
+  </div>
+  <div class="grid-choice-overlay">
+    <div class="grid-choice-timer">20</div>
+    <div class="grid-choice-title">CHOOSE NEW VIDEO</div>
+    <div class="grid-choice-grid">
+      <div class="grid-choice-item" data-idx="0"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="grid-choice-item" data-idx="1"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="grid-choice-item" data-idx="2"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="grid-choice-item" data-idx="3"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+    </div>
+  </div>
+  <div class="action-choice-overlay">
+    <div class="action-choice-timer">20</div>
+    <div class="action-choice-title">CHOOSE NEXT EVENT</div>
+    <div class="action-choice-list"></div>
+  </div>
+</div>
+</div>
+
+
+  <script>
+  (()=>{
+    // Ferocity params
+    const FURY = { on:false, jitterAmp:1, pulseScale:1.06, tintAlpha:.22 };
+
+    // [MODIFIED] Added 'mono' theme and changed 'void' clipPath
+    const VIBES = [
+      {key:'inferno', palette:{base:'#ff4400', accent:'#ffaa00', dark:'#330000'}, clipPath: 'polygon(0 0, 100% 0, 100% 60%, 0 60%)'}, // Top 60%
+      {key:'void', palette:{base:'#6600ff', accent:'#cc00ff', dark:'#000000'}, clipPath: 'polygon(0 40%, 100% 40%, 100% 100%, 0 100%)'}, // Bottom 60%
+      {key:'toxic', palette:{base:'#00ff00', accent:'#88ff00', dark:'#001100'}, clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)'}, // Left 50%
+      {key:'mono', palette:{base:'#ffffff', accent:'#999999', dark:'#111111'}, clipPath: 'none'} // Full overlay
+    ];
+    const ACTIONS = [
+      {label:"Stand up and stretch", seconds:10}, {label:"Copy the main actor's pose", seconds:5},
+      {label:"Drink something", seconds:10}, {label:"Balance on one foot", seconds:10},
+      {label:"Put your feet above your head", seconds:10}, {label:"Touch something wooden", seconds:5},
+      {label:"CHANGE oufit", seconds:20}, {label:"Mirror the actor's facial expression", seconds:5},
+      {label:"CHANGE the song", seconds:10}, {label:"CHANGE seat", seconds:10},
+      {label:"PUT 3 useful things on the table", seconds:10}, {label:"Gather 3 lighers", seconds:10},
+      {label:"Say 6 dirty words", seconds:7}, {label:"Make a sound effect for the scene", seconds:7}
+    ];
+
+    const DUR = { ready:5000, light:12000, fill:12000, inhale:5000, hold:4000, exhale:5000, mask: 20000, chill: 30000 }; // Mask duration set to 20s
+    const EMOJI = {ready:'', light:'', fill:'', inhale:'', hold:'', exhale:'', sniff:'', mask:'', action:'', puff:''};
+
+    // [DEPRECATED] EVENT_COLORS are replaced by new overlay divs
+
+    const makeQuad = (root) => ({
+      el: root,
+      // [NEW] Dual video elements
+      video_bg: root.querySelector('.video-bg'),
+      video_fg: root.querySelector('.video-fg'),
+
+      overlays: Object.fromEntries(Array.from(root.querySelectorAll('.overlay.cue')).map(o=>[o.dataset.type,o])),
+
+      // [NEW] Custom event overlays
+      eventOverlays: {
+        light: root.querySelector('.event-overlay-light'),
+        fill: root.querySelector('.event-overlay-fill'),
+        inhale: root.querySelector('.event-overlay-inhale'),
+        hold: root.querySelector('.event-overlay-hold'),
+        exhale: root.querySelector('.event-overlay-exhale'),
+        sniff: root.querySelector('.event-overlay-sniff'),
+      },
+
+      chooseTint: root.querySelector('.chooseTint'),
+      nextTimer: root.querySelector('.nextTimer'),
+      nextBar: root.querySelector('.nextTimer .bar'),
+      selectBadge: root.querySelector('.selectBadge'),
+      tally: root.querySelector('.tally'),
+      // [REMOVED] phaseTint
+      taskButtons: root.querySelector('.task-buttons'),
+      btnTaskComplete: root.querySelector('.btn-task-complete'),
+      btnTaskFail: root.querySelector('.btn-task-fail'),
+
+      queue: [], busy:false, ticker:null, nextTaskTimer: null, vibe:null, label:'', chosen:true, completed: [], currentTask: null, taskButtonTimeout: null,
+
+      // [NEW] Track clip indices for both players
+      clipIndex_bg: 0,
+      clipIndex_fg: 0
+    });
+    const quads = Array.from({length:2}).map((_,i)=> makeQuad(document.getElementById('q'+(i+1))));
+
+    const folderPicker = document.getElementById('folderPicker');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const btnFSAll = document.getElementById('btnFSAll');
+    const btnFury = document.getElementById('btnFury');
+    const btnMuteAll = document.getElementById('btnMuteAll');
+    const status = document.getElementById('status');
+
+    let videos = [];
+    let createdObjectURLs = [];
+    let globalRafId = null;
+    const activeIntervals = new Set();
+
+    function startGlobalClock(){
+      if (globalRafId) return;
+      const tick = ()=>{
+        const now = performance.now();
+        quads.forEach(q=>{
+          if (q.nextTargetTime){
+            const msLeft = Math.max(0, q.nextTargetTime - now);
+            const gapMs = q.nextGapMs || 1;
+            const task = q.queue && q.queue[0];
+            // [MODIFIED] Fix timer flicker at 0
+            const sLeft = (msLeft <= 20) ? 0 : Math.ceil(msLeft / 1000);
+            q.nextTimer.textContent = task ? `${task.type.toUpperCase()} in ${sLeft}s` : 'Next...';
+            const pct = Math.min(100, ((gapMs - msLeft) / gapMs) * 100);
+            if (q.nextBar) q.nextBar.style.width = pct.toFixed(1)+'%';
+          }
+        });
+        globalRafId = requestAnimationFrame(tick);
+      };
+      globalRafId = requestAnimationFrame(tick);
+    }
+    function stopGlobalClock(){ if (globalRafId){ cancelAnimationFrame(globalRafId); globalRafId = null; } }
+    let cycleAbort = null;
+    let stopChoiceEvent = null;
+    let globalEventLock = false;
+
+    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+    const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
+    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
+
+    function randomMidStart(clip){
+      const dur = Number.isFinite(clip.duration) && clip.duration>1 ? clip.duration : 5;
+      const padStart = 0.5, padEnd = 1.0;
+      const min = padStart, max = Math.max(min+0.5, dur - padEnd);
+      return min + Math.random()*(max - min);
+    }
+
+    /**
+     * [NEW] Starts the video cycling loop for a single video element.
+     */
+    function startVideoCycling(qi, initialClip, videoKey) { // videoKey is 'video_bg' or 'video_fg'
+      const q = quads[qi];
+      const v = q[videoKey];
+      const indexKey = (videoKey === 'video_bg') ? 'clipIndex_bg' : 'clipIndex_fg';
+
+      if (!v || !initialClip || videos.length === 0) return;
+
+      let currentClipIndex = videos.indexOf(initialClip);
+      if (currentClipIndex === -1) currentClipIndex = 0;
+      q[indexKey] = currentClipIndex;
+
+      v.onended = async () => {
+        if (cycleAbort) return;
+
+        let attempts = 0;
+        let nextClipIndex = q[indexKey];
+
+        while (attempts < videos.length) {
+          nextClipIndex = (nextClipIndex + 1) % videos.length;
+          const nextClipUrl = videos[nextClipIndex].url;
+
+          // Check against all other 3 players
+          const isPlayingElsewhere = quads.some((otherQ, otherQi) => {
+              if (otherQi === qi) {
+                // Check the *other* video in the *same* quad
+                const otherKey = (videoKey === 'video_bg') ? 'video_fg' : 'video_bg';
+                return otherQ[otherKey].src === nextClipUrl;
+              } else {
+                // Check *both* videos in the *other* quad
+                return otherQ.video_bg.src === nextClipUrl || otherQ.video_fg.src === nextClipUrl;
+              }
+          });
+
+          if (!isPlayingElsewhere || videos.length <= 4) {
+              break; // Found a valid clip (or we have too few to care)
+          }
+          attempts++;
+        }
+
+        q[indexKey] = nextClipIndex; // Save the new index
+        const nextClip = videos[nextClipIndex];
+        if (!nextClip) return; // Safety check
+
+        v.src = nextClip.url;
+        try {
+          await v.play();
+        } catch (e) {
+          console.warn(`Quadrant ${qi} ${videoKey} play error, skipping.`, e);
+          setTimeout(() => v.dispatchEvent(new Event('ended')), 100);
+        }
+      };
+
+      v.onerror = () => {
+        console.warn(`Video error on quad ${qi} ${videoKey}, skipping.`);
+        v.dispatchEvent(new Event('ended'));
+      };
+
+      // Start the first clip
+      v.src = initialClip.url;
+      v.play().catch(e => {
+          console.warn(`Quadrant ${qi} ${videoKey} initial autoplay failed.`, e);
+      });
+    }
+
+    // [MODIFIED] Only used for setup thumbnails now
+    async function setThumbnail(videoEl, clip){
+      if (!clip) return;
+      videoEl.src = clip.url;
+      if (videoEl.readyState < 1){ await new Promise(r=> videoEl.addEventListener('loadedmetadata', ()=>r(), {once:true})); }
+      videoEl.currentTime = randomMidStart(clip);
+      videoEl.play().catch(()=>{});
+    }
+
+    function setPhaseColor(qi, color){
+      const node = quads[qi].el;
+      node.style.setProperty('--pulseColor', color);
+    }
+    function hideAll(qi){
+      const q = quads[qi];
+      for(const k in q.overlays){ q.overlays[k].classList.remove('show'); }
+      for(const k in q.eventOverlays){ q.eventOverlays[k].classList.remove('active'); }
+      q.el.classList.remove('bulge','fx-shake', 'sniff-effect');
+      // [REMOVED] q.phaseTint.classList.remove('show');
+      q.el.querySelector('.event-overlay-inhale').classList.remove('active');
+      q.el.querySelector('.event-overlay-exhale').classList.remove('active');
+
+      try{
+        if (q.countdownInterval){ clearInterval(q.countdownInterval); try{ activeIntervals.delete(q.countdownInterval); }catch(e){} q.countdownInterval = null; }
+      }catch(e){}
+    }
+
+    function pulseQuad(qi, color){
+      setPhaseColor(qi, color);
+      quads[qi].el.classList.add('bulge');
+      // [REMOVED] phaseTint logic
+    }
+
+    async function showCue(qi, type, color, ms){
+      const el = quads[qi].overlays[type];
+      if (!el || cycleAbort) return;
+
+      hideAll(qi);
+      pulseQuad(qi, color);
+
+      const inner = el.querySelector('.inner');
+      const timerBgEl = el.querySelector('.cue-timer-bg');
+      const countdownEl = el.querySelector('.cue-countdown');
+
+      // Special text colors
+      if (type === 'sniff') {
+        el.querySelector('.display-xxl').style.color = 'yellow';
+      } else {
+        el.querySelector('.display-xxl').style.color = ''; // Reset
+      }
+
+      el.classList.add('show');
+
+      try{ if (quads[qi].countdownInterval){ clearInterval(quads[qi].countdownInterval); } }catch(e){}
+      const end = performance.now() + ms;
+
+      const update = ()=>{
+        const leftMs = (end - performance.now());
+        const leftSec = Math.max(0, Math.ceil(leftMs / 1000));
+        if(timerBgEl) timerBgEl.textContent = leftSec;
+        if(countdownEl) countdownEl.textContent = (leftMs / 1000).toFixed(1) + 's';
+      };
+
+      update();
+      const id = setInterval(update, 100); // Update 10x/sec for smooth countdown
+      quads[qi].countdownInterval = id; activeIntervals.add(id);
+
+      // [REMOVED] phaseTint logic
+
+      await sleep(ms);
+
+      try{ clearInterval(quads[qi].countdownInterval); activeIntervals.delete(quads[qi].countdownInterval);}catch(e){}
+      quads[qi].countdownInterval = null;
+
+      el.classList.remove('show');
+      hideAll(qi);
+    }
+    async function preCue(qi, text, color, ms){
+      const el = quads[qi].overlays['pre']; const inner = el.querySelector('.inner');
+      hideAll(qi); pulseQuad(qi, color);
+      inner.innerHTML = '<div class="display-xxl">'+text+'</div>';
+      el.classList.add('show');
+      await sleep(ms);
+      el.classList.remove('show');
+      hideAll(qi);
+    }
+
+
+    function addTally(qi, type, success = true){
+      // This function is now a no-op as .tally is hidden, but kept to avoid errors
+    }
+
+    // --- Bubble Helpers ---
+    function createBubbles(container, count, className) {
+      container.innerHTML = '';
+      for(let i=0; i < count; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = `bubble ${className}`;
+        bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
+        bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
+        bubble.style.animationDelay = `${Math.random() * 3}s`;
+        bubble.style.animationDuration = `${2 + Math.random() * 2}s`;
+        container.appendChild(bubble);
+      }
+    }
+
+    async function runPuff(qi){
+      const q = quads[qi]; if (!q.chosen || cycleAbort) return {success: false};
+      const pal = q.vibe.palette;
+
+      await preCue(qi, 'PUFF', pal.base, Math.max(400, (q.vibe.precue||800)));
+
+      q.eventOverlays.light.classList.add('active');
+      await showCue(qi,'light', pal.accent, DUR.light);
+      q.eventOverlays.light.classList.remove('active');
+      if (cycleAbort) return {success: false};
+
+      q.eventOverlays.fill.classList.add('active');
+      await showCue(qi,'fill', pal.accent, DUR.fill);
+      q.eventOverlays.fill.classList.remove('active');
+      if (cycleAbort) return {success: false};
+
+      for(let i=0;i<5;i++){
+        if (cycleAbort) return {success: false};
+
+        const inhaleContainer = q.el.querySelector('.event-overlay-inhale');
+        createBubbles(inhaleContainer, 10, 'inhale-bubble');
+        inhaleContainer.classList.add('active');
+        await showCue(qi,'inhale', pal.accent, DUR.inhale);
+        inhaleContainer.classList.remove('active');
+        if (cycleAbort) return {success: false};
+
+        q.eventOverlays.hold.classList.add('active');
+        await showCue(qi,'hold', pal.accent, DUR.hold);
+        q.eventOverlays.hold.classList.remove('active');
+        if (cycleAbort) return {success: false};
+
+        const exhaleContainer = q.el.querySelector('.event-overlay-exhale');
+        createBubbles(exhaleContainer, 10, 'exhale-bubble');
+        exhaleContainer.classList.add('active');
+        await showCue(qi,'exhale', pal.accent, DUR.exhale);
+        exhaleContainer.classList.remove('active');
+      }
+
+      const result = await showTaskButtons(qi);
+      return result;
+    }
+
+    // [MODIFIED] runSniff to use single showCue
+    async function runSniff(qi){
+      const q = quads[qi]; if (!q.chosen || cycleAbort) return {success: false};
+      const pal = q.vibe.palette;
+
+      await preCue(qi, 'SNIFF', pal.base, Math.max(400, (q.vibe.precue||800)));
+
+      q.eventOverlays.sniff.classList.add('active');
+      q.el.classList.add('sniff-effect'); // Start zoom/pulse
+
+      // [MODIFIED] Call showCue ONCE for the full duration
+      await showCue(qi,'sniff', pal.accent, 8000); // 8 sec duration
+
+      q.eventOverlays.sniff.classList.remove('active');
+      q.el.classList.remove('sniff-effect');
+
+      if (cycleAbort) return {success: false};
+      const result = await showTaskButtons(qi);
+      return result;
+    }
+
+    async function runMask(qi){
+      const q = quads[qi]; if (!q.chosen || cycleAbort) return {success: false};
+      const pal = q.vibe.palette;
+      await preCue(qi, 'MASK', pal.base, Math.max(400, (q.vibe.precue||800)));
+      await showCue(qi,'mask', pal.accent, DUR.mask);
+      const result = await showTaskButtons(qi);
+      return result;
+    }
+
+    async function runAction(qi, label){
+      const q = quads[qi]; if (!q.chosen || cycleAbort) return {success: false};
+      const pal = q.vibe.palette;
+      await preCue(qi, 'ACTION', pal.base, Math.max(400, (q.vibe.precue||800)));
+
+      const el = q.overlays['action'];
+      const inner = el.querySelector('.inner');
+      inner.querySelector('.display-lg').textContent = label;
+
+      hideAll(qi); pulseQuad(qi, pal.base);
+      el.style.pointerEvents = 'none';
+      el.classList.add('show');
+
+      await sleep(500);
+
+      if (cycleAbort) return {success: false};
+      const result = await showTaskButtons(qi);
+
+      el.classList.remove('show');
+      hideAll(qi);
+      return result;
+    }
+
+    async function runChill(qi){
+      await sleep(DUR.chill);
+      return {success: true};
+    }
+
+    function showTaskButtons(qi){
+      const q = quads[qi];
+      return new Promise((resolve) => {
+        let completed = false;
+        let timeoutId = null;
+
+        const cleanup = () => {
+          q.taskButtons.classList.remove('show');
+          if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+          if (q.taskButtonTimeout) { clearTimeout(q.taskButtonTimeout); q.taskButtonTimeout = null; }
+          q.btnTaskComplete.removeEventListener('click', onComplete);
+          q.btnTaskFail.removeEventListener('click', onFail);
+        };
+
+        const onComplete = () => { if (!completed) { completed = true; cleanup(); resolve({success: true}); } };
+        const onFail = () => { if (!completed) { completed = true; cleanup(); resolve({success: false}); } };
+
+        q.btnTaskComplete.addEventListener('click', onComplete);
+        q.btnTaskFail.addEventListener('click', onFail);
+        q.taskButtons.classList.add('show');
+
+        timeoutId = setTimeout(() => { if (!completed) { onComplete(); } }, 5000);
+        q.taskButtonTimeout = timeoutId;
+      });
+    }
+
+    function generateNextTask(vibe){
+      // [MODIFIED] Added MASK and CHILL
+      const types = ['puff', 'sniff', 'action', 'mask', 'chill'];
+      const weights = [0.25, 0.25, 0.2, 0.1, 0.2];
+
+      const rand = Math.random();
+      let cumulative = 0;
+      let selectedType = 'puff';
+
+      for (let i = 0; i < types.length; i++) {
+        cumulative += weights[i];
+        if (rand < cumulative) {
+          selectedType = types[i];
+          break;
+        }
+      }
+
+      if (selectedType === 'action') { return {type: 'action', action: pick(ACTIONS)}; }
+      if (selectedType === 'sniff') { return {type: 'sniff'}; }
+      if (selectedType === 'mask') { return {type: 'mask'}; }
+      if (selectedType === 'chill') { return {type: 'chill'}; }
+      return {type: 'puff'};
+    }
+
+    function buildQueue(vibe){
+      const items = [];
+      for(let i=0;i<3;i++) items.push(generateNextTask(vibe));
+      return items;
+    }
+
+    function pauseAllTimers() {
+      quads.forEach(q => {
+        if (q.nextTaskTimer) { clearTimeout(q.nextTaskTimer); q.nextTaskTimer = null; }
+        q.nextTargetTime = null; q.nextGapMs = null;
+        if(q.chosen && q.queue && q.queue.length > 0) q.nextTimer.textContent = 'PAUSED';
+      });
+    }
+    function resumeAllTimers() {
+      if (cycleAbort) return;
+      quads.forEach((q, i) => {
+        if (q.chosen && q.queue && q.queue.length > 0) {
+          scheduleNextTask(i, true); // true to reschedule immediately
+        }
+      });
+    }
+
+
+    function scheduleNextTask(qi, reschedule = false){
+      const q = quads[qi];
+      if (q.nextTaskTimer) { clearTimeout(q.nextTaskTimer); q.nextTaskTimer = null; }
+      q.nextTargetTime = null; q.nextGapMs = null;
+
+      while (q.queue.length < 3) {
+        q.queue.push(generateNextTask(q.vibe));
+      }
+
+      const gapMs = reschedule ? 1000 : (15000 + Math.floor(Math.random() * 30000)); // Shorter gap 15-45s
+
+      const task = q.queue[0];
+      const targetTime = performance.now() + gapMs;
+
+      q.nextTargetTime = targetTime;
+      q.nextGapMs = gapMs;
+
+      const timeoutId = setTimeout(async () => {
+        try{ activeIntervals.delete(timeoutId); }catch(e){}
+        q.nextTargetTime = null; q.nextGapMs = null; q.nextTaskTimer = null;
+
+        if (cycleAbort || !q.chosen) return;
+        if (!isEventReady()){
+          const retry = setTimeout(()=> scheduleNextTask(qi, true), 1000);
+          q.nextTaskTimer = retry;
+          activeIntervals.add(retry);
+          return;
+        }
+
+        globalEventLock = true;
+        const actualTask = q.queue.shift();
+        q.busy = true;
+        q.currentTask = actualTask;
+
+        let result = {success: false};
+        try{
+          if (actualTask.type === 'action'){
+            q.nextTimer.textContent = 'ACTION...';
+            result = await runAction(qi, actualTask.action.label);
+          } else if (actualTask.type === 'puff'){
+            q.nextTimer.textContent = 'PUFF...';
+            result = await runPuff(qi);
+          } else if (actualTask.type === 'sniff'){
+            q.nextTimer.textContent = 'SNIFF...';
+            result = await runSniff(qi);
+          } else if (actualTask.type === 'mask'){
+            q.nextTimer.textContent = 'MASK...';
+            result = await runMask(qi);
+          } else if (actualTask.type === 'chill'){
+            q.nextTimer.textContent = 'CHILL...';
+            result = await runChill(qi);
+          }
+        } finally {
+          q.busy = false;
+          q.currentTask = null;
+          globalEventLock = false;
+        }
+
+        if (cycleAbort) return;
+        scheduleNextTask(qi);
+
+      }, gapMs);
+      q.nextTaskTimer = timeoutId;
+      activeIntervals.add(timeoutId);
+    }
+    quads.forEach((q, i) => q.scheduleNextTask = (reschedule) => scheduleNextTask(i, reschedule));
+
+
+    function startJitter(){
+      const base = 0.985, span = 0.05 * (FURY.on?FURY.jitterAmp:1);
+      return setInterval(()=>{
+        document.querySelectorAll('.quadrant').forEach(q=>{
+          const s = base + Math.random()*span;
+          q.style.transform = 'scale('+s.toFixed(3)+')';
+          q.querySelectorAll('.quad-video').forEach(v => v.style.transform = 'scale('+(1.03 - (s-1)).toFixed(3)+')');
+        });
+      }, 1800);
+    }
+
+    function isEventReady() {
+      return !cycleAbort && !globalEventLock && !document.querySelector('.action-choice-overlay.show') && !document.querySelector('.grid-choice-overlay.show');
+    }
+
+    // [NEW] This function is now manually triggered by the Choice Event
+    async function triggerGridChoice(qi) {
+      return new Promise((resolve) => {
+        if (!isEventReady()) return resolve();
+
+        const q = quads[qi];
+        pauseAllTimers();
+
+        let choiceMade = false;
+        let timerId = null;
+        const overlay = q.el.querySelector('.grid-choice-overlay');
+        const timerEl = overlay.querySelector('.grid-choice-timer');
+        const gridItems = overlay.querySelectorAll('.grid-choice-item');
+
+        const currentUrls = [q.video_bg.src, q.video_fg.src];
+        const pool = videos.filter(v => !currentUrls.includes(v.url));
+        const choices = [];
+        let tempPool = [...pool];
+        while(choices.length < 4 && tempPool.length > 0){
+          const randIdx = Math.floor(Math.random() * tempPool.length);
+          choices.push(tempPool.splice(randIdx, 1)[0]);
+        }
+        if (choices.length < 1) { resumeAllTimers(); return resolve(); }
+
+        const clickHandlers = [];
+        choices.forEach((clip, idx) => {
+          const item = gridItems[idx];
+          if (!item) return;
+          const v = item.querySelector('video');
+          const label = item.querySelector('.item-label');
+          setThumbnail(v, clip); // Use thumbnail helper
+          if(label) label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+          item.style.display = 'block';
+
+          const handler = () => {
+            choiceMade = true;
+            // [MODIFIED] Restart one of the video players with this clip
+            startVideoCycling(qi, clip, 'video_fg'); // Always replace foreground
+            cleanup();
+          };
+          item.addEventListener('click', handler);
+          clickHandlers.push({item, handler});
+        });
+        for(let j=choices.length; j<gridItems.length; j++) { gridItems[j].style.display = 'none'; }
+
+        overlay.classList.add('show');
+
+        let timeLeft = 20;
+        timerEl.textContent = timeLeft;
+        timerId = setInterval(() => {
+          timeLeft--;
+          timerEl.textContent = timeLeft;
+          if (timeLeft <= 0) { clearInterval(timerId); cleanup(); }
+        }, 1000);
+
+        function cleanup(){
+          overlay.classList.remove('show');
+          if (timerId) clearInterval(timerId);
+          clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          gridItems.forEach(item => {
+            const v = item.querySelector('video');
+            if (v) { v.pause(); v.src = ''; }
+          });
+          resumeAllTimers();
+          resolve();
+        }
+      });
+    }
+
+    // [NEW] Replaces startActionChoice, triggers a choice of 2 events
+    function startChoiceEvent(startedAt){
+      let stop = false;
+      async function loop(){
+        await sleep(30000 + Math.random()*30000); // 30-60 seconds
+        if (stop || !isEventReady()) return loop();
+
+        const active = quads.map((q,i)=>({q,i})).filter(x=>x.q.chosen && !x.q.busy && x.q.queue.length > 0);
+        if (!active.length) return loop();
+
+        const {q, i} = pick(active);
+
+        pauseAllTimers();
+
+        let choiceMade = false;
+        let timerId = null;
+        const overlay = q.el.querySelector('.action-choice-overlay');
+        const timerEl = overlay.querySelector('.action-choice-timer');
+        const listEl = overlay.querySelector('.action-choice-list');
+        listEl.innerHTML = '';
+
+        const allChoices = [
+          {label: "PUFF", task: {type: "puff"}},
+          {label: "SNIFF", task: {type: "sniff"}},
+          {label: "MASK", task: {type: "mask"}},
+          {label: "ACTION", task: {type: "action", action: pick(ACTIONS)}},
+          {label: "CHOOSE VIDEO", task: {type: "grid_choice"}},
+          {label: "CHILL", task: {type: "chill"}}
+        ];
+
+        // Pick 2 different choices
+        let tempPool = [...allChoices];
+        const choices = [];
+        const randIdx1 = Math.floor(Math.random() * tempPool.length);
+        choices.push(tempPool.splice(randIdx1, 1)[0]);
+        const randIdx2 = Math.floor(Math.random() * tempPool.length);
+        choices.push(tempPool.splice(randIdx2, 1)[0]);
+
+        const clickHandlers = [];
+        choices.forEach((choice) => {
+          const item = document.createElement('div');
+          item.className = 'action-choice-item';
+          item.textContent = choice.label;
+
+          const handler = async () => {
+            choiceMade = true;
+            cleanup(); // Clean up first
+
+            if (choice.task.type === 'grid_choice') {
+              await triggerGridChoice(i); // This now pauses/resumes itself
+            } else {
+              q.queue.unshift(choice.task); // Add chosen task to front
+              resumeAllTimers();
+            }
+          };
+          item.addEventListener('click', handler);
+          clickHandlers.push({item, handler});
+          listEl.appendChild(item);
+        });
+
+        overlay.classList.add('show');
+
+        let timeLeft = 20;
+        timerEl.textContent = timeLeft;
+        timerId = setInterval(() => {
+          timeLeft--;
+          timerEl.textContent = timeLeft;
+          if (timeLeft <= 0) { clearInterval(timerId); cleanup(); resumeAllTimers(); }
+        }, 1000);
+
+        function cleanup(){
+          overlay.classList.remove('show');
+          if (timerId) clearInterval(timerId);
+          clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+        }
+
+        if(stop) return;
+        loop();
+      }
+      loop();
+      return ()=>{ stop=true; };
+    }
+
+    function setSoundFocus(qi){
+      quads.forEach((q, idx)=>{
+        const btn = q.el.querySelector('.btnSound');
+        const on = idx===qi;
+        // [MODIFIED] Mute/unmute both videos
+        q.video_bg.muted = !on;
+        q.video_fg.muted = !on;
+        btn.classList.toggle('active', on);
+        btn.textContent = on ? '🔊' : '🔈';
+      });
+    }
+    function fullscreenQuad(qi){
+      const el = quads[qi].el; (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
+    }
+
+    function stopAllLoops() {
+        if (stopChoiceEvent) stopChoiceEvent();
+        document.querySelectorAll('.grid-choice-overlay, .action-choice-overlay').forEach(o=>{
+          try{
+            o.classList.remove('show');
+            o.querySelectorAll('video').forEach(v=>{ try{ v.pause(); v.src = ''; }catch(e){} });
+            const clone = o.cloneNode(true);
+            o.parentNode.replaceChild(clone, o);
+          }catch(e){}
+        });
+        activeIntervals.forEach(id=>{ try{ clearTimeout(id); clearInterval(id); }catch(e){} });
+        activeIntervals.clear();
+    }
+
+    async function startCycle(){
+      cycleAbort = null;
+      stopAllLoops();
+
+      if (videos.length < 4) {
+        status.textContent = "Please load at least 4 videos.";
+        return;
+      }
+
+      const playerReady = [false, false];
+      let allReady = false;
+
+      for (let i=0;i<quads.length;i++){
+        const q = quads[i];
+        const el = q.el;
+        let currentVibeIdx = i % VIBES.length;
+        q.vibe = JSON.parse(JSON.stringify(VIBES[currentVibeIdx]));
+
+        el.classList.add('choose-phase');
+        el.classList.add('selected');
+        q.chosen = true;
+
+        const chooseTint = q.chooseTint;
+        const btnTheme = chooseTint.querySelector('.btn-change-theme');
+        const btnPlayerStart = chooseTint.querySelector('.btn-player-start');
+        const themeName = chooseTint.querySelector('.theme-name');
+        const emojiPlanEl = chooseTint.querySelector('.emojisPlan');
+
+        const updateTheme = () => {
+          q.vibe = JSON.parse(JSON.stringify(VIBES[currentVibeIdx]));
+          q.queue = buildQueue(q.vibe);
+          q.completed = [];
+          q.tally.textContent = 'Ready...';
+          el.className = el.className.replace(/theme-\w+/, '');
+          el.classList.add('theme-' + q.vibe.key);
+
+          const pal = q.vibe.palette;
+          chooseTint.style.background = `linear-gradient(120deg, ${pal.base}66, ${pal.accent}66)`;
+          themeName.textContent = q.vibe.key.toUpperCase();
+          themeName.style.color = pal.accent;
+          q.nextTimer.style.borderColor = pal.base;
+          q.nextBar.style.background = pal.accent;
+          q.tally.style.borderColor = pal.base;
+          q.selectBadge.style.background = `${pal.base}99`;
+          el.style.setProperty('--themeBase', pal.base);
+          el.style.setProperty('--themeAccent', pal.accent);
+          el.style.setProperty('--themeDark', pal.dark);
+
+          // [ADDED] Apply theme-specific clip-path
+          const videoFg = q.video_fg;
+          if (videoFg) {
+            videoFg.style.clipPath = q.vibe.clipPath || 'none';
+          }
+
+          emojiPlanEl.textContent = '';
+        };
+
+        // Clip selection grid removed from setup
+        chooseTint.querySelector('.clip-selection-grid')?.remove();
+
+        btnTheme.onclick = (e) => {
+            e.stopPropagation();
+            currentVibeIdx = (currentVibeIdx + 1) % VIBES.length;
+            updateTheme();
+        };
+
+        btnPlayerStart.onclick = (e) => {
+            e.stopPropagation();
+            playerReady[i] = true;
+            btnPlayerStart.disabled = true;
+            btnPlayerStart.textContent = 'READY!';
+            btnPlayerStart.style.opacity = '0.5';
+            if (playerReady.every(ready => ready)) { allReady = true; }
+        };
+
+        updateTheme();
+      }
+
+      while (!allReady && !cycleAbort) { await sleep(100); }
+      if (cycleAbort) return;
+
+      document.querySelectorAll('.quadrant').forEach((el)=> el.classList.remove('choose-phase'));
+
+      for (let i=0;i<quads.length;i++){
+        const q = quads[i];
+        q.el.querySelector('.grid-choice-timer').style.display = 'block';
+        q.el.querySelector('.grid-choice-title').textContent = "CHOOSE NEW VIDEO";
+        q.el.classList.toggle('dimmed', !q.chosen);
+
+        if (q.chosen) {
+            // [MODIFIED] Start the independent cycling for both video elements
+            startVideoCycling(i, videos[i*2], 'video_bg');     // Q1: vid 0, Q2: vid 2
+            startVideoCycling(i, videos[i*2 + 1], 'video_fg'); // Q1: vid 1, Q2: vid 3
+        }
+      }
+
+      const begin = performance.now();
+      const jitterId = startJitter();
+      stopChoiceEvent = startChoiceEvent(begin); // Only start the one choice event timer
+      quads.forEach((q,i)=>{ if (q.chosen) q.scheduleNextTask(i); });
+      startGlobalClock();
+
+      const stopHandler = () => {
+        clearInterval(jitterId);
+        stopAllLoops();
+        stopGlobalClock();
+        activeIntervals.forEach(id=>{ try{ clearTimeout(id); clearInterval(id); }catch(e){} });
+        activeIntervals.clear();
+        globalEventLock = false;
+        document.removeEventListener('btnStopClicked', stopHandler);
+      };
+      document.addEventListener('btnStopClicked', stopHandler, {once: true});
+    }
+
+    function attachControls(){
+      for (let i=0;i<quads.length;i++){
+        const controls = document.querySelector('#q'+(i+1)+' .qcontrols');
+        const btnVideo = controls.querySelector('.shuffleVideo');
+        const btnFS = controls.querySelector('.btnFS');
+        const btnSound = controls.querySelector('.btnSound');
+
+        btnVideo.addEventListener('click', ()=>{
+          // [MODIFIED] Skip both videos
+          quads[i].video_bg?.dispatchEvent(new Event('ended'));
+          quads[i].video_fg?.dispatchEvent(new Event('ended'));
+        });
+        btnFS.addEventListener('click', ()=> fullscreenQuad(i));
+        btnSound.addEventListener('click', ()=> setSoundFocus(i));
+      }
+      btnFury.addEventListener('click', ()=>{
+        FURY.on = !FURY.on; btnFury.classList.toggle('active', FURY.on); btnFury.textContent = FURY.on ? '🔥 Fury' : 'Fury Off';
+      });
+    }
+
+    folderPicker.addEventListener('change', async (e) => {
+      try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
+      createdObjectURLs = [];
+
+      const files = [...e.target.files].filter(f=>f.type.startsWith('video/'));
+      if(files.length < 4){ status.textContent='Load at least 4 videos.'; return; }
+      status.textContent='Loading videos…';
+      videos = [];
+      for(const f of files){
+        const url = URL.createObjectURL(f);
+        createdObjectURLs.push(url);
+        const v = document.createElement('video');
+        const duration = await new Promise(res=>{ v.onloadedmetadata=()=>res(v.duration||0); v.onerror=()=>res(0); v.preload='metadata'; v.src=url; });
+        videos.push({url, duration: duration||0, name:f.name});
+      }
+      status.textContent = `Loaded ${videos.length} videos. Choose theme and press START.`;
+      // Auto-click start
+      btnStart.click();
+    }, {passive:true});
+
+    btnStart.addEventListener('click', ()=> {
+      if (videos.length < 4){ status.textContent='Load at least 4 videos first.'; return; }
+      startCycle();
+    });
+
+    btnStop.addEventListener('click', ()=> {
+      cycleAbort = true;
+      document.dispatchEvent(new Event('btnStopClicked'));
+      quads.forEach(q=>{
+        if(q.ticker) try{ clearInterval(q.ticker); }catch(e){}
+        if(q.nextTaskTimer) try{ clearTimeout(q.nextTaskTimer); }catch(e){}
+        if(q.taskButtonTimeout) try{ clearTimeout(q.taskButtonTimeout); }catch(e){}
+        q.nextTaskTimer = null; q.nextTargetTime = null; q.nextGapMs = null; q.taskButtonTimeout = null;
+        q.nextTimer.textContent='';
+        q.taskButtons.classList.remove('show');
+        q.busy = false;
+        q.currentTask = null;
+
+        // [MODIFIED] Stop all video elements
+        [q.video_bg, q.video_fg].forEach(v => {
+          if (v) {
+            v.pause();
+            v.onended = null;
+            v.onerror = null;
+            v.src = ""; // Clear src
+            v.style.clipPath = 'none'; // [ADDED] Reset clipPath
+          }
+        });
+      });
+      stopGlobalClock();
+      stopAllLoops();
+
+      try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
+      createdObjectURLs = [];
+      activeIntervals.forEach(id=>{ try{ clearTimeout(id); clearInterval(id); }catch(e){} });
+      activeIntervals.clear();
+      globalEventLock = false;
+
+      status.textContent='Stopped. Reload videos to start again.';
+      document.querySelectorAll('.grid-choice-overlay, .action-choice-overlay').forEach(o => o.classList.remove('show'));
+    });
+
+    btnFSAll.addEventListener('click', ()=> { const el = document.documentElement; if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); });
+    btnMuteAll.addEventListener('click', ()=> {
+      const anyMuted = quads.some(q=>q.video_bg.muted);
+      quads.forEach(q=> {
+        q.video_bg.muted = !anyMuted;
+        q.video_fg.muted = !anyMuted;
+      });
+      btnMuteAll.textContent = anyMuted ? '🔊' : '🔇';
+    });
+
+    attachControls();
+  })();
+  </script>
+</body>
+</html>
