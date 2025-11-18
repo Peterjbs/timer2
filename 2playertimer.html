@@ -497,6 +497,130 @@
       <span class="spacer"></span>
       <button id="btnMuteAll" title="Mute/Unmute all">🔇</button>
       <span id="status" class="hint">Load ≥4 vids, Start, then pick theme.</span>
+</head>
+<body>
+  <div class="dock">
+    <button class="btn-player-start">START</button>
+    <button class="btn-player-stop">STOP</button>
+    <button class="btn-fullscreen">Fullscreen</button>
+    <div class="spacer"></div>
+    <label>Vibe
+      <select class="vibe-select"></select>
+    </label>
+    <button class="btn-mute">Mute</button>
+  </div>
+
+  <div class="stage">
+    <div class="quadrant" id="q1">
+      <div class="video-container">
+        <video playsinline webkit-playsinline preload="metadata" class="quad-video" src="clips/5sx22FHuckole59.mp4" loop muted></video>
+        <div class="vibe-overlay"></div>
+        <div class="event-overlay" data-effect="light" style="background: radial-gradient(circle at 50% 50%, rgba(255,140,0,.6), rgba(0,0,0,.75)); mix-blend-mode: screen;"></div>
+        <div class="event-overlay" data-effect="smoke" style="background: radial-gradient(circle at 50% 50%, rgba(200,200,200,.55), rgba(0,0,0,.8));"></div>
+        <div class="event-overlay" data-effect="inhale" style="background: rgba(0,128,0,.45);"></div>
+        <div class="event-overlay" data-effect="hold" style="background: rgba(128,128,128,.4);"></div>
+        <div class="event-overlay" data-effect="exhale" style="background: rgba(0,0,255,.4);"></div>
+        <div class="event-overlay" data-effect="sniff" style="background: rgba(255,255,0,.35);"></div>
+        <div class="event-overlay" data-effect="mask" style="background: rgba(20,20,25,.75);"></div>
+        <div class="event-overlay" data-effect="action" style="background: rgba(255,255,255,.08);"></div>
+        <div class="video-countdown-overlay overlay">
+          <div class="inner">
+            <div class="display-xxl countdown-text">--</div>
+            <div class="timer-text countdown-timer">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-container">
+        <div class="info-text-overlay display-lg">Ready</div>
+        <div class="nextEventTimer">Until <span class="nextEventName">?</span> <span class="nextEventTime">0</span>s</div>
+        <div class="validation-overlay">
+          <div class="display-lg validation-title">Did you complete?</div>
+          <div class="validation-timer">10</div>
+          <div>
+            <button class="btn-validate-yes">✓</button>
+            <button class="btn-validate-no">✗</button>
+          </div>
+        </div>
+        <div class="breath-count-overlay">
+          <div class="display-lg">How many breaths?</div>
+          <div class="breath-count-timer">10</div>
+          <div class="choices"></div>
+        </div>
+        <div class="action-choice-overlay">
+          <div class="display-lg">Choose your next event</div>
+          <div class="action-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+        <div class="grid-choice-overlay">
+          <div class="display-lg grid-choice-title">Choose your next video</div>
+          <div class="grid-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-task-cancel fail">✗</button>
+        <button class="btn-task-cancel confirm">✓</button>
+      </div>
+      <div class="chooseTint">
+        <div class="display-lg">Tap START to begin</div>
+        <div class="emojisPlan">⏱️🫁🔥</div>
+      </div>
+    </div>
+
+    <div class="quadrant" id="q2">
+      <div class="video-container">
+        <video playsinline webkit-playsinline preload="metadata" class="quad-video" src="clips/5sx22FHuckole59.mp4" loop muted></video>
+        <div class="vibe-overlay"></div>
+        <div class="event-overlay" data-effect="light" style="background: radial-gradient(circle at 50% 50%, rgba(255,140,0,.6), rgba(0,0,0,.75)); mix-blend-mode: screen;"></div>
+        <div class="event-overlay" data-effect="smoke" style="background: radial-gradient(circle at 50% 50%, rgba(200,200,200,.55), rgba(0,0,0,.8));"></div>
+        <div class="event-overlay" data-effect="inhale" style="background: rgba(0,128,0,.45);"></div>
+        <div class="event-overlay" data-effect="hold" style="background: rgba(128,128,128,.4);"></div>
+        <div class="event-overlay" data-effect="exhale" style="background: rgba(0,0,255,.4);"></div>
+        <div class="event-overlay" data-effect="sniff" style="background: rgba(255,255,0,.35);"></div>
+        <div class="event-overlay" data-effect="mask" style="background: rgba(20,20,25,.75);"></div>
+        <div class="event-overlay" data-effect="action" style="background: rgba(255,255,255,.08);"></div>
+        <div class="video-countdown-overlay overlay">
+          <div class="inner">
+            <div class="display-xxl countdown-text">--</div>
+            <div class="timer-text countdown-timer">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-container">
+        <div class="info-text-overlay display-lg">Ready</div>
+        <div class="nextEventTimer">Until <span class="nextEventName">?</span> <span class="nextEventTime">0</span>s</div>
+        <div class="validation-overlay">
+          <div class="display-lg validation-title">Did you complete?</div>
+          <div class="validation-timer">10</div>
+          <div>
+            <button class="btn-validate-yes">✓</button>
+            <button class="btn-validate-no">✗</button>
+          </div>
+        </div>
+        <div class="breath-count-overlay">
+          <div class="display-lg">How many breaths?</div>
+          <div class="breath-count-timer">10</div>
+          <div class="choices"></div>
+        </div>
+        <div class="action-choice-overlay">
+          <div class="display-lg">Choose your next event</div>
+          <div class="action-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+        <div class="grid-choice-overlay">
+          <div class="display-lg grid-choice-title">Choose your next video</div>
+          <div class="grid-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-task-cancel fail">✗</button>
+        <button class="btn-task-cancel confirm">✓</button>
+      </div>
+      <div class="chooseTint">
+        <div class="display-lg">Tap START to begin</div>
+        <div class="emojisPlan">⏱️🫁🔥</div>
+      </div>
     </div>
   <div class="stage">
 <div class="quadrant" id="q1">
@@ -1371,7 +1495,7 @@
     const PHASES = {
       
       "IDLE_GAP": {
-        handler: "handleIdlePhase",
+        handler: handleIdlePhase,
         duration: [30000, 75000], 
         ui: {
           infoColor: "vibe_base",
@@ -1380,7 +1504,7 @@
       },
       
       "READY_TO_PUFF": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1390,7 +1514,7 @@
         }
       },
       "READY_TO_SNIFF": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1400,7 +1524,7 @@
         }
       },
       "READY_FOR_MASK": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1411,7 +1535,7 @@
       },
       
       "PUFF_LIGHT": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 25000,
         ui: {
           videoEffect: "light",
@@ -1422,7 +1546,7 @@
         }
       },
       "PUFF_SMOKE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 12000,
         ui: {
           videoEffect: "smoke",
@@ -1433,7 +1557,7 @@
         }
       },
       "PUFF_INHALE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 5000,
         ui: {
           videoEffect: "inhale",
@@ -1447,7 +1571,7 @@
         }
       },
       "PUFF_HOLD": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 4000,
         ui: {
           videoEffect: "hold",
@@ -1461,7 +1585,7 @@
         }
       },
       "PUFF_EXHALE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 5000,
         ui: {
           videoEffect: "exhale",
@@ -1475,7 +1599,7 @@
         }
       },
       "PUFF_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1485,7 +1609,7 @@
         }
       },
       "BREATH_COUNT_QUESTION": {
-        handler: "handleBreathQuestionPhase",
+        handler: handleBreathQuestionPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1495,7 +1619,7 @@
       },
       
       "SNIFF_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 8000,
         ui: {
           videoEffect: "sniff",
@@ -1509,7 +1633,7 @@
         }
       },
       "SNIFF_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1520,7 +1644,7 @@
       },
       
       "MASK_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 20000,
         ui: {
           videoEffect: "mask", 
@@ -1534,7 +1658,7 @@
         }
       },
       "MASK_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -1545,7 +1669,7 @@
       },
       
       "YOU_CHOOSE_OVERLAY": {
-        handler: "handleChoicePhase",
+        handler: handleChoicePhase,
         duration: 20000,
         ui: {
           videoCountdown: true,
@@ -1554,7 +1678,7 @@
         }
       },
       "GRID_CHOICE_OVERLAY": {
-        handler: "handleGridChoicePhase",
+        handler: handleGridChoicePhase,
         duration: 20000,
         ui: {
           videoStop: true, 
@@ -1564,7 +1688,7 @@
         }
       },
       "ACTION_MAIN": {
-        handler: "handleActionPhase",
+        handler: handleActionPhase,
         duration: 90000, 
         ui: {
           videoEffect: "action", 
@@ -1578,7 +1702,7 @@
         }
       },
       "TRIVIA_MAIN": {
-        handler: "handleTriviaPhase",
+        handler: handleTriviaPhase,
         duration: 90000,
         ui: {
           videoEffect: "trivia", 
@@ -1590,7 +1714,7 @@
         }
       },
       "CHILL_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 30000,
         ui: {
           videoCountdown: true,
@@ -1600,7 +1724,7 @@
         }
       },
       "PEACE_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 90000,
         ui: {
           videoEffect: "peace", 
@@ -1611,7 +1735,7 @@
         }
       },
       "REPLAY_VIDEO_MAIN": {
-        handler: "handleReplayPhase",
+        handler: handleReplayPhase,
         duration: 60000, 
         ui: {
           videoCountdown: true,
@@ -2455,13 +2579,14 @@
     
     function setPhaseUI(q, phase, uiRules, data = {}) {
       const now = performance.now();
-      if (q.currentPhase) {
+      const targetPhase = q.currentPhase || phase;
+      if (targetPhase) {
         if (typeof data.duration === 'number') {
-          q.currentPhase.startTime = now;
-          q.currentPhase.duration = data.duration;
+          targetPhase.startTime = now;
+          targetPhase.duration = data.duration;
         } else {
-          q.currentPhase.startTime = null;
-          q.currentPhase.duration = null;
+          targetPhase.startTime = null;
+          targetPhase.duration = null;
         }
       }
       
@@ -2502,6 +2627,10 @@
           label = `${label} ${data.loop}`.trim();
         }
         q.videoCountdownLabel.textContent = label;
+        if (typeof data.duration === 'number') {
+          q.videoCountdownTimer.textContent = Math.ceil(data.duration / 1000);
+        }
+        q.countdownEndTime = null;
         startCountdown(q, data.duration, q.abortController.signal);
         q.videoCountdownOverlay.classList.add('show');
       }
@@ -2533,12 +2662,19 @@
     
     
     function clearPhaseUI(q) {
-      
+
       q.infoTextOverlay.classList.remove('show');
       q.infoTextOverlay.innerHTML = "";
       q.panelContainer.style.background = q.vibe ? getVibeBase(q) : q.panelContainer.style.background;
 
-      
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+        q.currentCountdownTimer = null;
+      }
+      q.countdownEndTime = null;
+
+
       q.videoCountdownOverlay.classList.remove('show');
       q.videoCountdownTimer.textContent = "--";
       q.videoCountdownLabel.textContent = "";
@@ -2618,6 +2754,7 @@
       }
 
       const end = performance.now() + duration;
+      q.countdownEndTime = end;
       let timerId = null;
 
       const update = ()=>{
@@ -2647,6 +2784,7 @@
           if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
           timerId = null;
         }
+        q.countdownEndTime = null;
       });
     }
     
