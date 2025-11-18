@@ -98,11 +98,94 @@
     .action-choice-overlay .choices, .grid-choice-overlay .choices { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; }
 
     .chooseTint {
-      position: absolute; inset: 0; background: rgba(0,0,0,.75);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: .8rem; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.9);
+      position: absolute; inset: 0; background: rgba(0,0,0,.85);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr auto;
+      gap: 1rem;
+      padding: 1.5rem;
       z-index: 90;
       transition: opacity .2s ease;
+    }
+    
+    .chooseTint .video-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: .5rem;
+    }
+    
+    .chooseTint .video-grid video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border: 3px solid transparent;
+      border-radius: .5rem;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+    
+    .chooseTint .video-grid video.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(138, 180, 255, 0.5);
+    }
+    
+    .chooseTint .video-grid video:hover {
+      transform: scale(1.05);
+      border-color: rgba(138, 180, 255, 0.3);
+    }
+    
+    .chooseTint .info-panel {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(11, 14, 20, 0.8);
+      border-radius: .75rem;
+    }
+    
+    .chooseTint .theme-title {
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      text-shadow: 0 4px 20px rgba(0,0,0,.9);
+      transition: color .3s ease;
+    }
+    
+    .chooseTint .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .chooseTint button {
+      padding: .8rem 1.6rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border: 2px solid rgba(255,255,255,.3);
+      border-radius: .6rem;
+      background: rgba(20, 27, 43, 0.9);
+      color: white;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+    
+    .chooseTint button:hover {
+      background: rgba(28, 35, 53, 1);
+      border-color: rgba(255,255,255,.5);
+      transform: translateY(-2px);
+    }
+    
+    .chooseTint button.ready {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
     }
 
     .nextEventTimer {
@@ -183,8 +266,19 @@
         <button class="btn-task-cancel confirm">✓</button>
       </div>
       <div class="chooseTint">
-        <div class="display-lg">Tap START to begin</div>
-        <div class="emojisPlan">⏱️🫁🔥</div>
+        <div class="video-grid">
+          <video src="clips/5sx22FHuckole59.mp4" loop muted></video>
+          <video src="clips/5sx22JACWBEoe32.mp4" loop muted></video>
+          <video src="clips/5sx22OFSKNLBn4.mp4" loop muted></video>
+          <video src="clips/5sx22OGvernig14.mp4" loop muted></video>
+        </div>
+        <div class="info-panel">
+          <div class="theme-title">Cosmic</div>
+          <div class="button-group">
+            <button class="btn-change-theme">Change Theme</button>
+            <button class="btn-player-ready">Start</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -239,8 +333,19 @@
         <button class="btn-task-cancel confirm">✓</button>
       </div>
       <div class="chooseTint">
-        <div class="display-lg">Tap START to begin</div>
-        <div class="emojisPlan">⏱️🫁🔥</div>
+        <div class="video-grid">
+          <video src="clips/5sx23BIadnflu21.mp4" loop muted></video>
+          <video src="clips/5sx23BMAEODDF14.mp4" loop muted></video>
+          <video src="clips/5sx23BMAEODDF19.mp4" loop muted></video>
+          <video src="clips/5sx23BRredngu22.mp4" loop muted></video>
+        </div>
+        <div class="info-panel">
+          <div class="theme-title">Cosmic</div>
+          <div class="button-group">
+            <button class="btn-change-theme">Change Theme</button>
+            <button class="btn-player-ready">Start</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -455,10 +560,17 @@
         bottomBar: el.querySelector(".bottom-bar"),
         cancelButtons: el.querySelectorAll(".btn-task-cancel"),
         chooseTint: el.querySelector(".chooseTint"),
+        videoGridVideos: el.querySelectorAll(".chooseTint .video-grid video"),
+        themeTitle: el.querySelector(".chooseTint .theme-title"),
+        btnChangeTheme: el.querySelector(".btn-change-theme"),
+        btnPlayerReady: el.querySelector(".btn-player-ready"),
         overlays_video: {},
         eventOverlays: {},
         phaseQueue: [],
         vibe: VIBES[0],
+        vibeIndex: 0,
+        selectedVideoIndex: -1,
+        isReady: false,
         abortController: null,
       };
 
@@ -470,6 +582,67 @@
     }
 
     const quads = Array.from(document.querySelectorAll(".quadrant")).map(createQuad);
+
+    function setupStartPanel(q) {
+      // Play all grid videos
+      q.videoGridVideos.forEach((video, idx) => {
+        video.play().catch(() => {});
+        video.addEventListener('click', () => selectVideo(q, idx));
+      });
+      
+      // Theme change button
+      q.btnChangeTheme.addEventListener('click', () => cycleTheme(q));
+      
+      // Ready button
+      q.btnPlayerReady.addEventListener('click', () => toggleReady(q));
+      
+      // Apply initial theme
+      updateStartPanelTheme(q);
+    }
+    
+    function selectVideo(q, index) {
+      // Deselect all videos
+      q.videoGridVideos.forEach(v => v.classList.remove('selected'));
+      
+      // Select clicked video
+      q.videoGridVideos[index].classList.add('selected');
+      q.selectedVideoIndex = index;
+      
+      // Update main video source to selected video
+      const selectedSrc = q.videoGridVideos[index].src;
+      q.video.src = selectedSrc;
+    }
+    
+    function cycleTheme(q) {
+      q.vibeIndex = (q.vibeIndex + 1) % VIBES.length;
+      q.vibe = VIBES[q.vibeIndex];
+      updateStartPanelTheme(q);
+      applyVibe(q, q.vibe);
+    }
+    
+    function updateStartPanelTheme(q) {
+      const vibe = q.vibe;
+      q.themeTitle.textContent = vibe.name;
+      q.themeTitle.style.color = vibe.palette.accent;
+      q.chooseTint.querySelector('.info-panel').style.background = vibe.palette.base;
+    }
+    
+    function toggleReady(q) {
+      q.isReady = !q.isReady;
+      q.btnPlayerReady.classList.toggle('ready', q.isReady);
+      q.btnPlayerReady.textContent = q.isReady ? 'Ready!' : 'Start';
+      
+      // Check if both players are ready
+      checkBothPlayersReady();
+    }
+    
+    function checkBothPlayersReady() {
+      const allReady = quads.every(q => q.isReady);
+      if (allReady) {
+        // Both players ready - start the game
+        setTimeout(() => startApp(), 500);
+      }
+    }
 
     function applyVibe(q, vibe) {
       q.vibe = vibe;
@@ -711,6 +884,8 @@
         q.video.muted = false;
         q.video.play();
         q.phaseQueue = [];
+        // Start with IDLE_GAP phase
+        q.phaseQueue.push({ type: "IDLE_GAP", nextEventName: "First Event" });
         buildAndEnqueueNextEvent(q);
         buildAndEnqueueNextEvent(q);
         processNextPhaseInQueue(q);
@@ -722,12 +897,18 @@
         q.abortController?.abort();
         q.phaseQueue = [];
         clearAllUI(q);
-        q.chooseTint.style.display = "flex";
+        q.chooseTint.style.display = "grid";
+        q.isReady = false;
+        q.btnPlayerReady.classList.remove('ready');
+        q.btnPlayerReady.textContent = 'Start';
       });
     }
 
     function attachControls() {
-      document.querySelector(".btn-player-start").addEventListener("click", startApp);
+      // Top START button now just resets/shows start panels
+      document.querySelector(".btn-player-start").addEventListener("click", () => {
+        stopApp(); // Reset to start panels
+      });
       document.querySelector(".btn-player-stop").addEventListener("click", stopApp);
       document.querySelector(".btn-fullscreen").addEventListener("click", () => {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -751,7 +932,10 @@
     }
 
     attachControls();
-    quads.forEach((q) => applyVibe(q, VIBES[0]));
+    quads.forEach((q) => {
+      applyVibe(q, VIBES[0]);
+      setupStartPanel(q);
+    });
   </script>
 </body>
 </html>
