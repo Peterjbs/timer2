@@ -121,9 +121,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0e14">
-
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quadrant Timers — Refactored (v5)</title>
   <style>
     
@@ -161,18 +159,13 @@
       padding-bottom: var(--bar-h);
     }
     #q1 {
+      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr var(--bar-h);
       border-right: 1px solid var(--panelBorder);
     }
     #q2 {
       --video-fr: 2.7;
       --panel-fr: 0.9;
       --bar-h: 44px;
-    }
-    #q1 {
-      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr var(--bar-h);
-      border-right: 1px solid var(--panelBorder);
-    }
-    #q2 {
       grid-template-rows: var(--panel-fr)fr var(--video-fr)fr var(--bar-h);
       border-left: 1px solid var(--panelBorder);
       border-right: none;
@@ -1750,7 +1743,7 @@
 
     let quads = []; 
     let videos = [];
-    let createdObjectURLs = [];
+    let createdObjectURLs = new Set();
     let globalRafId = null;
     let cycleAbort = false;
     const activeIntervals = new Set(); 
@@ -1804,6 +1797,7 @@
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
         clip.cachedUrl = url;
+        createdObjectURLs.add(url);
         createdObjectURLs.push(url);
         console.log('[Clip] Created blob URL for file:', clip.file.name, '→', url.substring(0, 50) + '...');
         return url;
@@ -1914,6 +1908,7 @@
       createdObjectURLs.forEach(url => {
         try { URL.revokeObjectURL(url); } catch (e) {}
       });
+      createdObjectURLs.clear();
       createdObjectURLs = [];
       console.log('[Cleanup] ✓ Clip URLs released');
     }
@@ -2057,7 +2052,7 @@
       if (!rules) {
         console.error(`[Phase Q${q.id}] ✗ Unknown phase: ${phase.phaseName}. Skipping.`);
         q.isProcessing = false;
-        setTimeout(() => processNextPhaseInQueue(q), 10);
+        requestAnimationFrame(() => processNextPhaseInQueue(q));
         return;
       }
       
@@ -2084,7 +2079,7 @@
       q.isProcessing = false;
       q.currentPhase = null;
       if (!cycleAbort) {
-        setTimeout(() => processNextPhaseInQueue(q), 10);
+        requestAnimationFrame(() => processNextPhaseInQueue(q));
       }
     }
     
@@ -2564,9 +2559,6 @@
     }
     
     async function handleTriviaPhase(q, phase, rules, signal) {
-      
-      
-      console.log("Trivia Phase Started");
       const duration = rules.duration;
       setPhaseUI(q, phase, rules.ui, { duration: duration });
       await waitForDuration(duration, signal);
@@ -2747,6 +2739,19 @@
 
     
     function startCountdown(q, duration, signal) {
+      if (!q || !q.videoCountdownTimer) return;
+      if (typeof duration !== 'number' || duration <= 0) return;
+      
+      // Store countdown end time for RAF-based updates in global clock
+      q.countdownEndTime = performance.now() + duration;
+      
+      // Clean up on abort
+      if (signal) {
+        const abortHandler = () => {
+          q.countdownEndTime = null;
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
+      }
       if (typeof duration !== 'number' || duration <= 0) return;
       if (q.currentCountdownTimer) {
         clearInterval(q.currentCountdownTimer);
@@ -2808,6 +2813,7 @@
     }
 
     function createBubbles(container, count) {
+      // Reuse existing bubbles to avoid DOM thrashing
       // Reuse existing bubbles if possible to avoid DOM thrashing
       const existingBubbles = container.querySelectorAll('.bubble');
       
@@ -2991,8 +2997,7 @@
         console.log('[VideoCycle] Video ended for quadrant', qi, '- cycling to next');
         if (v.src && v.src.startsWith('blob:')) {
           const oldUrl = v.src;
-          const index = createdObjectURLs.indexOf(oldUrl);
-          if (index > -1) createdObjectURLs.splice(index, 1);
+          createdObjectURLs.delete(oldUrl);
           try { URL.revokeObjectURL(oldUrl); } catch (e) {}
         }
         
@@ -3040,8 +3045,7 @@
       // Clean up old blob URL
       if (v.src && v.src.startsWith('blob:')) {
         const oldUrl = v.src;
-        const index = createdObjectURLs.indexOf(oldUrl);
-        if (index > -1) createdObjectURLs.splice(index, 1);
+        createdObjectURLs.delete(oldUrl);
         try { URL.revokeObjectURL(oldUrl); } catch (e) {}
       }
       const url = getClipSource(initialClip);
@@ -3377,7 +3381,7 @@
         createdObjectURLs.forEach(url => {
           try { URL.revokeObjectURL(url); } catch (e) {}
         });
-        createdObjectURLs = [];
+        createdObjectURLs.clear();
 
         console.log('[App] ✓ Application stopped');
         status.textContent='Stopped. Reload videos to start again.';
@@ -3398,7 +3402,7 @@
         console.log('[FolderPicker] Files selected:', e.target.files.length);
         releaseClipUrls();
         try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
-        createdObjectURLs = [];
+        createdObjectURLs.clear();
 
         const files = [...e.target.files].filter(isLikelyVideo);
         console.log('[FolderPicker] Video files after filtering:', files.length);
