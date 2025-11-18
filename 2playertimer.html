@@ -541,6 +541,7 @@
         key: "vintage",
         name: "Vintage",
         palette: { base: "#f5e8d7", accent: "#5c4033", dark: "#422d24" },
+        panel_pattern: "radial-gradient(circle at 20% 20%, #ffffff22, transparent 45%), #f5e8d7",
         font: { family: '"Special Elite", monospace', weight: "400", transform: "none" },
         video_effects: {
           css_filter: "sepia(0.8) contrast(1.1) saturate(0.8)",
@@ -554,19 +555,21 @@
         key: "cosmic",
         name: "Cosmic",
         palette: { base: "#0c0a1f", accent: "#e6a7ff", dark: "#000000" },
+        panel_pattern: "radial-gradient(circle at 60% 40%, rgba(230,167,255,0.12), transparent 50%), #0c0a1f",
         font: { family: '"Orbitron", sans-serif', weight: "400", transform: "uppercase" },
         video_effects: {
-          css_filter: null,
-          css_animation: null,
+          css_filter: "contrast(1.05) saturate(1.1)",
+          css_animation: "vibe-anim-hue-rotate 16s linear infinite",
           overlay_gradient: "radial-gradient(ellipse at center, rgba(255,255,255,0) 0%,rgba(0,0,0,0) 50%,rgba(0,0,0,0.8) 100%)",
           overlay_blend_mode: "normal",
-          overlay_video: null // Example: { src: "path/to/stars.mp4", blend_mode: "screen", opacity: 0.4 }
+          overlay_video: null
         }
       },
       {
         key: "glitch",
         name: "Glitch",
         palette: { base: "#0a0a0a", accent: "#ff00ff", dark: "#000000" },
+        panel_pattern: "linear-gradient(90deg, rgba(255,0,255,0.08) 0, rgba(0,255,255,0.08) 50%, rgba(255,0,255,0.08) 100%), #0a0a0a",
         font: { family: '"Share Tech Mono", monospace', weight: "400", transform: "uppercase" },
         video_effects: {
           css_filter: "contrast(1.2)",
@@ -575,8 +578,77 @@
           overlay_blend_mode: "screen",
           overlay_video: null
         }
+      },
+      {
+        key: "neon_noir",
+        name: "Neon Noir",
+        palette: { base: "#0b1021", accent: "#00f3ff", dark: "#05080f" },
+        panel_pattern: "linear-gradient(135deg, rgba(0,243,255,0.08) 0%, rgba(255,0,136,0.08) 100%), #0b1021",
+        font: { family: '"Orbitron", sans-serif', weight: "600", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.15) saturate(1.25)",
+          css_animation: "vibe-anim-glitch 1s steps(2) infinite",
+          overlay_gradient: "radial-gradient(circle at 50% 30%, rgba(0,243,255,0.35), rgba(255,0,136,0.15) 40%, transparent 70%)",
+          overlay_blend_mode: "screen",
+          overlay_video: null
+        }
+      },
+      {
+        key: "arcade",
+        name: "Arcade",
+        palette: { base: "#0b0014", accent: "#39ff14", dark: "#1a0f2e" },
+        panel_pattern: "linear-gradient(90deg, rgba(57,255,20,0.12) 10%, transparent 10%) repeat, #0b0014",
+        font: { family: '"Press Start 2P", monospace', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "saturate(1.3)",
+          css_animation: "vibe-anim-heartbeat 2s ease-in-out infinite",
+          overlay_gradient: "radial-gradient(circle at 30% 30%, rgba(57,255,20,0.18), transparent 55%), radial-gradient(circle at 70% 70%, rgba(255,20,147,0.16), transparent 55%)",
+          overlay_blend_mode: "screen",
+          overlay_video: null
+        }
+      },
+      {
+        key: "pastel_dream",
+        name: "Pastel Dream",
+        palette: { base: "#f7f0ff", accent: "#9b7bff", dark: "#e2d9f7" },
+        panel_pattern: "linear-gradient(135deg, rgba(155,123,255,0.18), rgba(253,121,168,0.18)), #f7f0ff",
+        font: { family: '"Pacifico", cursive', weight: "400", transform: "none" },
+        video_effects: {
+          css_filter: "saturate(1.2)",
+          css_animation: "vibe-anim-dreamy-glow 6s ease-in-out infinite",
+          overlay_gradient: "linear-gradient(135deg, rgba(108,92,231,0.25), rgba(253,121,168,0.2))",
+          overlay_blend_mode: "overlay",
+          overlay_video: null
+        }
+      },
+      {
+        key: "zen_garden",
+        name: "Zen Garden",
+        palette: { base: "#0f1a14", accent: "#7bd389", dark: "#0a120d" },
+        panel_pattern: "radial-gradient(circle at 40% 60%, rgba(123,211,137,0.15), transparent 55%), #0f1a14",
+        font: { family: '"Quicksand", sans-serif', weight: "700", transform: "none" },
+        video_effects: {
+          css_filter: "saturate(1.05) contrast(1.05)",
+          css_animation: "vibe-anim-heartbeat 5s ease-in-out infinite",
+          overlay_gradient: "linear-gradient(180deg, rgba(123,211,137,0.08), rgba(0,0,0,0.55))",
+          overlay_blend_mode: "multiply",
+          overlay_video: null
+        }
+      },
+      {
+        key: "magma",
+        name: "Magma",
+        palette: { base: "#1a0b0b", accent: "#ff5f45", dark: "#0c0404" },
+        panel_pattern: "radial-gradient(circle at 30% 30%, rgba(255,95,69,0.2), transparent 50%), #1a0b0b",
+        font: { family: '"Bangers", cursive', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.15) saturate(1.35)",
+          css_animation: "vibe-anim-heartbeat 3s ease-in-out infinite",
+          overlay_gradient: "linear-gradient(120deg, rgba(255,95,69,0.25), rgba(255,165,0,0.15))",
+          overlay_blend_mode: "overlay",
+          overlay_video: null
+        }
       }
-      // Add more Vibe objects here
     ];
 
     const ACTIONS = [
@@ -924,6 +996,10 @@
       const padStart = 0.5, padEnd = 1.0;
       const min = padStart, max = Math.max(min+0.5, dur - padEnd);
       return min + Math.random()*(max - min);
+    }
+
+    function getVibeBase(q) {
+      return (q?.vibe?.panel_pattern) || (q?.vibe?.palette?.base) || '#111';
     }
 
     /**
@@ -1528,7 +1604,7 @@
       // 1. Set Info Panel Color
       let infoColor = uiRules.infoColor || "vibe_base";
       if (infoColor === "vibe_base") {
-        q.panelContainer.style.background = q.vibe.palette.base;
+        q.panelContainer.style.background = getVibeBase(q);
       } else if (infoColor === "vibe_accent") {
         q.panelContainer.style.background = q.vibe.palette.accent;
       } else {
@@ -1600,7 +1676,7 @@
       // 1. Clear Info Panel
       q.infoTextOverlay.classList.remove('show');
       q.infoTextOverlay.innerHTML = "";
-      q.panelContainer.style.background = q.vibe ? q.vibe.palette.base : q.panelContainer.style.background;
+      q.panelContainer.style.background = q.vibe ? getVibeBase(q) : q.panelContainer.style.background;
 
       // 2. Clear Video Panel
       q.videoCountdownOverlay.classList.remove('show');
@@ -1938,7 +2014,7 @@
           q.panelContainer.style.fontFamily = font.family;
           q.panelContainer.style.fontWeight = font.weight;
           q.panelContainer.style.textTransform = font.transform;
-          q.panelContainer.style.background = pal.base;
+          q.panelContainer.style.background = getVibeBase(q);
           
           q.video.style.filter = q.vibe.video_effects.css_filter || "none";
           q.video.style.animation = q.vibe.video_effects.css_animation || "none";
