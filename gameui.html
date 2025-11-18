@@ -26,27 +26,9 @@
     .overlay .inner{padding:0; color:white; text-shadow:0 4px 20px rgba(0,0,0,.9), 0 0 60px var(--themeAccent, transparent); text-align:center; border-radius:0; background:transparent; box-shadow:none; width:100%; height:100%;}
     .display-xxl{font-size:clamp(8rem, 25vw, 20rem); font-weight:900; letter-spacing:-.02em; color:var(--themeAccent, white); text-shadow:0 0 40px var(--themeBase, transparent), 0 8px 30px rgba(0,0,0,.9); line-height:1; text-transform:uppercase;}
     .display-lg{font-size:clamp(3rem, 10vw, 8rem); font-weight:800; opacity:.95; color:var(--themeAccent, white); text-transform:uppercase; letter-spacing:.1em;}
-    .nextTimer{position:absolute; left:.5rem; bottom:.5rem; background:rgba(0,0,0,.58); border:1px solid var(--panelBorder); padding:.3rem .7rem .4rem; border-radius:.6rem; font-weight:700; font-size:1.4rem; pointer-events:none; min-width:9ch}
+    /* Timer in top left corner */
+    .nextTimer{position:absolute; left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
     .nextTimer .bar{position:absolute; left:0; bottom:0; height:3px; width:0%; background:var(--themeAccent, #8ab4ff); border-radius:0 0 .6rem .6rem; transition:width .18s linear}
-    /* Timer in top left corner */
-    .nextTimer{left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
-    .nextTimer .bar{height:3px; background:var(--themeAccent, #8ab4ff);}
-    .tally{position:absolute; top:.5rem; left:.5rem; right:.5rem; padding:.4rem .6rem; border:1px solid var(--panelBase, var(--panelBorder)); border-radius:.6rem; background:rgba(0,0,0,.75); font-size:1.15rem; letter-spacing:.08em; font-weight: 600; max-height: 3rem; overflow-y: auto; line-height: 1.4; z-index: 70;}
-    .task-buttons{position:absolute; bottom:5rem; left:50%; transform:translateX(-50%); display:none; gap:1rem; z-index:250; pointer-events:auto;}
-    .task-buttons.show{display:flex;}
-    .task-buttons button{font-size:clamp(2rem, 5vw, 4rem); padding:.8rem 1.5rem; border-radius:1rem; border:3px solid white; cursor:pointer; font-weight:900; transition:transform .1s, opacity .1s;}
-    .task-buttons button:hover{transform:scale(1.05);}
-    .task-buttons button:active{transform:scale(0.95);}
-    .btn-task-fail{background:#ff4444; color:white;}
-    .btn-task-complete{background:#44ff44; color:white;}
-    .manual-controls{position:absolute; bottom:1.25rem; left:50%; transform:translateX(-50%); display:flex; gap:.75rem; z-index:260;}
-    .manual-controls button{background:rgba(0,0,0,.75); color:#fff; border:2px solid rgba(255,255,255,.25); border-radius:.5rem; padding:.4rem .9rem; font-weight:700; cursor:pointer; font-size:1rem; letter-spacing:.05em;}
-    .manual-controls button:hover{background:rgba(255,255,255,.15);}
-    .manual-controls .btn-manual-skip{border-color:#ff7676;}
-    .manual-controls .btn-manual-shuffle{border-color:#7ac4ff;}
-    /* Timer in top left corner */
-    .nextTimer{left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
-    .nextTimer .bar{height:3px; background:var(--themeAccent, #8ab4ff);}
     .tally{position:absolute; top:.5rem; left:.5rem; right:.5rem; padding:.4rem .6rem; border:1px solid var(--panelBase, var(--panelBorder)); border-radius:.6rem; background:rgba(0,0,0,.75); font-size:1.15rem; letter-spacing:.08em; font-weight: 600; max-height: 3rem; overflow-y: auto; line-height: 1.4; z-index: 70;}
     .task-buttons{position:absolute; bottom:5rem; left:50%; transform:translateX(-50%); display:none; gap:1rem; z-index:250; pointer-events:auto;}
     .task-buttons.show{display:flex;}
@@ -527,7 +509,7 @@ const FURY = {
       { label: 'PUFF', build: () => ({ type:'puff' }) },
       { label: 'SNIFF', build: () => ({ type:'sniff' }) },
       { label: 'MASK', build: () => ({ type:'mask', duration: randInt(MASK_WINDOW[0], MASK_WINDOW[1]) }) },
-      { label: 'TASK', build: () => ({ type:'action', action: pick(ACTIONS) }) },
+      { label: 'TASK', build: () => ({ type:'action', action: randomlySelectItem(ACTIONS) }) },
       { label: 'CHILL', build: () => ({ type:'chill', duration: randInt(CHILL_WINDOW[0], CHILL_WINDOW[1]) }) }
     ];
     const MASK_READY_MS = 5000;
@@ -630,69 +612,80 @@ const FURY = {
     // Global lock to prevent overlapping event executions across quads
     let globalEventLock = false;
 
-    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
-    const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
-    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
+    const randomlySelectItem = (array)=> array[Math.floor(Math.random()*array.length)];
+    const waitForDuration = (milliseconds)=> new Promise(resolve=>setTimeout(resolve,milliseconds));
+    const convertToTitleCase = (string)=> (string||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(word=>word[0]?word[0].toUpperCase()+word.slice(1):'').join(' ');
 
     function randomMidStart(clip){
-      const dur = Number.isFinite(clip.duration) && clip.duration>10 ? clip.duration : 7200;
+      const duration = Number.isFinite(clip.duration) && clip.duration>10 ? clip.duration : 7200;
       const padStart = 0.5, padEnd = 3.0;
-      const min = padStart, max = Math.max(min+1, dur - padEnd);
+      const min = padStart, max = Math.max(min+1, duration - padEnd);
       return min + Math.random()*(max - min);
     }
-    async function setClip(qi, clip, start){
-      const q = quads[qi]; const v = q.video;
+    async function setClip(quadrantIndex, clip, start){
+      const quadrant = quads[quadrantIndex]; const video = quadrant.video;
       
       // Video error handling
       const handleVideoError = () => {
-        q.videoErrorCount++;
-        console.warn(`Video error on quad ${qi}, count: ${q.videoErrorCount}`);
-        if (q.videoErrorCount > 3) {
+        quadrant.videoErrorCount++;
+        console.warn(`Video error on quad ${quadrantIndex}, count: ${quadrant.videoErrorCount}`);
+        if (quadrant.videoErrorCount > 3) {
           // Try different video
           const otherClips = videos.filter(c => c.url !== clip.url);
           if (otherClips.length > 0) {
-            const newClip = pick(otherClips);
-            q.baseClip = newClip;
-            q.videoErrorCount = 0;
-            setClip(qi, newClip, randomMidStart(newClip));
+            const newClip = randomlySelectItem(otherClips);
+            quadrant.baseClip = newClip;
+            quadrant.videoErrorCount = 0;
+            setClip(quadrantIndex, newClip, randomMidStart(newClip));
           }
         }
       };
       
-      // Check if video is paused/ended and restart
-      const videoMonitor = setInterval(() => {
-        if (!cycleAbort && q.chosen && v.paused && !v.ended) {
-          v.play().catch(() => {});
+      // Use event listeners instead of polling for better performance
+      const handlePause = () => {
+        if (!cycleAbort && quadrant.chosen && !video.ended) {
+          video.play().catch(() => {});
         }
-        if (!cycleAbort && q.chosen && v.ended) {
-          v.currentTime = randomMidStart(clip);
-          v.play().catch(() => {});
+      };
+      
+      const handleEnded = () => {
+        if (!cycleAbort && quadrant.chosen) {
+          video.currentTime = randomMidStart(clip);
+          video.play().catch(() => {});
         }
-      }, 2000);
-      activeIntervals.add(videoMonitor);
+      };
       
-      v.onerror = handleVideoError;
+      video.addEventListener('pause', handlePause);
+      video.addEventListener('ended', handleEnded);
       
-      if (!v.src || v.src !== clip.url){ v.src = clip.url; }
-      if (v.readyState < 1){ await new Promise(r=> v.addEventListener('loadedmetadata', ()=>r(), {once:true})); }
+      // Store cleanup function
+      quadrant.cleanupVideoMonitor = () => {
+        video.removeEventListener('pause', handlePause);
+        video.removeEventListener('ended', handleEnded);
+      };
+      
+      video.onerror = handleVideoError;
+      
+      if (!video.src || video.src !== clip.url){ video.src = clip.url; }
+      if (video.readyState < 1){ await new Promise(r=> video.addEventListener('loadedmetadata', ()=>r(), {once:true})); }
       const seekOnce = (time) => new Promise((resolve)=>{
-        const dur = Number.isFinite(v.duration) && v.duration>0 ? v.duration : (Number.isFinite(clip.duration)?clip.duration:0);
+        const duration = Number.isFinite(video.duration) && video.duration>0 ? video.duration : (Number.isFinite(clip.duration)?clip.duration:0);
         const padStart = 0.25, padEnd = 3.0;
-        const maxT = dur>0 ? Math.max(padStart, dur - padEnd) : time;
+        const maxT = duration>0 ? Math.max(padStart, duration - padEnd) : time;
         const safeT = Math.min(Math.max(padStart, time), maxT);
-        const cleanup=()=>{v.removeEventListener('seeked', onSeeked); v.removeEventListener('error', onErr); v.removeEventListener('stalled', onErr);};
+        const cleanup=()=>{video.removeEventListener('seeked', onSeeked); video.removeEventListener('error', onErr); video.removeEventListener('stalled', onErr);};
         const onSeeked=()=>{cleanup(); resolve(true)};
         const onErr=()=>{cleanup(); handleVideoError(); resolve(false)};
-        v.addEventListener('seeked', onSeeked, {once:true});
-        v.addEventListener('error', onErr, {once:true});
-        v.addEventListener('stalled', onErr, {once:true});
-        try{ v.currentTime = safeT; }catch(e){ cleanup(); resolve(false); return; }
-        const p=v.play(); if(p&&p.catch)p.catch(()=>{});
+        video.addEventListener('seeked', onSeeked, {once:true});
+        video.addEventListener('error', onErr, {once:true});
+        video.addEventListener('stalled', onErr, {once:true});
+        try{ video.currentTime = safeT; }catch(e){ cleanup(); resolve(false); return; }
+        const p=video.play(); if(p&&p.catch)p.catch(()=>{});
       });
       let ok = await seekOnce(start);
       if (!ok) ok = await seekOnce(start*0.9);
       if (!ok) ok = await seekOnce(0.5);
-      if (ok) q.videoErrorCount = Math.max(0, q.videoErrorCount - 1);
+      if (ok) quadrant.videoErrorCount = Math.max(0, quadrant.videoErrorCount - 1);
     }
 
     function setPhaseColor(qi, color){
@@ -755,7 +748,7 @@ function pulseQuad(qi, color){
       quads[qi].phaseTint.style.background = color;
       quads[qi].phaseTint.style.opacity = '0.28';
 
-      await sleep(ms);
+      await waitForDuration(ms);
 
       // cleanup countdown
       try{ clearInterval(quads[qi].countdownInterval); activeIntervals.delete(quads[qi].countdownInterval);}catch(e){}
@@ -774,7 +767,7 @@ function pulseQuad(qi, color){
       // Use the provided text (subtle) rather than a large emoji
       inner.innerHTML = '<div class="display-xxl">'+text+'</div>';
       el.classList.add('show');
-      await sleep(ms);
+      await waitForDuration(ms);
       el.classList.remove('show');
       hideAll(qi);
     }
@@ -853,7 +846,7 @@ async function runSniff(qi){
   while(performance.now()<endAt && q.chosen && !cycleAbort){
     await setClip(qi, clip, randomMidStart(clip));
     await showCue(qi,'sniff', EVENT_COLORS.sniff, 120);
-    await sleep(50);
+    await waitForDuration(50);
   }
   
   // Deactivate sniff overlay
@@ -899,7 +892,7 @@ async function runMask(qi, task){
   el.classList.add('show');
 
   // Wait a moment then show buttons
-  await sleep(500);
+  await waitForDuration(500);
   
   if (cycleAbort) return {success: false};
   const result = await showTaskButtons(qi);
@@ -961,7 +954,7 @@ function generateNextTask(vibe){
   if (roll < 0.3) return {type:'puff'};
   if (roll < 0.55) return {type:'sniff', dur: vibe.sniff};
   if (roll < 0.8) return {type:'mask', duration: randInt(MASK_WINDOW[0], MASK_WINDOW[1])};
-  return {type:'action', action: pick(ACTIONS)};
+  return {type:'action', action: randomlySelectItem(ACTIONS)};
 }
 
 function buildQueue(vibe, counts={puff:5, sniff:8, action:5}){
@@ -1084,14 +1077,19 @@ function scheduleNextTask(qi, reschedule = false){
 
 
     function startJitter(){
+      // Cache quadrant references instead of querying DOM repeatedly
+      const quadElements = document.querySelectorAll('.quadrant');
+      const videoElements = Array.from(quadElements).map(q => q.querySelector('.quad-video'));
+      
       const base = 0.985, span = 0.05 * (FURY.on?FURY.jitterAmp:1);
       return setInterval(()=>{
-        document.querySelectorAll('.quadrant').forEach(q=>{
+        for(let i = 0; i < quadElements.length; i++) {
           const s = base + Math.random()*span;
-          q.style.transform = 'scale('+s.toFixed(3)+')';
-          const v = q.querySelector('.quad-video');
-          v && (v.style.transform = 'scale('+(1.03 - (s-1)).toFixed(3)+')');
-        });
+          quadElements[i].style.transform = 'scale('+s.toFixed(3)+')';
+          if (videoElements[i]) {
+            videoElements[i].style.transform = 'scale('+(1.03 - (s-1)).toFixed(3)+')';
+          }
+        }
       }, 1800);
     }
 
@@ -1103,13 +1101,13 @@ function scheduleNextTask(qi, reschedule = false){
     function startGridChoice(startedAt){
       let stop = false;
       async function loop(){
-        await sleep(40000 + Math.random()*40000); // 40-80 seconds
+        await waitForDuration(40000 + Math.random()*40000); // 40-80 seconds
         if (!isEventReady()) return loop();
 
         const active = quads.map((q,i)=>({q,i})).filter(x=>x.q.chosen && !x.q.busy);
         if (!active.length) return loop();
 
-        const {q, i} = pick(active);
+        const {q, i} = randomlySelectItem(active);
 
       let choiceMade = false;
       let timerId = null;
@@ -1133,13 +1131,13 @@ function scheduleNextTask(qi, reschedule = false){
           const label = item.querySelector('.item-label');
           v.onloadedmetadata = () => { v.currentTime = randomMidStart(clip); v.play().catch(()=>{}); };
           v.src = clip.url;
-          label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+          label.textContent = convertToTitleCase(clip.name) || 'Video ' + (idx+1);
           item.style.display = 'block';
 
           const handler = async () => {
             choiceMade = true;
             q.baseClip = clip;
-            q.label = toTitle(clip.name) || q.label;
+            q.label = convertToTitleCase(clip.name) || q.label;
             await setClip(i, clip, randomMidStart(clip));
             cleanup();
           };
@@ -1183,14 +1181,14 @@ function scheduleNextTask(qi, reschedule = false){
       let stop = false;
       async function loop(){
         if (stop) return;
-        await sleep(12000 + Math.random()*12000);
+        await waitForDuration(12000 + Math.random()*12000);
         if (stop) return;
         if (!isEventReady()) return loop();
 
         const active = quads.map((q,i)=>({q,i})).filter(x=>x.q.chosen && !x.q.busy && x.q.queue.length>0);
         if (!active.length) return loop();
 
-        const {q} = pick(active);
+        const {q} = randomlySelectItem(active);
         pauseAllTimers();
 
         let choiceMade = false;
@@ -1272,12 +1270,12 @@ function scheduleNextTask(qi, reschedule = false){
           const label = item.querySelector('.clip-label');
           v.onloadedmetadata = () => { v.currentTime = randomMidStart(clip); v.play().catch(()=>{}); };
           v.src = clip.url;
-          label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+          label.textContent = convertToTitleCase(clip.name) || 'Video ' + (idx+1);
           item.style.display = 'block';
 
           const handler = async () => {
             q.baseClip = clip;
-            q.label = toTitle(clip.name) || q.label;
+            q.label = convertToTitleCase(clip.name) || q.label;
             q.chooseTint.querySelector('.chooseTitle').textContent = q.label;
             overlay.classList.remove('show');
             clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
@@ -1300,6 +1298,32 @@ function scheduleNextTask(qi, reschedule = false){
     }
     function fullscreenQuad(qi){
       const el = quads[qi].el; (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
+    }
+
+    function manualSkip(qi) {
+      const q = quads[qi];
+      if (q.busy || !q.queue.length) return;
+      // Skip current task and schedule next one immediately
+      if (q.nextTaskTimer) {
+        clearTimeout(q.nextTaskTimer);
+        q.nextTaskTimer = null;
+      }
+      if (q.queue.length > 0) {
+        q.queue.shift(); // Remove current task
+      }
+      q.scheduleNextTask(true); // Reschedule immediately
+    }
+
+    function manualShuffle(qi) {
+      const q = quads[qi];
+      if (!videos.length) return;
+      const current = q.baseClip;
+      const pool = videos.filter(v => v.url !== current.url);
+      if (!pool.length) return;
+      const newClip = pool[Math.floor(Math.random() * pool.length)];
+      q.baseClip = newClip;
+      q.label = convertToTitleCase(newClip.name) || q.label;
+      setClip(qi, newClip, randomMidStart(newClip));
     }
 
     function stopAllLoops() {
@@ -1399,7 +1423,7 @@ clipOptions.forEach((option, idx) => {
     video.src = clip.url;
     video.currentTime = randomMidStart(clip);
     video.play().catch(() => {});
-    label.textContent = toTitle(clip.name);
+    label.textContent = convertToTitleCase(clip.name);
     option.style.display = 'block';
     
     option.onclick = () => {
@@ -1407,7 +1431,7 @@ clipOptions.forEach((option, idx) => {
       option.classList.add('selected');
       selectedClipIdx = idx;
       q.baseClip = first4Clips[idx];
-      q.label = toTitle(clip.name);
+      q.label = convertToTitleCase(clip.name);
     };
   } else {
     option.style.display = 'none';
@@ -1418,7 +1442,7 @@ clipOptions.forEach((option, idx) => {
 if (clipOptions.length > 0) {
   clipOptions[0].classList.add('selected');
   q.baseClip = first4Clips[0];
-  q.label = toTitle(first4Clips[0].name);
+  q.label = convertToTitleCase(first4Clips[0].name);
 }
 
 
@@ -1445,7 +1469,7 @@ if (clipOptions.length > 0) {
 
       // Wait for all players to be ready
       while (!allReady && !cycleAbort) {
-        await sleep(100);
+        await waitForDuration(100);
       }
       
       if (cycleAbort) return;
@@ -1468,7 +1492,7 @@ if (clipOptions.length > 0) {
             q.nextTimer.textContent='';
         } else {
             await setClip(i, q.baseClip, randomMidStart(q.baseClip));
-            await sleep(50);
+            await waitForDuration(50);
         }
       }
 
@@ -1495,17 +1519,18 @@ if (clipOptions.length > 0) {
 
     function attachControls(){
       for (let i=0;i<quads.length;i++){
+        const q = quads[i];
         const controls = document.querySelector('#q'+(i+1)+' .qcontrols');
         const btnOffset = controls.querySelector('.shuffleOffset');
         const btnVideo = controls.querySelector('.shuffleVideo');
         const btnFS = controls.querySelector('.btnFS');
         const btnSound = controls.querySelector('.btnSound');
-        btnOffset.addEventListener('click', async ()=>{ const q = quads[i]; await setClip(i, q.baseClip, randomMidStart(q.baseClip)); });
+        btnOffset.addEventListener('click', async ()=>{ await setClip(i, q.baseClip, randomMidStart(q.baseClip)); });
         btnVideo.addEventListener('click', async ()=>{
           if (!videos.length) return;
           const current = quads[i].baseClip; const pool = videos.filter(v=>v.url!==current.url); if (!pool.length) return;
           const newClip = pool[Math.floor(Math.random()*pool.length)];
-          quads[i].baseClip = newClip; quads[i].label = toTitle(newClip.name) || quads[i].label; await setClip(i, newClip, randomMidStart(newClip));
+          quads[i].baseClip = newClip; quads[i].label = convertToTitleCase(newClip.name) || quads[i].label; await setClip(i, newClip, randomMidStart(newClip));
         });
         btnFS.addEventListener('click', ()=> fullscreenQuad(i));
         btnSound.addEventListener('click', ()=> setSoundFocus(i));

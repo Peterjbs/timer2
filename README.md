@@ -1,3 +1,3 @@
 # timer2
 
-Interactive HTML-based timer applications with video playback capabilities. Includes multiple timer implementations with various themes and visual effects.
+Open `2playertimer.html` in a modern browser to run the dual-quadrant timer UI with built-in clips fallback and vibe themes.
