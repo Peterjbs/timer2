@@ -774,7 +774,7 @@
     const PHASES = {
       
       "IDLE_GAP": {
-        handler: "handleIdlePhase",
+        handler: handleIdlePhase,
         duration: [30000, 75000], 
         ui: {
           infoColor: "vibe_base",
@@ -783,7 +783,7 @@
       },
       
       "READY_TO_PUFF": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -793,7 +793,7 @@
         }
       },
       "READY_TO_SNIFF": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -803,7 +803,7 @@
         }
       },
       "READY_FOR_MASK": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -814,7 +814,7 @@
       },
       
       "PUFF_LIGHT": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 25000,
         ui: {
           videoEffect: "light",
@@ -825,7 +825,7 @@
         }
       },
       "PUFF_SMOKE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 12000,
         ui: {
           videoEffect: "smoke",
@@ -836,7 +836,7 @@
         }
       },
       "PUFF_INHALE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 5000,
         ui: {
           videoEffect: "inhale",
@@ -850,7 +850,7 @@
         }
       },
       "PUFF_HOLD": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 4000,
         ui: {
           videoEffect: "hold",
@@ -864,7 +864,7 @@
         }
       },
       "PUFF_EXHALE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 5000,
         ui: {
           videoEffect: "exhale",
@@ -878,7 +878,7 @@
         }
       },
       "PUFF_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -888,7 +888,7 @@
         }
       },
       "BREATH_COUNT_QUESTION": {
-        handler: "handleBreathQuestionPhase",
+        handler: handleBreathQuestionPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -898,7 +898,7 @@
       },
       
       "SNIFF_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 8000,
         ui: {
           videoEffect: "sniff",
@@ -912,7 +912,7 @@
         }
       },
       "SNIFF_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -923,7 +923,7 @@
       },
       
       "MASK_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 20000,
         ui: {
           videoEffect: "mask", 
@@ -937,7 +937,7 @@
         }
       },
       "MASK_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -948,7 +948,7 @@
       },
       
       "YOU_CHOOSE_OVERLAY": {
-        handler: "handleChoicePhase",
+        handler: handleChoicePhase,
         duration: 20000,
         ui: {
           videoCountdown: true,
@@ -957,7 +957,7 @@
         }
       },
       "GRID_CHOICE_OVERLAY": {
-        handler: "handleGridChoicePhase",
+        handler: handleGridChoicePhase,
         duration: 20000,
         ui: {
           videoStop: true, 
@@ -967,7 +967,7 @@
         }
       },
       "ACTION_MAIN": {
-        handler: "handleActionPhase",
+        handler: handleActionPhase,
         duration: 90000, 
         ui: {
           videoEffect: "action", 
@@ -981,7 +981,7 @@
         }
       },
       "TRIVIA_MAIN": {
-        handler: "handleTriviaPhase",
+        handler: handleTriviaPhase,
         duration: 90000,
         ui: {
           videoEffect: "trivia", 
@@ -993,7 +993,7 @@
         }
       },
       "CHILL_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 30000,
         ui: {
           videoCountdown: true,
@@ -1003,7 +1003,7 @@
         }
       },
       "PEACE_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 90000,
         ui: {
           videoEffect: "peace", 
@@ -1014,7 +1014,7 @@
         }
       },
       "REPLAY_VIDEO_MAIN": {
-        handler: "handleReplayPhase",
+        handler: handleReplayPhase,
         duration: 60000, 
         ui: {
           videoCountdown: true,
@@ -1823,13 +1823,14 @@
     
     function setPhaseUI(q, phase, uiRules, data = {}) {
       const now = performance.now();
-      if (q.currentPhase) {
+      const targetPhase = q.currentPhase || phase;
+      if (targetPhase) {
         if (typeof data.duration === 'number') {
-          q.currentPhase.startTime = now;
-          q.currentPhase.duration = data.duration;
+          targetPhase.startTime = now;
+          targetPhase.duration = data.duration;
         } else {
-          q.currentPhase.startTime = null;
-          q.currentPhase.duration = null;
+          targetPhase.startTime = null;
+          targetPhase.duration = null;
         }
       }
       
@@ -1870,6 +1871,10 @@
           label = `${label} ${data.loop}`.trim();
         }
         q.videoCountdownLabel.textContent = label;
+        if (typeof data.duration === 'number') {
+          q.videoCountdownTimer.textContent = Math.ceil(data.duration / 1000);
+        }
+        q.countdownEndTime = null;
         startCountdown(q, data.duration, q.abortController.signal);
         q.videoCountdownOverlay.classList.add('show');
       }
@@ -1901,12 +1906,19 @@
     
     
     function clearPhaseUI(q) {
-      
+
       q.infoTextOverlay.classList.remove('show');
       q.infoTextOverlay.innerHTML = "";
       q.panelContainer.style.background = q.vibe ? getVibeBase(q) : q.panelContainer.style.background;
 
-      
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+        q.currentCountdownTimer = null;
+      }
+      q.countdownEndTime = null;
+
+
       q.videoCountdownOverlay.classList.remove('show');
       q.videoCountdownTimer.textContent = "--";
       q.videoCountdownLabel.textContent = "";
@@ -1986,6 +1998,7 @@
       }
 
       const end = performance.now() + duration;
+      q.countdownEndTime = end;
       let timerId = null;
 
       const update = ()=>{
@@ -2015,6 +2028,7 @@
           if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
           timerId = null;
         }
+        q.countdownEndTime = null;
       });
     }
     
