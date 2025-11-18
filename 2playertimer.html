@@ -1,6 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2 Player Timer</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --fg: #eaeef5;
+      --panel: #141826;
+      --accent: #8ab4ff;
+      --border: #1f2435;
+      --dockH: 64px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+    .dock {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--dockH);
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      padding: 0 .75rem;
+      background: #0f1422;
+      border-bottom: 1px solid var(--border);
+      z-index: 200;
+    }
+    .dock .spacer { flex: 1; }
+    .dock button, .dock select { background: #141b2b; color: var(--fg); border: 1px solid var(--border); padding: .55rem .85rem; border-radius: .65rem; font-weight: 700; cursor: pointer; }
+    .dock button:hover, .dock select:hover { background: #1c2335; }
+
+    .stage {
+      position: fixed;
+      left: 0; right: 0;
+      top: var(--dockH); bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background: #06080f;
+    }
+    .quadrant {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: black;
+    }
+    .video-container, .panel-container { position: relative; height: 100%; }
+    .video-container video { width: 100%; height: 100%; object-fit: cover; background: black; filter: brightness(.95); }
+    .vibe-overlay { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; opacity: .9; }
+    .event-overlay { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .15s ease; }
+    .event-overlay.show { opacity: 1; }
+
+    .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity .12s ease; }
+    .overlay.show { opacity: 1; }
+    .video-countdown-overlay .inner { display: flex; flex-direction: column; align-items: center; gap: .6rem; color: #fff; text-shadow: 0 4px 22px rgba(0,0,0,.8); }
+    .info-text-overlay { color: #fff; text-shadow: 0 3px 14px rgba(0,0,0,.8); font-weight: 800; letter-spacing: .08em; }
+
+    .display-xxl { font-size: clamp(6rem, 12vw, 14rem); font-weight: 900; }
+    .display-lg { font-size: clamp(2rem, 5vw, 5rem); font-weight: 800; }
+    .timer-text { font-size: clamp(2.6rem, 5vw, 6rem); font-weight: 900; letter-spacing: .1em; }
+
+    .panel-container { display: flex; align-items: center; justify-content: center; background: var(--panel); transition: background .2s ease; }
+    .panel-container .info-text-overlay { position: relative; text-align: center; padding: 1rem 2rem; }
+    .panel-container .info-text-overlay .helper { display: block; font-size: 1.3rem; opacity: .85; }
+
+    .bottom-bar {
+      position: absolute;
+      bottom: 1rem; left: 50%; transform: translateX(-50%);
+      display: flex; gap: .8rem;
+      z-index: 50;
+      pointer-events: auto;
+    }
+    .bottom-bar button {
+      font-size: clamp(1.4rem, 3vw, 2.5rem);
+      padding: .8rem 1.2rem;
+      border-radius: .7rem;
+      border: 2px solid rgba(255,255,255,.25);
+      background: rgba(0,0,0,.65);
+      color: white;
+      cursor: pointer;
+      display: none;
+    }
+    .bottom-bar button.show { display: inline-flex; }
+
+    .validation-overlay, .breath-count-overlay, .action-choice-overlay, .grid-choice-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 1rem;
+      color: white; font-weight: 800;
+      opacity: 0; pointer-events: none; transition: opacity .12s ease;
+    }
+    .validation-overlay.show, .breath-count-overlay.show, .action-choice-overlay.show, .grid-choice-overlay.show { opacity: 1; pointer-events: auto; }
+    .validation-overlay button, .breath-count-overlay button, .action-choice-overlay button, .grid-choice-overlay button { padding: .6rem 1rem; border-radius: .5rem; border: 0; font-size: 1.1rem; cursor: pointer; }
+    .action-choice-overlay .choices, .grid-choice-overlay .choices { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; }
+
+    .chooseTint {
+      position: absolute; inset: 0; background: rgba(0,0,0,.75);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .8rem; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.9);
+      z-index: 90;
+      transition: opacity .2s ease;
+    }
+
+    .nextEventTimer {
+      position: absolute;
+      top: .6rem; left: .6rem;
+      padding: .35rem .65rem;
+      background: rgba(0,0,0,.82);
+      border: 1px solid var(--border);
+      border-radius: .4rem;
+      color: white;
+      font-weight: 800;
+      display: none;
+    }
+    .nextEventTimer.show { display: inline-flex; gap: .4rem; }
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -332,7 +448,7 @@
     .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
     .choose-layout{display:grid; grid-template-rows: var(--video-fr)fr var(--panel-fr)fr; width:100%; height:100%;}
     .choose-video-area{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; padding:.5rem;}
-    .choose-panel-area{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.6rem; padding:.5rem; text-align:center;}
+    .choose-panel-area{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem; padding:1rem; text-align:center;}
     .choose-actions{display:flex; gap:.6rem; flex-wrap:wrap; justify-content:center;}
     .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
     .theme-name{font-size:clamp(2rem, 6vw, 3rem); font-weight:900; letter-spacing:.05em;}
@@ -344,6 +460,9 @@
     .choose-grid-item video { width:100%; height:100%; object-fit:cover; display:block; }
     .choose-grid-item .item-label { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, transparent, rgba(0,0,0,.65)); padding:.45rem .65rem; font-weight:800; text-transform:uppercase; font-size:.9rem; letter-spacing:.05em; color:var(--themeText); text-shadow:0 2px 8px rgba(0,0,0,.6); }
     .choose-grid-item.active { border-color: var(--themeAccent); box-shadow:0 0 0 3px color-mix(in srgb, var(--themeAccent) 50%, transparent); }
+    .start-theme-title { font-size: clamp(2.5rem, 7vw, 4rem); font-weight: 900; letter-spacing: .06em; text-transform: uppercase; margin: 0; text-shadow: 0 6px 20px rgba(0,0,0,.35); }
+    .start-controls { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+    .start-controls .btn-player-start { width: 100%; max-width: 280px; }
     .vibe-preview { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.9rem 1.1rem; border-radius:.85rem; background:linear-gradient(145deg, color-mix(in srgb, var(--themeBase) 85%, #000 15%), color-mix(in srgb, var(--themeDark) 70%, #000 30%)); min-width:260px; border:1px solid color-mix(in srgb, var(--themeAccent) 60%, transparent); box-shadow:0 12px 26px rgba(0,0,0,.35); }
     .vibe-preview .preview-panel { width:100%; padding:.75rem; border-radius:.65rem; border:1px solid color-mix(in srgb, var(--themeAccent) 55%, transparent); text-align:center; font-weight:850; letter-spacing:.05em; color:var(--themeText); box-shadow:0 8px 18px rgba(0,0,0,.35); }
     .vibe-preview .preview-title { font-size:1rem; letter-spacing:.08em; opacity:.9; text-transform:uppercase; color:var(--themeText); }
@@ -365,6 +484,144 @@
 </head>
 <body>
   <div class="dock">
+    <button class="btn-player-start">START</button>
+    <button class="btn-player-stop">STOP</button>
+    <button class="btn-fullscreen">Fullscreen</button>
+    <div class="spacer"></div>
+    <label>Vibe
+      <select class="vibe-select"></select>
+    </label>
+    <button class="btn-mute">Mute</button>
+  </div>
+
+  <div class="stage">
+    <div class="quadrant" id="q1">
+      <div class="video-container">
+        <video class="quad-video" src="clips/aurora.mp4" loop muted></video>
+        <div class="vibe-overlay"></div>
+        <div class="event-overlay" data-effect="light" style="background: radial-gradient(circle at 50% 50%, rgba(255,140,0,.6), rgba(0,0,0,.75)); mix-blend-mode: screen;"></div>
+        <div class="event-overlay" data-effect="smoke" style="background: radial-gradient(circle at 50% 50%, rgba(200,200,200,.55), rgba(0,0,0,.8));"></div>
+        <div class="event-overlay" data-effect="inhale" style="background: rgba(0,128,0,.45);"></div>
+        <div class="event-overlay" data-effect="hold" style="background: rgba(128,128,128,.4);"></div>
+        <div class="event-overlay" data-effect="exhale" style="background: rgba(0,0,255,.4);"></div>
+        <div class="event-overlay" data-effect="sniff" style="background: rgba(255,255,0,.35);"></div>
+        <div class="event-overlay" data-effect="mask" style="background: rgba(20,20,25,.75);"></div>
+        <div class="event-overlay" data-effect="action" style="background: rgba(255,255,255,.08);"></div>
+        <div class="video-countdown-overlay overlay">
+          <div class="inner">
+            <div class="display-xxl countdown-text">--</div>
+            <div class="timer-text countdown-timer">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-container">
+        <div class="info-text-overlay display-lg">Ready</div>
+        <div class="nextEventTimer">Until <span class="nextEventName">?</span> <span class="nextEventTime">0</span>s</div>
+        <div class="validation-overlay">
+          <div class="display-lg validation-title">Did you complete?</div>
+          <div class="validation-timer">10</div>
+          <div>
+            <button class="btn-validate-yes">✓</button>
+            <button class="btn-validate-no">✗</button>
+          </div>
+        </div>
+        <div class="breath-count-overlay">
+          <div class="display-lg">How many breaths?</div>
+          <div class="breath-count-timer">10</div>
+          <div class="choices"></div>
+        </div>
+        <div class="action-choice-overlay">
+          <div class="display-lg">Choose your next event</div>
+          <div class="action-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+        <div class="grid-choice-overlay">
+          <div class="display-lg grid-choice-title">Choose your next video</div>
+          <div class="grid-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-task-cancel fail">✗</button>
+        <button class="btn-task-cancel confirm">✓</button>
+      </div>
+      <div class="chooseTint">
+        <div class="display-lg">Tap START to begin</div>
+        <div class="emojisPlan">⏱️🫁🔥</div>
+      </div>
+    </div>
+
+    <div class="quadrant" id="q2">
+      <div class="video-container">
+        <video class="quad-video" src="clips/aurora.mp4" loop muted></video>
+        <div class="vibe-overlay"></div>
+        <div class="event-overlay" data-effect="light" style="background: radial-gradient(circle at 50% 50%, rgba(255,140,0,.6), rgba(0,0,0,.75)); mix-blend-mode: screen;"></div>
+        <div class="event-overlay" data-effect="smoke" style="background: radial-gradient(circle at 50% 50%, rgba(200,200,200,.55), rgba(0,0,0,.8));"></div>
+        <div class="event-overlay" data-effect="inhale" style="background: rgba(0,128,0,.45);"></div>
+        <div class="event-overlay" data-effect="hold" style="background: rgba(128,128,128,.4);"></div>
+        <div class="event-overlay" data-effect="exhale" style="background: rgba(0,0,255,.4);"></div>
+        <div class="event-overlay" data-effect="sniff" style="background: rgba(255,255,0,.35);"></div>
+        <div class="event-overlay" data-effect="mask" style="background: rgba(20,20,25,.75);"></div>
+        <div class="event-overlay" data-effect="action" style="background: rgba(255,255,255,.08);"></div>
+        <div class="video-countdown-overlay overlay">
+          <div class="inner">
+            <div class="display-xxl countdown-text">--</div>
+            <div class="timer-text countdown-timer">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-container">
+        <div class="info-text-overlay display-lg">Ready</div>
+        <div class="nextEventTimer">Until <span class="nextEventName">?</span> <span class="nextEventTime">0</span>s</div>
+        <div class="validation-overlay">
+          <div class="display-lg validation-title">Did you complete?</div>
+          <div class="validation-timer">10</div>
+          <div>
+            <button class="btn-validate-yes">✓</button>
+            <button class="btn-validate-no">✗</button>
+          </div>
+        </div>
+        <div class="breath-count-overlay">
+          <div class="display-lg">How many breaths?</div>
+          <div class="breath-count-timer">10</div>
+          <div class="choices"></div>
+        </div>
+        <div class="action-choice-overlay">
+          <div class="display-lg">Choose your next event</div>
+          <div class="action-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+        <div class="grid-choice-overlay">
+          <div class="display-lg grid-choice-title">Choose your next video</div>
+          <div class="grid-choice-timer">20</div>
+          <div class="choices"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="btn-task-cancel fail">✗</button>
+        <button class="btn-task-cancel confirm">✓</button>
+      </div>
+      <div class="chooseTint">
+        <div class="display-lg">Tap START to begin</div>
+        <div class="emojisPlan">⏱️🫁🔥</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const VIBES = [
+      {
+        key: "cosmic",
+        name: "Cosmic",
+        palette: { base: "#0c0a1f", accent: "#e6a7ff", dark: "#000000" },
+        font: { family: '"Orbitron", sans-serif', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.1) saturate(1.2)",
+          css_animation: null,
+          overlay_gradient: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)",
+          overlay_blend_mode: "multiply",
+          overlay_video: null,
+        },
     <label for="folderPicker">🎬 Pick videos</label>
     <input id="folderPicker" type="file" webkitdirectory directory multiple accept="video/*" />
     <button id="btnStart">▶︎ Start</button>
@@ -463,7 +720,7 @@
     <div class="choose-layout">
       <div class="choose-video-area">
         <div class="chooseTitle">PICK A VIDEO</div>
-        <div class="choose-grid">
+        <div class="choose-grid start-grid">
           <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
           <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
           <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
@@ -471,33 +728,18 @@
         </div>
       </div>
       <div class="choose-panel-area">
-        <div class="theme-name"></div>
+        <div class="theme-name start-theme-title"></div>
+        <div class="choose-actions start-controls">
+          <button class="btn-change-theme">Change Theme</button>
+          <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:1.4rem; padding:.9rem 2.2rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+        </div>
         <div class="vibe-preview">
           <div class="preview-title">VIBE PREVIEW</div>
           <div class="preview-panel preview-panel-info">Info panel</div>
           <div class="preview-panel preview-panel-video">Video label</div>
         </div>
-        <div class="choose-actions">
-          <button class="btn-change-theme">Switch Theme</button>
-          <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:1.4rem; padding:.9rem 2.2rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
-        </div>
       </div>
     </div>
-    <div class="chooseTitle">CHOOSE THEME</div>
-    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
-    <div class="choose-grid">
-      <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-      <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-      <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-      <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-    </div>
-    <div class="vibe-preview">
-      <div class="preview-title">VIBE PREVIEW</div>
-      <div class="preview-panel preview-panel-info">Info panel</div>
-      <div class="preview-panel preview-panel-video">Video label</div>
-    </div>
-    <button class="btn-change-theme" style="margin-bottom:.5rem;">Change Theme</button>
-    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
   </div>
 </div>
 
@@ -581,7 +823,7 @@
     <div class="choose-layout">
       <div class="choose-video-area">
         <div class="chooseTitle">PICK A VIDEO</div>
-        <div class="choose-grid">
+        <div class="choose-grid start-grid">
           <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
           <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
           <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
@@ -589,33 +831,18 @@
         </div>
       </div>
       <div class="choose-panel-area">
-        <div class="theme-name"></div>
+        <div class="theme-name start-theme-title"></div>
+        <div class="choose-actions start-controls">
+          <button class="btn-change-theme">Change Theme</button>
+          <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:1.4rem; padding:.9rem 2.2rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+        </div>
         <div class="vibe-preview">
           <div class="preview-title">VIBE PREVIEW</div>
           <div class="preview-panel preview-panel-info">Info panel</div>
           <div class="preview-panel preview-panel-video">Video label</div>
         </div>
-        <div class="choose-actions">
-          <button class="btn-change-theme">Switch Theme</button>
-          <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:1.4rem; padding:.9rem 2.2rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
-        </div>
       </div>
     </div>
-    <div class="chooseTitle">CHOOSE THEME</div>
-    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
-    <div class="choose-grid">
-      <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-      <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-      <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-      <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
-    </div>
-    <div class="vibe-preview">
-      <div class="preview-title">VIBE PREVIEW</div>
-      <div class="preview-panel preview-panel-info">Info panel</div>
-      <div class="preview-panel preview-panel-video">Video label</div>
-    </div>
-    <button class="btn-change-theme" style="margin-bottom:.5rem;">Change Theme</button>
-    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
   </div>
 </div>
 </div>
@@ -625,6 +852,11 @@
 
   <script>
   (()=>{
+    console.log('[Init] 2playertimer.html script initializing...');
+    console.log('[Init] Browser:', navigator.userAgent);
+    console.log('[Init] Supports File API:', !!(window.File && window.FileReader && window.FileList && window.Blob));
+    console.log('[Init] Supports webkitdirectory:', 'webkitdirectory' in document.createElement('input'));
+    
     
     
     
@@ -697,6 +929,494 @@
         key: "vintage",
         name: "Vintage",
         palette: { base: "#f5e8d7", accent: "#5c4033", dark: "#422d24" },
+        font: { family: '"Special Elite", monospace', weight: "400", transform: "none" },
+        video_effects: {
+          css_filter: "sepia(0.8) contrast(1.1) saturate(0.8)",
+          css_animation: "vibe-anim-grain 0.3s steps(1) infinite",
+          overlay_gradient: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%)",
+          overlay_blend_mode: "multiply",
+          overlay_video: null,
+        },
+      },
+      {
+        key: "glitch",
+        name: "Glitch",
+        palette: { base: "#0a0a0a", accent: "#ff00ff", dark: "#000000" },
+        font: { family: '"Share Tech Mono", monospace', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.2)",
+          css_animation: "vibe-anim-glitch 0.5s steps(3) infinite",
+          overlay_gradient: "linear-gradient(90deg, rgba(255,0,255,0.1), rgba(0,255,255,0.1))",
+          overlay_blend_mode: "screen",
+          overlay_video: null,
+        },
+      },
+    ];
+
+    const ACTIONS = [
+      { label: "Stretch", duration: 10000 },
+      { label: "Sip Water", duration: 12000 },
+      { label: "Shake it out", duration: 9000 },
+      { label: "Dance", duration: 15000 },
+    ];
+
+    const PHASE_SETS = {
+      puff: ["READY_TO_PUFF", "PUFF_LIGHT", "PUFF_SMOKE", "PUFF_INHALE", "PUFF_HOLD", "PUFF_EXHALE", "PUFF_VALIDATION", "BREATH_COUNT_QUESTION"],
+      sniff: ["READY_TO_SNIFF", "SNIFF_MAIN", "SNIFF_VALIDATION"],
+      mask: ["READY_TO_MASK", "MASK_MAIN", "MASK_VALIDATION"],
+      action: ["READY_TO_ACTION", "ACTION_MAIN", "ACTION_VALIDATION"],
+      you_choose: ["YOU_CHOOSE_OVERLAY"],
+      grid_choice: ["GRID_CHOICE_OVERLAY"],
+    };
+
+    const PHASES = {
+      IDLE_GAP: { handler: "handleIdlePhase", duration: [30000, 75000], ui: { infoColor: "vibe", infoText: null, videoText: null, videoEffect: null, showCancel: false, showIdleCountdown: true } },
+      READY_TO_PUFF: { handler: "handleTimedPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Get Ready to Light", videoText: "READY", videoEffect: "ready", showCancel: false } },
+      PUFF_LIGHT: { handler: "handleTimedPhase", duration: 25000, ui: { infoColor: "#FF4500", infoText: "LIGHT", videoText: "LIGHT", videoEffect: "light", showCancel: true, cancelTarget: "IDLE_GAP" } },
+      PUFF_SMOKE: { handler: "handleTimedPhase", duration: 12000, ui: { infoColor: "linear-gradient(to bottom, #FFA500, #808080)", infoText: "SMOKE", videoText: "SMOKE", videoEffect: "smoke", showCancel: true, cancelTarget: "IDLE_GAP" } },
+      PUFF_INHALE: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "#008000", infoText: "INHALE", videoText: "INHALE", videoEffect: "inhale", showCancel: true, cancelTarget: "PUFF_VALIDATION" } },
+      PUFF_HOLD: { handler: "handleTimedPhase", duration: 4000, ui: { infoColor: "#808080", infoText: "HOLD", videoText: "HOLD", videoEffect: "hold", showCancel: true, cancelTarget: "PUFF_VALIDATION" } },
+      PUFF_EXHALE: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "#0000FF", infoText: "EXHALE", videoText: "EXHALE", videoEffect: "exhale", showCancel: true, cancelTarget: "PUFF_VALIDATION" } },
+      PUFF_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you complete the puff?", videoText: "", videoEffect: "validation" } },
+      BREATH_COUNT_QUESTION: { handler: "handleBreathPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "How many breaths?", videoText: "", videoEffect: "validation" } },
+
+      READY_TO_SNIFF: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "vibe", infoText: "Get Ready", videoText: "READY", videoEffect: "ready", showCancel: false } },
+      SNIFF_MAIN: { handler: "handleTimedPhase", duration: 8000, ui: { infoColor: "#FFFF00", infoText: "SNIFF", videoText: "SNIFF", videoEffect: "sniff", showCancel: true, cancelTarget: null } },
+      SNIFF_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you complete the sniff?", videoText: "", videoEffect: "validation" } },
+
+      READY_TO_MASK: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "vibe", infoText: "Mask up", videoText: "READY", videoEffect: "ready", showCancel: false } },
+      MASK_MAIN: { handler: "handleTimedPhase", duration: 20000, ui: { infoColor: "#36454F", infoText: "Keep the mask on", videoText: "MASK", videoEffect: "mask", showCancel: true, cancelTarget: "MASK_VALIDATION" } },
+      MASK_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you keep it on?", videoText: "", videoEffect: "validation" } },
+
+      READY_TO_ACTION: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "vibe", infoText: "Get Ready", videoText: "READY", videoEffect: "ready", showCancel: false } },
+      ACTION_MAIN: { handler: "handleActionPhase", duration: null, ui: { infoColor: "accent", infoText: "ACTION", videoText: "ACTION", videoEffect: "action", showCancel: true, cancelTarget: "IDLE_GAP" } },
+      ACTION_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you finish the action?", videoText: "", videoEffect: "validation" } },
+
+      YOU_CHOOSE_OVERLAY: { handler: "handleChoicePhase", duration: 20000, ui: { infoColor: "vibe", infoText: "Choose your next event", videoText: "READY", videoEffect: "ready" } },
+      GRID_CHOICE_OVERLAY: { handler: "handleGridChoicePhase", duration: 20000, ui: { infoColor: "vibe", infoText: "Choose your next video", videoText: "READY", videoEffect: "ready" } },
+      REPLAY_VIDEO_MAIN: { handler: "handleReplayPhase", duration: null, ui: { infoColor: "vibe", infoText: "Replay", videoText: "REPLAY", videoEffect: "action" } },
+    };
+
+    const PHASE_HANDLERS = {
+      handleIdlePhase: async (q, phase, rules, signal) => {
+        const duration = randDuration(rules.duration);
+        const nextName = phase.nextEventName || "Next";
+        setPhaseUI(q, rules.ui, { duration, nextEventName: nextName });
+        await sleep(duration, signal);
+      },
+      handleTimedPhase: async (q, phase, rules, signal) => {
+        const duration = phase.duration ?? rules.duration;
+        const data = { duration, loopText: phase.loopText };
+        setPhaseUI(q, rules.ui, data);
+        const promise = sleep(duration, signal);
+        if (rules.ui.showCancel) {
+          const aborted = await raceCancel(q, rules.ui.cancelTarget || "IDLE_GAP", promise, signal);
+          if (aborted) return;
+        } else {
+          await promise;
+        }
+      },
+      handleValidationPhase: async (q, phase, rules, signal) => {
+        const duration = rules.duration;
+        setPhaseUI(q, rules.ui, { duration });
+        showOverlayWithTimer(q.validationOverlay, duration);
+        const result = await waitForButtons(q.validationOverlay, duration, signal);
+        hideOverlay(q.validationOverlay);
+        if (result === "timeout") return;
+      },
+      handleBreathPhase: async (q, phase, rules, signal) => {
+        const duration = rules.duration;
+        setPhaseUI(q, rules.ui, { duration });
+        const overlay = q.breathCountOverlay;
+        const timerEl = overlay.querySelector(".breath-count-timer");
+        overlay.querySelector(".choices").innerHTML = "";
+        for (let i = 1; i <= 5; i++) {
+          const b = document.createElement("button");
+          b.textContent = i;
+          b.onclick = () => overlay.dispatchEvent(new CustomEvent("choice", { detail: i }));
+          overlay.querySelector(".choices").appendChild(b);
+        }
+        showOverlayWithTimer(overlay, duration, timerEl);
+        await waitForOverlayChoice(overlay, duration, signal);
+        hideOverlay(overlay);
+      },
+      handleChoicePhase: async (q, phase, rules, signal) => {
+        const duration = rules.duration;
+        setPhaseUI(q, rules.ui, { duration });
+        const overlay = q.actionChoiceOverlay;
+        const timerEl = overlay.querySelector(".action-choice-timer");
+        overlay.querySelector(".choices").innerHTML = "";
+        const options = pickUnique(["puff", "sniff", "mask", "action"], 3);
+        options.forEach(opt => {
+          const b = document.createElement("button");
+          b.textContent = opt.toUpperCase();
+          b.onclick = () => overlay.dispatchEvent(new CustomEvent("choice", { detail: opt }));
+          overlay.querySelector(".choices").appendChild(b);
+        });
+        showOverlayWithTimer(overlay, duration, timerEl);
+        const choice = await waitForOverlayChoice(overlay, duration, signal);
+        hideOverlay(overlay);
+        if (choice && choice !== "timeout") {
+          const phases = buildEventSequence(choice, q).slice(1); // skip idle so we prepend action
+          q.phaseQueue.unshift(...phases);
+        }
+      },
+      handleGridChoicePhase: async (q, phase, rules, signal) => {
+        const duration = rules.duration;
+        setPhaseUI(q, rules.ui, { duration });
+        const overlay = q.gridChoiceOverlay;
+        const timerEl = overlay.querySelector(".grid-choice-timer");
+        overlay.querySelector(".choices").innerHTML = "";
+        ["Aurora", "Ocean", "Forest", "City"].forEach(name => {
+          const b = document.createElement("button");
+          b.textContent = name;
+          b.onclick = () => overlay.dispatchEvent(new CustomEvent("choice", { detail: name }));
+          overlay.querySelector(".choices").appendChild(b);
+        });
+        showOverlayWithTimer(overlay, duration, timerEl);
+        const choice = await waitForOverlayChoice(overlay, duration, signal);
+        hideOverlay(overlay);
+        if (choice && choice !== "timeout") {
+          q.video.currentTime = 0;
+          q.video.play();
+        } else {
+          q.video.play();
+        }
+      },
+      handleActionPhase: async (q, phase, rules, signal) => {
+        const action = phase.action || ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+        const duration = action.duration;
+        setPhaseUI(q, { ...rules.ui, infoText: action.label, videoText: action.label }, { duration });
+        const promise = sleep(duration, signal);
+        const aborted = await raceCancel(q, "IDLE_GAP", promise, signal);
+        if (!aborted) await promise;
+      },
+      handleReplayPhase: async (q, phase, rules, signal) => {
+        q.video.currentTime = 0;
+        q.video.play();
+        const duration = Math.min((q.video.duration || 60) * 1000, 60000);
+        setPhaseUI(q, rules.ui, { duration });
+        await sleep(duration, signal);
+      },
+    };
+
+    function createQuad(el) {
+      const q = {
+        el,
+        video: el.querySelector("video.quad-video"),
+        vibeOverlay: el.querySelector(".vibe-overlay"),
+        videoCountdownOverlay: el.querySelector(".video-countdown-overlay"),
+        countdownText: el.querySelector(".countdown-text"),
+        countdownTimer: el.querySelector(".countdown-timer"),
+        infoTextOverlay: el.querySelector(".info-text-overlay"),
+        panelContainer: el.querySelector(".panel-container"),
+        nextEventTimerOverlay: el.querySelector(".nextEventTimer"),
+        nextEventName: el.querySelector(".nextEventName"),
+        nextEventTime: el.querySelector(".nextEventTime"),
+        validationOverlay: el.querySelector(".validation-overlay"),
+        breathCountOverlay: el.querySelector(".breath-count-overlay"),
+        actionChoiceOverlay: el.querySelector(".action-choice-overlay"),
+        gridChoiceOverlay: el.querySelector(".grid-choice-overlay"),
+        bottomBar: el.querySelector(".bottom-bar"),
+        cancelButtons: el.querySelectorAll(".btn-task-cancel"),
+        chooseTint: el.querySelector(".chooseTint"),
+        overlays_video: {},
+        eventOverlays: {},
+        phaseQueue: [],
+        vibe: VIBES[0],
+        abortController: null,
+      };
+
+      el.querySelectorAll(".event-overlay").forEach((o) => {
+        q.eventOverlays[o.dataset.effect] = o;
+      });
+
+      return q;
+    }
+
+    const quads = Array.from(document.querySelectorAll(".quadrant")).map(createQuad);
+
+    function applyVibe(q, vibe) {
+      q.vibe = vibe;
+      q.panelContainer.style.fontFamily = vibe.font.family;
+      q.panelContainer.style.fontWeight = vibe.font.weight;
+      q.panelContainer.style.textTransform = vibe.font.transform;
+      q.video.style.filter = vibe.video_effects.css_filter || "none";
+      q.video.style.animation = vibe.video_effects.css_animation || "none";
+      q.vibeOverlay.style.background = vibe.video_effects.overlay_gradient;
+      q.vibeOverlay.style.mixBlendMode = vibe.video_effects.overlay_blend_mode;
+      q.panelContainer.style.background = vibe.palette.base;
+    }
+
+    function setPhaseUI(q, uiRules, data = {}) {
+      clearAllUI(q);
+      const color = uiRules.infoColor === "vibe" ? q.vibe.palette.base : uiRules.infoColor === "accent" ? q.vibe.palette.accent : uiRules.infoColor;
+      if (color) q.panelContainer.style.background = color;
+      const infoText = data.loopText ? `${uiRules.infoText || ""} ${data.loopText}` : uiRules.infoText;
+      q.infoTextOverlay.textContent = infoText || "";
+      q.infoTextOverlay.classList.toggle("show", Boolean(infoText));
+
+      if (uiRules.videoText) {
+        q.countdownText.textContent = uiRules.videoText;
+      } else {
+        q.countdownText.textContent = "";
+      }
+      if (data.duration) startCountdown(q, data.duration, uiRules);
+
+      if (uiRules.videoEffect && q.eventOverlays[uiRules.videoEffect]) {
+        q.eventOverlays[uiRules.videoEffect].classList.add("show");
+      }
+
+      if (uiRules.showIdleCountdown) {
+        q.nextEventTimerOverlay.classList.add("show");
+        q.nextEventName.textContent = data.nextEventName || "Event";
+        q.nextEventTime.textContent = Math.ceil((data.duration || 0) / 1000);
+      }
+
+      if (uiRules.showCancel) {
+        q.cancelButtons.forEach((btn) => btn.classList.add("show"));
+      }
+    }
+
+    function clearAllUI(q) {
+      q.infoTextOverlay.classList.remove("show");
+      q.videoCountdownOverlay.classList.remove("show");
+      Object.values(q.eventOverlays).forEach((o) => o.classList.remove("show"));
+      hideOverlay(q.validationOverlay);
+      hideOverlay(q.breathCountOverlay);
+      hideOverlay(q.actionChoiceOverlay);
+      hideOverlay(q.gridChoiceOverlay);
+      q.nextEventTimerOverlay.classList.remove("show");
+      q.cancelButtons.forEach((btn) => btn.classList.remove("show"));
+      q.panelContainer.style.background = q.vibe.palette.base;
+    }
+
+    function startCountdown(q, duration, uiRules) {
+      q.videoCountdownOverlay.classList.add("show");
+      const start = performance.now();
+      const update = (now) => {
+        const elapsed = now - start;
+        const remaining = Math.max(0, duration - elapsed);
+        q.countdownTimer.textContent = Math.ceil(remaining / 1000);
+        if (uiRules.showIdleCountdown) {
+          q.nextEventTime.textContent = Math.ceil(remaining / 1000);
+        }
+        if (remaining > 0) {
+          q.countdownRaf = requestAnimationFrame(update);
+        }
+      };
+      if (q.countdownRaf) cancelAnimationFrame(q.countdownRaf);
+      q.countdownRaf = requestAnimationFrame(update);
+    }
+
+    function showOverlayWithTimer(overlay, duration, timerEl = null) {
+      overlay.classList.add("show");
+      const target = timerEl || overlay.querySelector(".validation-timer") || overlay.querySelector(".breath-count-timer") || overlay.querySelector(".action-choice-timer") || overlay.querySelector(".grid-choice-timer");
+      const start = performance.now();
+      const tick = (now) => {
+        const remaining = Math.max(0, duration - (now - start));
+        if (target) target.textContent = Math.ceil(remaining / 1000);
+        if (remaining > 0) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function hideOverlay(overlay) {
+      overlay.classList.remove("show");
+    }
+
+    function waitForButtons(overlay, duration, signal) {
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve("timeout"), duration);
+        const onClick = (e) => {
+          clearTimeout(timer);
+          overlay.removeEventListener("click", onClick);
+          resolve(e.target.classList.contains("btn-validate-yes") ? "yes" : "no");
+        };
+        overlay.addEventListener("click", onClick);
+        signal.addEventListener("abort", () => {
+          clearTimeout(timer);
+          overlay.removeEventListener("click", onClick);
+          resolve("abort");
+        }, { once: true });
+      });
+    }
+
+    function waitForOverlayChoice(overlay, duration, signal) {
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve("timeout"), duration);
+        const handler = (e) => {
+          clearTimeout(timer);
+          overlay.removeEventListener("choice", handler);
+          resolve(e.detail);
+        };
+        overlay.addEventListener("choice", handler);
+        signal.addEventListener("abort", () => {
+          clearTimeout(timer);
+          overlay.removeEventListener("choice", handler);
+          resolve("abort");
+        }, { once: true });
+      });
+    }
+
+    function raceCancel(q, targetPhase, promise) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const cleanup = () => q.cancelButtons.forEach((btn) => (btn.onclick = null));
+        const onClick = () => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          q.abortController?.abort();
+          q.phaseQueue.unshift({ type: targetPhase });
+          resolve(true);
+        };
+        q.cancelButtons.forEach((btn) => (btn.onclick = onClick));
+        promise
+          .then(() => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(false);
+          })
+          .catch(() => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(false);
+          });
+      });
+    }
+
+    function randDuration(range) {
+      if (Array.isArray(range)) {
+        const [min, max] = range;
+        return Math.floor(min + Math.random() * (max - min));
+      }
+      return range;
+    }
+
+    function sleep(ms, signal) {
+      return new Promise((resolve, reject) => {
+        const id = setTimeout(() => resolve(), ms);
+        if (signal) {
+          signal.addEventListener("abort", () => {
+            clearTimeout(id);
+            reject(new DOMException("Aborted", "AbortError"));
+          }, { once: true });
+        }
+      });
+    }
+
+    function pickUnique(list, count) {
+      const arr = [...list];
+      const result = [];
+      while (result.length < count && arr.length) {
+        const idx = Math.floor(Math.random() * arr.length);
+        result.push(arr.splice(idx, 1)[0]);
+      }
+      return result;
+    }
+
+    function buildEventSequence(eventName, q) {
+      const phases = [];
+      const nextName = eventName.replace(/_/g, " ").toUpperCase();
+      phases.push({ type: "IDLE_GAP", nextEventName: nextName });
+
+      const set = PHASE_SETS[eventName];
+      if (!set) return phases;
+
+      set.forEach((type) => {
+        if (type === "PUFF_INHALE" || type === "PUFF_HOLD" || type === "PUFF_EXHALE") {
+          const loops = 2;
+          for (let i = 1; i <= loops; i++) {
+            phases.push({ type: "PUFF_INHALE", loopText: i });
+            phases.push({ type: "PUFF_HOLD", loopText: i });
+            phases.push({ type: "PUFF_EXHALE", loopText: i });
+          }
+        } else if (type === "ACTION_MAIN") {
+          phases.push({ type, action: ACTIONS[Math.floor(Math.random() * ACTIONS.length)] });
+        } else {
+          phases.push({ type });
+        }
+      });
+
+      return phases;
+    }
+
+    function buildAndEnqueueNextEvent(q) {
+      const events = ["puff", "sniff", "mask", "action", "you_choose", "grid_choice"];
+      const eventName = events[Math.floor(Math.random() * events.length)];
+      const seq = buildEventSequence(eventName, q);
+      q.phaseQueue.push(...seq);
+    }
+
+    async function processNextPhaseInQueue(q) {
+      if (q.processing) return;
+      q.processing = true;
+      while (q.phaseQueue.length) {
+        if (q.phaseQueue.length < 3) buildAndEnqueueNextEvent(q);
+        const phase = q.phaseQueue.shift();
+        const rules = PHASES[phase.type];
+        if (!rules) continue;
+        q.abortController = new AbortController();
+        try {
+          await PHASE_HANDLERS[rules.handler](q, phase, rules, q.abortController.signal);
+        } catch (err) {
+          if (err.name !== "AbortError") console.error(err);
+        }
+      }
+      q.processing = false;
+    }
+
+    function startApp() {
+      quads.forEach((q) => {
+        applyVibe(q, q.vibe);
+        q.chooseTint.style.display = "none";
+        q.video.muted = false;
+        q.video.play();
+        q.phaseQueue = [];
+        buildAndEnqueueNextEvent(q);
+        buildAndEnqueueNextEvent(q);
+        processNextPhaseInQueue(q);
+      });
+    }
+
+    function stopApp() {
+      quads.forEach((q) => {
+        q.abortController?.abort();
+        q.phaseQueue = [];
+        clearAllUI(q);
+        q.chooseTint.style.display = "flex";
+      });
+    }
+
+    function attachControls() {
+      document.querySelector(".btn-player-start").addEventListener("click", startApp);
+      document.querySelector(".btn-player-stop").addEventListener("click", stopApp);
+      document.querySelector(".btn-fullscreen").addEventListener("click", () => {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      });
+      document.querySelector(".btn-mute").addEventListener("click", () => {
+        quads.forEach((q) => (q.video.muted = !q.video.muted));
+      });
+
+      const select = document.querySelector(".vibe-select");
+      VIBES.forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = v.key;
+        opt.textContent = v.name;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", (e) => {
+        const vibe = VIBES.find((v) => v.key === e.target.value);
+        quads.forEach((q) => applyVibe(q, vibe));
+      });
+    }
+
+    attachControls();
+    quads.forEach((q) => applyVibe(q, VIBES[0]));
         text: "#2c1c12",
         panel_pattern: "radial-gradient(circle at 24% 30%, #ffffff33, transparent 50%), linear-gradient(135deg, rgba(92,64,51,0.1), transparent 60%), #f5e8d7",
         layout: { video: 2, panel: 1 },
@@ -789,7 +1509,7 @@
     const PHASES = {
       
       "IDLE_GAP": {
-        handler: "handleIdlePhase",
+        handler: handleIdlePhase,
         duration: [30000, 75000], 
         ui: {
           infoColor: "vibe_base",
@@ -798,7 +1518,7 @@
       },
       
       "READY_TO_PUFF": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -808,7 +1528,7 @@
         }
       },
       "READY_TO_SNIFF": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -818,7 +1538,7 @@
         }
       },
       "READY_FOR_MASK": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -829,7 +1549,7 @@
       },
       
       "PUFF_LIGHT": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 25000,
         ui: {
           videoEffect: "light",
@@ -840,7 +1560,7 @@
         }
       },
       "PUFF_SMOKE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 12000,
         ui: {
           videoEffect: "smoke",
@@ -851,7 +1571,7 @@
         }
       },
       "PUFF_INHALE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 5000,
         ui: {
           videoEffect: "inhale",
@@ -865,7 +1585,7 @@
         }
       },
       "PUFF_HOLD": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 4000,
         ui: {
           videoEffect: "hold",
@@ -879,7 +1599,7 @@
         }
       },
       "PUFF_EXHALE": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 5000,
         ui: {
           videoEffect: "exhale",
@@ -893,7 +1613,7 @@
         }
       },
       "PUFF_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -903,7 +1623,7 @@
         }
       },
       "BREATH_COUNT_QUESTION": {
-        handler: "handleBreathQuestionPhase",
+        handler: handleBreathQuestionPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -913,7 +1633,7 @@
       },
       
       "SNIFF_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 8000,
         ui: {
           videoEffect: "sniff",
@@ -927,7 +1647,7 @@
         }
       },
       "SNIFF_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -938,7 +1658,7 @@
       },
       
       "MASK_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 20000,
         ui: {
           videoEffect: "mask", 
@@ -952,7 +1672,7 @@
         }
       },
       "MASK_VALIDATION": {
-        handler: "handleValidationPhase",
+        handler: handleValidationPhase,
         duration: 10000,
         ui: {
           videoCountdown: true,
@@ -963,7 +1683,7 @@
       },
       
       "YOU_CHOOSE_OVERLAY": {
-        handler: "handleChoicePhase",
+        handler: handleChoicePhase,
         duration: 20000,
         ui: {
           videoCountdown: true,
@@ -972,7 +1692,7 @@
         }
       },
       "GRID_CHOICE_OVERLAY": {
-        handler: "handleGridChoicePhase",
+        handler: handleGridChoicePhase,
         duration: 20000,
         ui: {
           videoStop: true, 
@@ -982,7 +1702,7 @@
         }
       },
       "ACTION_MAIN": {
-        handler: "handleActionPhase",
+        handler: handleActionPhase,
         duration: 90000, 
         ui: {
           videoEffect: "action", 
@@ -996,7 +1716,7 @@
         }
       },
       "TRIVIA_MAIN": {
-        handler: "handleTriviaPhase",
+        handler: handleTriviaPhase,
         duration: 90000,
         ui: {
           videoEffect: "trivia", 
@@ -1008,7 +1728,7 @@
         }
       },
       "CHILL_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 30000,
         ui: {
           videoCountdown: true,
@@ -1018,7 +1738,7 @@
         }
       },
       "PEACE_MAIN": {
-        handler: "handleTimedPhase",
+        handler: handleTimedPhase,
         duration: 90000,
         ui: {
           videoEffect: "peace", 
@@ -1029,7 +1749,7 @@
         }
       },
       "REPLAY_VIDEO_MAIN": {
-        handler: "handleReplayPhase",
+        handler: handleReplayPhase,
         duration: 60000, 
         ui: {
           videoCountdown: true,
@@ -1085,80 +1805,121 @@
     };
 
     const getClipSource = (clip) => {
+      if (!clip) {
+        console.warn('[Clip] getClipSource called with no clip');
+        return '';
+      }
+      if (clip.cachedUrl) {
+        console.log('[Clip] Using cached URL for:', clipName(clip));
+        return clip.cachedUrl;
+      }
       if (!clip) return '';
       if (clip.cachedUrl) return clip.cachedUrl;
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
         clip.cachedUrl = url;
         createdObjectURLs.add(url);
+        createdObjectURLs.push(url);
+        console.log('[Clip] Created blob URL for file:', clip.file.name, '→', url.substring(0, 50) + '...');
         return url;
       }
       if (clip.url) {
         clip.cachedUrl = clip.url;
+        console.log('[Clip] Using direct URL for:', clipName(clip), '→', clip.url);
         return clip.url;
       }
+      console.warn('[Clip] No valid source found for clip:', clip);
       return '';
     };
 
     let fallbackLoadPromise = null;
 
     async function loadClipsFromDirectory() {
+      console.log('[Loading] Attempting to load clips from /clips directory...');
       try {
         const res = await fetch('clips/', { cache: 'no-store' });
+        console.log('[Loading] Fetch response status:', res.status, res.statusText);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const html = await res.text();
+        console.log('[Loading] Retrieved directory listing HTML, length:', html.length);
         const hrefMatches = [...html.matchAll(/href="([^"]+)"/gi)].map(m => m[1]);
+        console.log('[Loading] Found', hrefMatches.length, 'href matches in directory listing');
         const videoFiles = hrefMatches.filter(href => isLikelyVideo({ name: href }));
+        console.log('[Loading] Filtered to', videoFiles.length, 'video files');
         const uniqueFiles = [...new Set(videoFiles.map(href => href.replace(/^\.\/|^\//, '')))]
           .map(file => file.startsWith('clips/') ? file : `clips/${file}`);
+        console.log('[Loading] Unique video files:', uniqueFiles.length);
 
         if (uniqueFiles.length) {
           videos = uniqueFiles.map(path => {
             const name = path.split('/').pop() || path;
             return { name, url: path };
           });
+          console.log('[Loading] ✓ Successfully loaded', videos.length, 'clips from /clips directory');
           status.textContent = `Loaded ${videos.length} local clips from /clips.`;
           return true;
         }
+        console.warn('[Loading] No video files found in /clips directory');
       } catch (err) {
-        console.warn('Clip directory scan failed', err);
+        console.error('[Loading] ✗ Clip directory scan failed:', err.message);
+        console.error('[Loading] Error details:', err);
       }
       return false;
     }
 
     async function loadFallbackClips() {
-      if (fallbackLoadPromise) return fallbackLoadPromise;
+      if (fallbackLoadPromise) {
+        console.log('[Loading] Returning existing fallback load promise');
+        return fallbackLoadPromise;
+      }
+      console.log('[Loading] Starting fallback clip loading process...');
       fallbackLoadPromise = (async () => {
         const loadedFromDir = await loadClipsFromDirectory();
         if (!loadedFromDir) {
+          console.log('[Loading] Directory loading failed, attempting clips.json...');
           try {
             const res = await fetch('clips.json', { cache: 'no-store' });
+            console.log('[Loading] clips.json fetch response status:', res.status, res.statusText);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const list = await res.json();
+            console.log('[Loading] clips.json parsed, found', list.length, 'entries');
             if (Array.isArray(list) && list.length) {
               videos = list.map(path => {
                 const cleanPath = path.replace(/^\//, '');
                 const name = cleanPath.split('/').pop() || cleanPath;
                 return { name, url: cleanPath };
               });
+              console.log('[Loading] ✓ Successfully loaded', videos.length, 'clips from clips.json');
               status.textContent = `Loaded ${videos.length} built-in clips. Choose theme and press START.`;
+            } else {
+              console.warn('[Loading] clips.json is empty or not an array');
             }
           } catch (err) {
-            console.warn('Fallback clips unavailable', err);
+            console.error('[Loading] ✗ Failed to load clips.json:', err.message);
+            console.error('[Loading] Error details:', err);
           }
         }
+        console.log('[Loading] Fallback loading complete. Total videos available:', videos.length);
         return videos;
       })();
       return fallbackLoadPromise;
     }
 
     async function ensureClipsAvailable() {
-      if (videos.length >= 4) return true;
+      console.log('[Loading] Ensuring clips are available. Current count:', videos.length);
+      if (videos.length >= 4) {
+        console.log('[Loading] ✓ Already have', videos.length, 'clips loaded');
+        return true;
+      }
+      console.log('[Loading] Need to load fallback clips (minimum 4 required)');
       await loadFallbackClips();
-      return videos.length >= 4;
+      const hasEnough = videos.length >= 4;
+      console.log('[Loading]', hasEnough ? '✓' : '✗', 'After fallback loading:', videos.length, 'clips available');
+      return hasEnough;
     }
 
     function releaseClipUrls() {
+      console.log('[Cleanup] Releasing', videos.length, 'clip URLs and', createdObjectURLs.length, 'blob URLs');
       videos.forEach(clip => {
         if (clip && clip.cachedUrl && clip.cachedUrl.startsWith('blob:')) {
           try { URL.revokeObjectURL(clip.cachedUrl); } catch (e) {}
@@ -1169,6 +1930,8 @@
         try { URL.revokeObjectURL(url); } catch (e) {}
       });
       createdObjectURLs.clear();
+      createdObjectURLs = [];
+      console.log('[Cleanup] ✓ Clip URLs released');
     }
 
     function randomMidStart(duration){
@@ -1228,8 +1991,9 @@
           peace: rootEl.querySelector('.video-container .overlay[data-type="peace"]'), 
         },
         chooseTint: rootEl.querySelector('.chooseTint'),
-        chooseGrid: rootEl.querySelector('.chooseTint .choose-grid'),
-        chooseGridItems: rootEl.querySelectorAll('.chooseTint .choose-grid-item'),
+        chooseGrid: rootEl.querySelector('.chooseTint .start-grid'),
+        chooseGridItems: rootEl.querySelectorAll('.chooseTint .start-grid .choose-grid-item'),
+        startThemeTitle: rootEl.querySelector('.chooseTint .start-theme-title'),
         vibePreview: rootEl.querySelector('.chooseTint .vibe-preview'),
         vibePreviewInfo: rootEl.querySelector('.chooseTint .preview-panel-info'),
         vibePreviewVideo: rootEl.querySelector('.chooseTint .preview-panel-video'),
@@ -1276,16 +2040,30 @@
 
       
       if (q.phaseQueue.length < 3) {
+        console.log(`[PhaseQueue Q${q.id}] Queue running low (${q.phaseQueue.length} phases), building next event...`);
         buildAndEnqueueNextEvent(q);
       }
 
       
       const phase = q.phaseQueue.shift();
       if (!phase) {
+        console.warn(`[PhaseQueue Q${q.id}] No phase to process, queue is empty`);
         q.isProcessing = false;
         return;
       }
       q.currentPhase = phase;
+      
+      console.log(`[Phase Q${q.id}] ▶ Starting phase: ${phase.phaseName}`);
+      if (phase.duration) {
+        console.log(`[Phase Q${q.id}]   Duration: ${(phase.duration / 1000).toFixed(1)}s`);
+      }
+      if (phase.nextEventName) {
+        console.log(`[Phase Q${q.id}]   Next event: ${phase.nextEventName}`);
+      }
+      if (phase.action) {
+        console.log(`[Phase Q${q.id}]   Action: ${phase.action.label} (${phase.action.points}pts)`);
+      }
+      console.log(`[Phase Q${q.id}]   Remaining in queue: ${q.phaseQueue.length} phases`);
       
       q.abortController.abort(); 
       q.abortController = new AbortController();
@@ -1293,7 +2071,7 @@
       
       const rules = PHASES[phase.phaseName];
       if (!rules) {
-        console.error(`Unknown phase: ${phase.phaseName}. Skipping.`);
+        console.error(`[Phase Q${q.id}] ✗ Unknown phase: ${phase.phaseName}. Skipping.`);
         q.isProcessing = false;
         requestAnimationFrame(() => processNextPhaseInQueue(q));
         return;
@@ -1304,10 +2082,13 @@
       try {
         
         handlerResult = await rules.handler(q, phase, rules, signal);
+        console.log(`[Phase Q${q.id}] ✓ Completed phase: ${phase.phaseName} (result: ${handlerResult})`);
         
       } catch (err) {
         if (err.name !== 'AbortError') {
-          console.error(`Error during phase ${phase.phaseName}:`, err);
+          console.error(`[Phase Q${q.id}] ✗ Error during phase ${phase.phaseName}:`, err);
+        } else {
+          console.log(`[Phase Q${q.id}] ⊘ Phase ${phase.phaseName} aborted`);
         }
         handlerResult = false; 
       }
@@ -1325,6 +2106,7 @@
     
     
     function getEventPhases(q, eventName) {
+      console.log(`[EventPhases Q${q.id}] Building phases for event: ${eventName}`);
       let eventPhases = [];
       
       switch (eventName) {
@@ -1359,6 +2141,7 @@
             duration: action.seconds * 1000, 
             action: action 
           });
+          console.log(`[EventPhases Q${q.id}]   Selected action: "${action.label}" (${action.seconds}s, ${action.points}pts)`);
           break;
         case "You Choose":
           eventPhases.push({ phaseName: "YOU_CHOOSE_OVERLAY" });
@@ -1380,13 +2163,17 @@
           break;
         case "Redo Last":
           if (q.lastEvent && q.lastEvent !== "Redo Last") {
+            console.log(`[EventPhases Q${q.id}]   Redoing last event: ${q.lastEvent}`);
             return getEventPhases(q, q.lastEvent);
           } else {
+            console.log(`[EventPhases Q${q.id}]   No valid last event, defaulting to Chill`);
             return getEventPhases(q, "Chill");
           }
         default:
+          console.warn(`[EventPhases Q${q.id}] Unknown event "${eventName}", defaulting to Chill`);
           return getEventPhases(q, "Chill");
       }
+      console.log(`[EventPhases Q${q.id}]   Created ${eventPhases.length} phases for ${eventName}`);
       return eventPhases;
     }
 
@@ -1409,8 +2196,13 @@
         nextEventName = "Trivia";
       }
       
+      console.log(`[EventQueue Q${q.id}] Selected next event: ${nextEventName} (random=${rand.toFixed(3)})`);
       
       const idleRules = PHASES["IDLE_GAP"];
+      if (!idleRules) {
+        console.error(`[EventQueue Q${q.id}] ✗ Failed to add event - IDLE_GAP phase rules not found`);
+        return;
+      }
       const idleDuration = idleRules.duration[0] + Math.random() * (idleRules.duration[1] - idleRules.duration[0]);
       
       const idlePhase = { 
@@ -1421,9 +2213,16 @@
       
       
       const eventPhases = getEventPhases(q, nextEventName);
+      if (!eventPhases || eventPhases.length === 0) {
+        console.error(`[EventQueue Q${q.id}] ✗ Failed to add event "${nextEventName}" - no phases returned`);
+        return;
+      }
       
       
       q.phaseQueue.push(idlePhase, ...eventPhases);
+      console.log(`[EventQueue Q${q.id}] ✓ Added ${eventPhases.length + 1} phases to queue (IDLE_GAP + ${nextEventName})`);
+      console.log(`[EventQueue Q${q.id}] Queue length now: ${q.phaseQueue.length} phases`);
+      console.log(`[EventQueue Q${q.id}] Phases added:`, [idlePhase.phaseName, ...eventPhases.map(p => p.phaseName)].join(' → '));
       
       q.lastEvent = nextEventName;
     }
@@ -1793,13 +2592,14 @@
     
     function setPhaseUI(q, phase, uiRules, data = {}) {
       const now = performance.now();
-      if (q.currentPhase) {
+      const targetPhase = q.currentPhase || phase;
+      if (targetPhase) {
         if (typeof data.duration === 'number') {
-          q.currentPhase.startTime = now;
-          q.currentPhase.duration = data.duration;
+          targetPhase.startTime = now;
+          targetPhase.duration = data.duration;
         } else {
-          q.currentPhase.startTime = null;
-          q.currentPhase.duration = null;
+          targetPhase.startTime = null;
+          targetPhase.duration = null;
         }
       }
       
@@ -1840,6 +2640,10 @@
           label = `${label} ${data.loop}`.trim();
         }
         q.videoCountdownLabel.textContent = label;
+        if (typeof data.duration === 'number') {
+          q.videoCountdownTimer.textContent = Math.ceil(data.duration / 1000);
+        }
+        q.countdownEndTime = null;
         startCountdown(q, data.duration, q.abortController.signal);
         q.videoCountdownOverlay.classList.add('show');
       }
@@ -1871,12 +2675,19 @@
     
     
     function clearPhaseUI(q) {
-      
+
       q.infoTextOverlay.classList.remove('show');
       q.infoTextOverlay.innerHTML = "";
       q.panelContainer.style.background = q.vibe ? getVibeBase(q) : q.panelContainer.style.background;
 
-      
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+        q.currentCountdownTimer = null;
+      }
+      q.countdownEndTime = null;
+
+
       q.videoCountdownOverlay.classList.remove('show');
       q.videoCountdownTimer.textContent = "--";
       q.videoCountdownLabel.textContent = "";
@@ -1962,6 +2773,45 @@
         };
         signal.addEventListener('abort', abortHandler, { once: true });
       }
+      if (typeof duration !== 'number' || duration <= 0) return;
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+      }
+
+      const end = performance.now() + duration;
+      q.countdownEndTime = end;
+      let timerId = null;
+
+      const update = ()=>{
+        const leftMs = (end - performance.now());
+        if (leftMs <= 0) {
+            q.videoCountdownTimer.textContent = "0";
+            if (timerId) {
+                clearInterval(timerId);
+                activeIntervals.delete(timerId);
+                if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+                timerId = null;
+            }
+            return;
+        }
+        q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
+      };
+
+      timerId = setInterval(update, 100);
+      q.currentCountdownTimer = timerId; 
+      activeIntervals.add(timerId);
+      update(); 
+
+      signal.addEventListener('abort', () => {
+        if (timerId) {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+          timerId = null;
+        }
+        q.countdownEndTime = null;
+      });
     }
     
     
@@ -1985,6 +2835,7 @@
 
     function createBubbles(container, count) {
       // Reuse existing bubbles to avoid DOM thrashing
+      // Reuse existing bubbles if possible to avoid DOM thrashing
       const existingBubbles = container.querySelectorAll('.bubble');
       
       // Reuse existing bubbles
@@ -2099,9 +2950,16 @@
     
 
     async function setThumbnail(videoEl, clip){
-      if (!clip) return;
+      if (!clip) {
+        console.warn('[Thumbnail] setThumbnail called with no clip');
+        return;
+      }
       const url = getClipSource(clip);
-      if (!url) return;
+      if (!url) {
+        console.warn('[Thumbnail] No URL available for clip:', clipName(clip));
+        return;
+      }
+      console.log('[Thumbnail] Setting thumbnail for:', clipName(clip));
       const prev = videoEl.dataset.srcUrl;
       if (prev && prev !== url && prev.startsWith('blob:')) {
         try { URL.revokeObjectURL(prev); } catch (e) {}
@@ -2118,10 +2976,14 @@
       }
 
       videoEl._thumbnailMetadataHandler = () => {
+        console.log('[Thumbnail] Metadata loaded for:', clipName(clip));
         videoEl.currentTime = randomMidStart(videoEl.duration);
-        videoEl.play().catch(()=>{});
+        videoEl.play().catch((err)=>{
+          console.warn('[Thumbnail] Autoplay failed for:', clipName(clip), err.message);
+        });
       };
-      videoEl._thumbnailErrorHandler = () => {
+      videoEl._thumbnailErrorHandler = (err) => {
+        console.error('[Thumbnail] ✗ Error loading thumbnail for:', clipName(clip), err);
         if (url.startsWith('blob:')) {
           try { URL.revokeObjectURL(url); } catch (e) {}
         }
@@ -2134,7 +2996,11 @@
     function startVideoCycling(qi, initialClip) {
       const q = quads[qi];
       const v = q.video;
-      if (!v || !initialClip || videos.length === 0) return;
+      if (!v || !initialClip || videos.length === 0) {
+        console.warn('[VideoCycle] Cannot start cycling - missing video element or clips');
+        return;
+      }
+      console.log('[VideoCycle] Starting video cycling for quadrant', qi, 'with clip:', clipName(initialClip));
 
       q.clipIndex = videos.indexOf(initialClip);
       if (q.clipIndex === -1) q.clipIndex = 0;
@@ -2149,6 +3015,7 @@
 
       v._cycleEndedHandler = async () => {
         if (cycleAbort) return;
+        console.log('[VideoCycle] Video ended for quadrant', qi, '- cycling to next');
         if (v.src && v.src.startsWith('blob:')) {
           const oldUrl = v.src;
           createdObjectURLs.delete(oldUrl);
@@ -2174,14 +3041,24 @@
 
         q.clipIndex = nextClipIndex;
         const nextClip = videos[nextClipIndex];
-        if (!nextClip) return;
+        if (!nextClip) {
+          console.warn('[VideoCycle] No next clip found at index', nextClipIndex);
+          return;
+        }
+        console.log('[VideoCycle] Loading next clip for quadrant', qi, ':', clipName(nextClip));
         const url = getClipSource(nextClip);
         v.src = url;
         try { await v.play(); }
-        catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
+        catch (e) { 
+          console.warn('[VideoCycle] Autoplay failed for quadrant', qi, ':', e.message);
+          setTimeout(() => v.dispatchEvent(new Event('ended')), 100); 
+        }
       };
 
-      v._cycleErrorHandler = () => { v.dispatchEvent(new Event('ended')); };
+      v._cycleErrorHandler = () => { 
+        console.error('[VideoCycle] Video error for quadrant', qi, '- triggering next cycle');
+        v.dispatchEvent(new Event('ended')); 
+      };
 
       v.addEventListener('ended', v._cycleEndedHandler);
       v.addEventListener('error', v._cycleErrorHandler);
@@ -2194,7 +3071,8 @@
       }
       const url = getClipSource(initialClip);
       v.src = url;
-      v.play().catch(e => { console.warn(`Quadrant ${qi} initial autoplay failed.`, e); });
+      console.log('[VideoCycle] Starting initial playback for quadrant', qi);
+      v.play().catch(e => { console.warn('[VideoCycle] ✗ Quadrant', qi, 'initial autoplay failed:', e.message); });
     }
 
     function stopAllLoops() {
@@ -2256,14 +3134,17 @@
     }
 
     async function startApp(){
+      console.log('[App] Starting application...');
       cycleAbort = false;
       stopAllLoops();
 
       const hasClips = await ensureClipsAvailable();
       if (!hasClips || videos.length < 4) {
+        console.error('[App] ✗ Cannot start - insufficient clips:', videos.length);
         status.textContent = "Please load at least 4 videos.";
         return;
       }
+      console.log('[App] ✓ Starting with', videos.length, 'clips available');
       
       const playerReady = [false, false];
 
@@ -2286,12 +3167,9 @@
         const themeName = chooseTint.querySelector('.theme-name');
 
         const renderStartGrid = () => {
-          const shuffled = [...videos];
-          for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          if (!startPool.length) {
+            startPool = videos.slice(0, Math.min(4, videos.length));
           }
-          startPool = shuffled.slice(0, Math.min(4, shuffled.length));
           if (!q.selectedStartClip && startPool.length) {
             const pickIdx = Math.min(q.id, startPool.length - 1);
             q.selectedStartClip = startPool[pickIdx];
@@ -2357,6 +3235,20 @@
           chooseTint.style.background = `linear-gradient(120deg, ${pal.base}66, ${pal.accent}66)`;
           themeName.textContent = q.vibe.name.toUpperCase();
           themeName.style.color = pal.accent;
+          if (q.startThemeTitle) {
+            q.startThemeTitle.textContent = q.vibe.name.toUpperCase();
+            q.startThemeTitle.style.color = pal.accent;
+            q.startThemeTitle.style.fontFamily = font.family;
+            q.startThemeTitle.style.textTransform = font.transform;
+            q.startThemeTitle.style.textShadow = `0 8px 28px ${pal.accent}55`;
+          }
+          chooseTint.querySelectorAll('.btn-change-theme, .btn-player-start').forEach(btn => {
+            btn.style.background = `color-mix(in srgb, ${pal.accent} 70%, ${pal.base} 30%)`;
+            btn.style.borderColor = `${pal.accent}aa`;
+            btn.style.color = q.vibe.text || '#f8fbff';
+            btn.style.textTransform = font.transform;
+            btn.style.fontFamily = font.family;
+          });
 
           const textColor = q.vibe.text || '#f8fbff';
           q.el.style.setProperty('--themeBase', pal.base);
@@ -2459,6 +3351,7 @@
     }
     
     function stopApp() {
+        console.log('[App] Stopping application...');
         cycleAbort = true;
         quads.forEach(q=>{
           q.abortController.abort("stop");
@@ -2511,6 +3404,7 @@
         });
         createdObjectURLs.clear();
 
+        console.log('[App] ✓ Application stopped');
         status.textContent='Stopped. Reload videos to start again.';
         document.querySelectorAll('.quadrant').forEach(el => el.classList.add('choose-phase'));
     }
@@ -2525,26 +3419,45 @@
       });
       
       folderPicker.addEventListener('change', async (e) => {
+        console.log('[FolderPicker] Change event triggered');
+        console.log('[FolderPicker] Files selected:', e.target.files.length);
         releaseClipUrls();
         try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
         createdObjectURLs.clear();
 
         const files = [...e.target.files].filter(isLikelyVideo);
-        if(files.length < 4){ status.textContent='Load at least 4 videos.'; return; }
+        console.log('[FolderPicker] Video files after filtering:', files.length);
+        files.forEach((f, idx) => {
+          if (idx < 5) console.log('[FolderPicker]  -', f.name, '(' + (f.size / 1024).toFixed(1) + ' KB)');
+        });
+        if (files.length > 5) console.log('[FolderPicker]  ... and', files.length - 5, 'more files');
+        
+        if(files.length < 4){ 
+          console.warn('[FolderPicker] ✗ Insufficient videos. Need at least 4, got', files.length);
+          status.textContent='Load at least 4 videos.'; 
+          return; 
+        }
         status.textContent='Loading videos…';
 
         videos = [];
         for(const f of files){
           videos.push({file: f, name:f.name});
         }
+        console.log('[FolderPicker] ✓ Successfully loaded', videos.length, 'videos from folder picker');
 
         status.textContent = `Loaded ${videos.length} videos. Choose theme and press START.`;
         btnStart.click();
       }, {passive:true});
 
       btnStart.addEventListener('click', async ()=> {
+        console.log('[Start] Start button clicked');
         const ready = await ensureClipsAvailable();
-        if (!ready){ status.textContent='Load at least 4 videos first.'; return; }
+        if (!ready){ 
+          console.warn('[Start] ✗ Not enough clips available');
+          status.textContent='Load at least 4 videos first.'; 
+          return; 
+        }
+        console.log('[Start] ✓ Starting app with', videos.length, 'clips');
         startApp();
       });
 
@@ -2582,7 +3495,9 @@
     
     attachControls();
     
+    console.log('[Init] Controls attached, loading fallback clips...');
     loadFallbackClips();
+    console.log('[Init] ✓ Initialization complete');
 
   })();
   </script>
