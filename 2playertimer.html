@@ -1026,23 +1026,31 @@
     let cycleAbort = false;
     const activeIntervals = new Set(); 
 
-    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+    const randomlySelectItem = (array)=> array[Math.floor(Math.random()*array.length)];
     
+    const waitForDuration = (milliseconds, signal) => new Promise((resolve, reject) => {
     const sleep = (ms, signal) => new Promise((resolve, reject) => {
+        if (!signal || signal.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'));
+            return;
+        }
+        
         const timeout = setTimeout(() => {
             activeIntervals.delete(timeout);
             resolve(true); 
-        }, ms);
+        }, milliseconds);
         activeIntervals.add(timeout);
         
-        signal.addEventListener('abort', () => {
+        const abortHandler = () => {
             clearTimeout(timeout);
             activeIntervals.delete(timeout);
             reject(new DOMException('Aborted', 'AbortError'));
-        });
+        };
+        
+        signal.addEventListener('abort', abortHandler, { once: true });
     });
     
-    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
+    const convertToTitleCase = (string)=> (string||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(word=>word[0]?word[0].toUpperCase()+word.slice(1):'').join(' ');
 
     const clipName = (clip) => (clip && clip.file && clip.file.name) || (clip && clip.name) || '';
 
@@ -1217,6 +1225,10 @@
 
       
       const phase = q.phaseQueue.shift();
+      if (!phase) {
+        q.isProcessing = false;
+        return;
+      }
       q.currentPhase = phase;
       
       q.abortController.abort(); 
@@ -1285,7 +1297,7 @@
           eventPhases.push({ phaseName: "MASK_VALIDATION" });
           break;
         case "Action":
-          const action = pick(ACTIONS);
+          const action = randomlySelectItem(ACTIONS);
           eventPhases.push({ 
             phaseName: "ACTION_MAIN", 
             duration: action.seconds * 1000, 
@@ -1368,7 +1380,7 @@
         duration: duration, 
         nextEventName: phase.nextEventName 
       });
-      await sleep(duration, signal);
+      await waitForDuration(duration, signal);
       return true; 
     }
 
@@ -1380,7 +1392,7 @@
         loop: phase.loop 
       });
       
-      const timerPromise = sleep(duration, signal);
+      const timerPromise = waitForDuration(duration, signal);
 
       if (rules.ui.showCancel) {
         const { promise: cancelPromise, cleanup } = showCancelButtons(q, phase, rules.ui.cancelTarget);
@@ -1517,7 +1529,7 @@
       let result = { success: true, score: -2 }; 
       
       try {
-        const timerPromise = sleep(duration, signal);
+        const timerPromise = waitForDuration(duration, signal);
         const winner = await Promise.race([timerPromise, cancelPromise]);
         
         if (winner === "cancel") {
@@ -1645,7 +1657,7 @@
             const v = item.querySelector('video');
             const label = item.querySelector('.item-label');
             setThumbnail(v, clip);
-            if(label) label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+            if(label) label.textContent = convertToTitleCase(clip.name) || 'Video ' + (idx+1);
             item.style.display = 'block';
 
             const handler = () => {
@@ -1654,7 +1666,7 @@
               cleanup();
               resolve(true);
             };
-            item.addEventListener('click', handler);
+            item.addEventListener('click', handler, { once: true });
             clickHandlers.push({item, handler});
           });
           for(let j=choices.length; j<gridItems.length; j++) { gridItems[j].style.display = 'none'; }
@@ -1679,9 +1691,20 @@
             clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
             gridItems.forEach(item => {
               const v = item.querySelector('video');
-              if (v && v.src && v.src.startsWith('blob:')) {
-                URL.revokeObjectURL(v.src);
-                v.src = '';
+              if (v) {
+                // Clean up thumbnail event listeners
+                if (v._thumbnailMetadataHandler) {
+                  v.removeEventListener('loadedmetadata', v._thumbnailMetadataHandler);
+                  v._thumbnailMetadataHandler = null;
+                }
+                if (v._thumbnailErrorHandler) {
+                  v.removeEventListener('error', v._thumbnailErrorHandler);
+                  v._thumbnailErrorHandler = null;
+                }
+                if (v.src && v.src.startsWith('blob:')) {
+                  try { URL.revokeObjectURL(v.src); } catch (e) {}
+                  v.src = '';
+                }
               }
             });
             overlay.classList.remove('show');
@@ -1696,7 +1719,7 @@
         
         setPhaseUI(q, phase, rules.ui, { duration: duration });
         
-        await sleep(duration, signal);
+        await waitForDuration(duration, signal);
         addTally(q, 5);
         return true;
     }
@@ -1707,7 +1730,7 @@
       console.log("Trivia Phase Started");
       const duration = rules.duration;
       setPhaseUI(q, phase, rules.ui, { duration: duration });
-      await sleep(duration, signal);
+      await waitForDuration(duration, signal);
       return true;
     }
 
@@ -1828,7 +1851,7 @@
         const now = performance.now();
         quads.forEach(q => {
           // Update countdown timers using RAF instead of setInterval
-          if (q.countdownEndTime) {
+          if (q.countdownEndTime && q.videoCountdownTimer) {
             const leftMs = q.countdownEndTime - now;
             if (leftMs <= 0) {
               q.videoCountdownTimer.textContent = "0";
@@ -1848,12 +1871,18 @@
             const sLeft = Math.max(0, Math.ceil(msLeft / 1000));
             
             
-            q.videoCountdownTimer.textContent = sLeft;
-            const infoTimer = q.infoTextOverlay.querySelector('.countdown');
+            if (q.videoCountdownTimer) {
+              q.videoCountdownTimer.textContent = sLeft;
+            }
+            const infoTimer = q.infoTextOverlay?.querySelector('.countdown');
             if (infoTimer) infoTimer.textContent = sLeft;
           }
         });
-        globalRafId = requestAnimationFrame(tick);
+        if (!cycleAbort) {
+          globalRafId = requestAnimationFrame(tick);
+        } else {
+          globalRafId = null;
+        }
       };
       globalRafId = requestAnimationFrame(tick);
     }
@@ -1903,14 +1932,18 @@
           if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
           timerId = null;
         }
+      if (!q || !q.videoCountdownTimer) return;
       
       // Store countdown end time for RAF-based updates in global clock
       q.countdownEndTime = performance.now() + duration;
       
       // Clean up on abort
-      signal.addEventListener('abort', () => {
-        q.countdownEndTime = null;
-      });
+      if (signal) {
+        const abortHandler = () => {
+          q.countdownEndTime = null;
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
+      }
     }
     
     
@@ -1938,6 +1971,7 @@
         const bubble = document.createElement('div');
         bubble.className = `bubble`;
       // Reuse existing bubbles if possible
+      // Reuse existing bubbles if possible to avoid DOM thrashing
       const existingBubbles = container.querySelectorAll('.bubble');
       
       // Reuse existing bubbles
@@ -1956,7 +1990,7 @@
         }
       }
       
-      // Create new bubbles if needed
+      // Create new bubbles only if needed
       for(let i=existingBubbles.length; i < count; i++) {
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
@@ -2062,15 +2096,26 @@
       videoEl.dataset.srcUrl = url;
       videoEl.src = url;
 
-      videoEl.onloadedmetadata = () => {
+      // Clean up old event listeners to prevent memory leaks
+      if (videoEl._thumbnailMetadataHandler) {
+        videoEl.removeEventListener('loadedmetadata', videoEl._thumbnailMetadataHandler);
+      }
+      if (videoEl._thumbnailErrorHandler) {
+        videoEl.removeEventListener('error', videoEl._thumbnailErrorHandler);
+      }
+
+      videoEl._thumbnailMetadataHandler = () => {
         videoEl.currentTime = randomMidStart(videoEl.duration);
         videoEl.play().catch(()=>{});
-        videoEl.onloadedmetadata = null;
       };
-      videoEl.onerror = () => {
-        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
-        videoEl.onerror = null;
+      videoEl._thumbnailErrorHandler = () => {
+        if (url.startsWith('blob:')) {
+          try { URL.revokeObjectURL(url); } catch (e) {}
+        }
       };
+      
+      videoEl.addEventListener('loadedmetadata', videoEl._thumbnailMetadataHandler, { once: true });
+      videoEl.addEventListener('error', videoEl._thumbnailErrorHandler, { once: true });
     }
 
     function startVideoCycling(qi, initialClip) {
@@ -2081,13 +2126,21 @@
       q.clipIndex = videos.indexOf(initialClip);
       if (q.clipIndex === -1) q.clipIndex = 0;
 
-      v.onended = async () => {
+      // Remove old event listeners to prevent memory leaks
+      if (v._cycleEndedHandler) {
+        v.removeEventListener('ended', v._cycleEndedHandler);
+      }
+      if (v._cycleErrorHandler) {
+        v.removeEventListener('error', v._cycleErrorHandler);
+      }
+
+      v._cycleEndedHandler = async () => {
         if (cycleAbort) return;
         if (v.src && v.src.startsWith('blob:')) {
           const oldUrl = v.src;
           const index = createdObjectURLs.indexOf(oldUrl);
           if (index > -1) createdObjectURLs.splice(index, 1);
-          URL.revokeObjectURL(oldUrl);
+          try { URL.revokeObjectURL(oldUrl); } catch (e) {}
         }
         
         
@@ -2109,20 +2162,24 @@
 
         q.clipIndex = nextClipIndex;
         const nextClip = videos[nextClipIndex];
-      if (!nextClip) return;
-      const url = getClipSource(nextClip);
-      v.src = url;
-      try { await v.play(); }
-      catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
+        if (!nextClip) return;
+        const url = getClipSource(nextClip);
+        v.src = url;
+        try { await v.play(); }
+        catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
       };
 
-      v.onerror = () => { v.dispatchEvent(new Event('ended')); };
+      v._cycleErrorHandler = () => { v.dispatchEvent(new Event('ended')); };
 
+      v.addEventListener('ended', v._cycleEndedHandler);
+      v.addEventListener('error', v._cycleErrorHandler);
+
+      // Clean up old blob URL
       if (v.src && v.src.startsWith('blob:')) {
         const oldUrl = v.src;
         const index = createdObjectURLs.indexOf(oldUrl);
         if (index > -1) createdObjectURLs.splice(index, 1);
-        URL.revokeObjectURL(oldUrl);
+        try { URL.revokeObjectURL(oldUrl); } catch (e) {}
       }
       const url = getClipSource(initialClip);
       v.src = url;
@@ -2175,7 +2232,9 @@
       if (videos.length) {
         q.clipIndex = (q.clipIndex + 1) % videos.length;
         const clip = videos[q.clipIndex] || videos[0];
-        startVideoCycling(qi, clip);
+        if (clip) {
+          startVideoCycling(qi, clip);
+        }
       }
 
       buildAndEnqueueNextEvent(q);
@@ -2233,13 +2292,18 @@
             const vid = item.querySelector('video');
             const label = item.querySelector('.item-label');
             setThumbnail(vid, clip);
-            if (label) label.textContent = toTitle(clipName(clip)) || `Clip ${idx+1}`;
+            if (label) label.textContent = convertToTitleCase(clipName(clip)) || `Clip ${idx+1}`;
             item.classList.toggle('active', clip === q.selectedStartClip);
-            item.onclick = (ev) => {
+            // Remove old click handler before adding new one
+            if (item._chooseClickHandler) {
+              item.removeEventListener('click', item._chooseClickHandler);
+            }
+            item._chooseClickHandler = (ev) => {
               ev.stopPropagation();
               q.selectedStartClip = clip;
               renderStartGrid();
             };
+            item.addEventListener('click', item._chooseClickHandler);
           });
         };
 
@@ -2362,18 +2426,31 @@
           
           clearPhaseUI(q);
           
-          q.video.pause();
-          q.video.onended = null;
-          q.video.onerror = null;
-          if (q.video.src && q.video.src.startsWith('blob:')) {
-            URL.revokeObjectURL(q.video.src);
+          // Clean up video event listeners
+          if (q.video) {
+            q.video.pause();
+            if (q.video._cycleEndedHandler) {
+              q.video.removeEventListener('ended', q.video._cycleEndedHandler);
+              q.video._cycleEndedHandler = null;
+            }
+            if (q.video._cycleErrorHandler) {
+              q.video.removeEventListener('error', q.video._cycleErrorHandler);
+              q.video._cycleErrorHandler = null;
+            }
+            if (q.video.src && q.video.src.startsWith('blob:')) {
+              try { URL.revokeObjectURL(q.video.src); } catch (e) {}
+            }
+            q.video.src = "";
           }
-          q.video.src = "";
           
           if (q.vibe) {
-             q.video.style.filter = "none";
-             q.video.style.animation = "none";
-             q.vibeOverlay.style.background = "transparent";
+             if (q.video) {
+               q.video.style.filter = "none";
+               q.video.style.animation = "none";
+             }
+             if (q.vibeOverlay) {
+               q.vibeOverlay.style.background = "transparent";
+             }
           }
         });
         
@@ -2381,7 +2458,9 @@
         stopAllLoops();
 
         releaseClipUrls();
-        createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+        createdObjectURLs.forEach(url => {
+          try { URL.revokeObjectURL(url); } catch (e) {}
+        });
         createdObjectURLs = [];
 
         status.textContent='Stopped. Reload videos to start again.';
