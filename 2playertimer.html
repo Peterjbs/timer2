@@ -632,6 +632,11 @@
 
   <script>
   (()=>{
+    console.log('[Init] 2playertimer.html script initializing...');
+    console.log('[Init] Browser:', navigator.userAgent);
+    console.log('[Init] Supports File API:', !!(window.File && window.FileReader && window.FileList && window.Blob));
+    console.log('[Init] Supports webkitdirectory:', 'webkitdirectory' in document.createElement('input'));
+    
     
     
     
@@ -1092,82 +1097,118 @@
     };
 
     const getClipSource = (clip) => {
-      if (!clip) return '';
-      if (clip.file) {
-        const url = URL.createObjectURL(clip.file);
-      if (clip.cachedUrl) return clip.cachedUrl;
+      if (!clip) {
+        console.warn('[Clip] getClipSource called with no clip');
+        return '';
+      }
+      if (clip.cachedUrl) {
+        console.log('[Clip] Using cached URL for:', clipName(clip));
+        return clip.cachedUrl;
+      }
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
         clip.cachedUrl = url;
         createdObjectURLs.push(url);
+        console.log('[Clip] Created blob URL for file:', clip.file.name, '→', url.substring(0, 50) + '...');
         return url;
       }
       if (clip.url) {
         clip.cachedUrl = clip.url;
+        console.log('[Clip] Using direct URL for:', clipName(clip), '→', clip.url);
         return clip.url;
       }
+      console.warn('[Clip] No valid source found for clip:', clip);
       return '';
     };
 
     let fallbackLoadPromise = null;
 
     async function loadClipsFromDirectory() {
+      console.log('[Loading] Attempting to load clips from /clips directory...');
       try {
         const res = await fetch('clips/', { cache: 'no-store' });
+        console.log('[Loading] Fetch response status:', res.status, res.statusText);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const html = await res.text();
+        console.log('[Loading] Retrieved directory listing HTML, length:', html.length);
         const hrefMatches = [...html.matchAll(/href="([^"]+)"/gi)].map(m => m[1]);
+        console.log('[Loading] Found', hrefMatches.length, 'href matches in directory listing');
         const videoFiles = hrefMatches.filter(href => isLikelyVideo({ name: href }));
+        console.log('[Loading] Filtered to', videoFiles.length, 'video files');
         const uniqueFiles = [...new Set(videoFiles.map(href => href.replace(/^\.\/|^\//, '')))]
           .map(file => file.startsWith('clips/') ? file : `clips/${file}`);
+        console.log('[Loading] Unique video files:', uniqueFiles.length);
 
         if (uniqueFiles.length) {
           videos = uniqueFiles.map(path => {
             const name = path.split('/').pop() || path;
             return { name, url: path };
           });
+          console.log('[Loading] ✓ Successfully loaded', videos.length, 'clips from /clips directory');
           status.textContent = `Loaded ${videos.length} local clips from /clips.`;
           return true;
         }
+        console.warn('[Loading] No video files found in /clips directory');
       } catch (err) {
-        console.warn('Clip directory scan failed', err);
+        console.error('[Loading] ✗ Clip directory scan failed:', err.message);
+        console.error('[Loading] Error details:', err);
       }
       return false;
     }
 
     async function loadFallbackClips() {
-      if (fallbackLoadPromise) return fallbackLoadPromise;
+      if (fallbackLoadPromise) {
+        console.log('[Loading] Returning existing fallback load promise');
+        return fallbackLoadPromise;
+      }
+      console.log('[Loading] Starting fallback clip loading process...');
       fallbackLoadPromise = (async () => {
         const loadedFromDir = await loadClipsFromDirectory();
         if (!loadedFromDir) {
+          console.log('[Loading] Directory loading failed, attempting clips.json...');
           try {
             const res = await fetch('clips.json', { cache: 'no-store' });
+            console.log('[Loading] clips.json fetch response status:', res.status, res.statusText);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const list = await res.json();
+            console.log('[Loading] clips.json parsed, found', list.length, 'entries');
             if (Array.isArray(list) && list.length) {
               videos = list.map(path => {
                 const cleanPath = path.replace(/^\//, '');
                 const name = cleanPath.split('/').pop() || cleanPath;
                 return { name, url: cleanPath };
               });
+              console.log('[Loading] ✓ Successfully loaded', videos.length, 'clips from clips.json');
               status.textContent = `Loaded ${videos.length} built-in clips. Choose theme and press START.`;
+            } else {
+              console.warn('[Loading] clips.json is empty or not an array');
             }
           } catch (err) {
-            console.warn('Fallback clips unavailable', err);
+            console.error('[Loading] ✗ Failed to load clips.json:', err.message);
+            console.error('[Loading] Error details:', err);
           }
         }
+        console.log('[Loading] Fallback loading complete. Total videos available:', videos.length);
         return videos;
       })();
       return fallbackLoadPromise;
     }
 
     async function ensureClipsAvailable() {
-      if (videos.length >= 4) return true;
+      console.log('[Loading] Ensuring clips are available. Current count:', videos.length);
+      if (videos.length >= 4) {
+        console.log('[Loading] ✓ Already have', videos.length, 'clips loaded');
+        return true;
+      }
+      console.log('[Loading] Need to load fallback clips (minimum 4 required)');
       await loadFallbackClips();
-      return videos.length >= 4;
+      const hasEnough = videos.length >= 4;
+      console.log('[Loading]', hasEnough ? '✓' : '✗', 'After fallback loading:', videos.length, 'clips available');
+      return hasEnough;
     }
 
     function releaseClipUrls() {
+      console.log('[Cleanup] Releasing', videos.length, 'clip URLs and', createdObjectURLs.length, 'blob URLs');
       videos.forEach(clip => {
         if (clip && clip.cachedUrl && clip.cachedUrl.startsWith('blob:')) {
           try { URL.revokeObjectURL(clip.cachedUrl); } catch (e) {}
@@ -1178,6 +1219,7 @@
         try { URL.revokeObjectURL(url); } catch (e) {}
       });
       createdObjectURLs = [];
+      console.log('[Cleanup] ✓ Clip URLs released');
     }
 
     function randomMidStart(duration){
@@ -2151,9 +2193,16 @@
     
 
     async function setThumbnail(videoEl, clip){
-      if (!clip) return;
+      if (!clip) {
+        console.warn('[Thumbnail] setThumbnail called with no clip');
+        return;
+      }
       const url = getClipSource(clip);
-      if (!url) return;
+      if (!url) {
+        console.warn('[Thumbnail] No URL available for clip:', clipName(clip));
+        return;
+      }
+      console.log('[Thumbnail] Setting thumbnail for:', clipName(clip));
       const prev = videoEl.dataset.srcUrl;
       if (prev && prev !== url && prev.startsWith('blob:')) {
         try { URL.revokeObjectURL(prev); } catch (e) {}
@@ -2170,10 +2219,14 @@
       }
 
       videoEl._thumbnailMetadataHandler = () => {
+        console.log('[Thumbnail] Metadata loaded for:', clipName(clip));
         videoEl.currentTime = randomMidStart(videoEl.duration);
-        videoEl.play().catch(()=>{});
+        videoEl.play().catch((err)=>{
+          console.warn('[Thumbnail] Autoplay failed for:', clipName(clip), err.message);
+        });
       };
-      videoEl._thumbnailErrorHandler = () => {
+      videoEl._thumbnailErrorHandler = (err) => {
+        console.error('[Thumbnail] ✗ Error loading thumbnail for:', clipName(clip), err);
         if (url.startsWith('blob:')) {
           try { URL.revokeObjectURL(url); } catch (e) {}
         }
@@ -2186,7 +2239,11 @@
     function startVideoCycling(qi, initialClip) {
       const q = quads[qi];
       const v = q.video;
-      if (!v || !initialClip || videos.length === 0) return;
+      if (!v || !initialClip || videos.length === 0) {
+        console.warn('[VideoCycle] Cannot start cycling - missing video element or clips');
+        return;
+      }
+      console.log('[VideoCycle] Starting video cycling for quadrant', qi, 'with clip:', clipName(initialClip));
 
       q.clipIndex = videos.indexOf(initialClip);
       if (q.clipIndex === -1) q.clipIndex = 0;
@@ -2201,6 +2258,7 @@
 
       v._cycleEndedHandler = async () => {
         if (cycleAbort) return;
+        console.log('[VideoCycle] Video ended for quadrant', qi, '- cycling to next');
         if (v.src && v.src.startsWith('blob:')) {
           const oldUrl = v.src;
           const index = createdObjectURLs.indexOf(oldUrl);
@@ -2227,14 +2285,24 @@
 
         q.clipIndex = nextClipIndex;
         const nextClip = videos[nextClipIndex];
-        if (!nextClip) return;
+        if (!nextClip) {
+          console.warn('[VideoCycle] No next clip found at index', nextClipIndex);
+          return;
+        }
+        console.log('[VideoCycle] Loading next clip for quadrant', qi, ':', clipName(nextClip));
         const url = getClipSource(nextClip);
         v.src = url;
         try { await v.play(); }
-        catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
+        catch (e) { 
+          console.warn('[VideoCycle] Autoplay failed for quadrant', qi, ':', e.message);
+          setTimeout(() => v.dispatchEvent(new Event('ended')), 100); 
+        }
       };
 
-      v._cycleErrorHandler = () => { v.dispatchEvent(new Event('ended')); };
+      v._cycleErrorHandler = () => { 
+        console.error('[VideoCycle] Video error for quadrant', qi, '- triggering next cycle');
+        v.dispatchEvent(new Event('ended')); 
+      };
 
       v.addEventListener('ended', v._cycleEndedHandler);
       v.addEventListener('error', v._cycleErrorHandler);
@@ -2248,7 +2316,8 @@
       }
       const url = getClipSource(initialClip);
       v.src = url;
-      v.play().catch(e => { console.warn(`Quadrant ${qi} initial autoplay failed.`, e); });
+      console.log('[VideoCycle] Starting initial playback for quadrant', qi);
+      v.play().catch(e => { console.warn('[VideoCycle] ✗ Quadrant', qi, 'initial autoplay failed:', e.message); });
     }
 
     function stopAllLoops() {
@@ -2310,14 +2379,17 @@
     }
 
     async function startApp(){
+      console.log('[App] Starting application...');
       cycleAbort = false;
       stopAllLoops();
 
       const hasClips = await ensureClipsAvailable();
       if (!hasClips || videos.length < 4) {
+        console.error('[App] ✗ Cannot start - insufficient clips:', videos.length);
         status.textContent = "Please load at least 4 videos.";
         return;
       }
+      console.log('[App] ✓ Starting with', videos.length, 'clips available');
       
       const playerReady = [false, false];
 
@@ -2513,6 +2585,7 @@
     }
     
     function stopApp() {
+        console.log('[App] Stopping application...');
         cycleAbort = true;
         quads.forEach(q=>{
           q.abortController.abort("stop");
@@ -2565,6 +2638,7 @@
         });
         createdObjectURLs = [];
 
+        console.log('[App] ✓ Application stopped');
         status.textContent='Stopped. Reload videos to start again.';
         document.querySelectorAll('.quadrant').forEach(el => el.classList.add('choose-phase'));
     }
@@ -2579,26 +2653,45 @@
       });
       
       folderPicker.addEventListener('change', async (e) => {
+        console.log('[FolderPicker] Change event triggered');
+        console.log('[FolderPicker] Files selected:', e.target.files.length);
         releaseClipUrls();
         try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
         createdObjectURLs = [];
 
         const files = [...e.target.files].filter(isLikelyVideo);
-        if(files.length < 4){ status.textContent='Load at least 4 videos.'; return; }
+        console.log('[FolderPicker] Video files after filtering:', files.length);
+        files.forEach((f, idx) => {
+          if (idx < 5) console.log('[FolderPicker]  -', f.name, '(' + (f.size / 1024).toFixed(1) + ' KB)');
+        });
+        if (files.length > 5) console.log('[FolderPicker]  ... and', files.length - 5, 'more files');
+        
+        if(files.length < 4){ 
+          console.warn('[FolderPicker] ✗ Insufficient videos. Need at least 4, got', files.length);
+          status.textContent='Load at least 4 videos.'; 
+          return; 
+        }
         status.textContent='Loading videos…';
 
         videos = [];
         for(const f of files){
           videos.push({file: f, name:f.name});
         }
+        console.log('[FolderPicker] ✓ Successfully loaded', videos.length, 'videos from folder picker');
 
         status.textContent = `Loaded ${videos.length} videos. Choose theme and press START.`;
         btnStart.click();
       }, {passive:true});
 
       btnStart.addEventListener('click', async ()=> {
+        console.log('[Start] Start button clicked');
         const ready = await ensureClipsAvailable();
-        if (!ready){ status.textContent='Load at least 4 videos first.'; return; }
+        if (!ready){ 
+          console.warn('[Start] ✗ Not enough clips available');
+          status.textContent='Load at least 4 videos first.'; 
+          return; 
+        }
+        console.log('[Start] ✓ Starting app with', videos.length, 'clips');
         startApp();
       });
 
@@ -2636,7 +2729,9 @@
     
     attachControls();
     
+    console.log('[Init] Controls attached, loading fallback clips...');
     loadFallbackClips();
+    console.log('[Init] ✓ Initialization complete');
 
   })();
   </script>
