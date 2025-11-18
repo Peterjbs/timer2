@@ -1,0 +1,2324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quadrant Timers — Refactored (v5)</title>
+  <style>
+    
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron&family=Pacifico&family=Playfair+Display&family=Press+Start+2P&family=Quicksand:wght@300;700&family=Share+Tech+Mono&family=Special+Elite&display=swap');
+
+    :root{ --bg:#0b0e14; --fg:#eaeef5; --muted:#9aa4b2; --panelBorder:#1a2030; --dockH:64px; }
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    
+    
+    .dock{position:fixed; left:0; right:0; top:0; height:var(--dockH); display:flex; align-items:center; gap:.5rem; padding:0 .75rem; background:#0f1422; border-bottom:1px solid var(--panelBorder); z-index:100}
+    .dock .spacer{flex:1}
+    .dock button, .dock label{background:#141b2b; color:var(--fg); border:1px solid var(--panelBorder); padding:.5rem .7rem; border-radius:.6rem; cursor:pointer; font-weight:600}
+    .dock input[type=file]{display:none}
+    .hint{opacity:.9; font-size:.9rem}
+
+    
+    .stage{position:fixed; left:0; right:0; top:var(--dockH); bottom:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr; background:black; transition: filter .25s ease; gap: 0;}
+
+    .quadrant{
+      position:relative;
+      overflow:hidden;
+      border: none;
+      background: #000;
+      display: grid;
+      --video-fr: 2;
+      --panel-fr: 1;
+      --bar-h: 60px;
+    }
+    #q1 {
+      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr var(--bar-h);
+      border-right: 1px solid var(--panelBorder);
+    }
+    #q2 {
+      grid-template-rows: var(--panel-fr)fr var(--video-fr)fr var(--bar-h);
+      border-left: 1px solid var(--panelBorder);
+      border-right: none;
+    }
+
+    .video-container {
+      position: relative;
+      overflow: hidden;
+      background: #000;
+    }
+    #q1 .video-container { grid-row: 1 / 2; }
+    #q2 .video-container { grid-row: 2 / 3; }
+
+    .panel-container {
+      position: relative;
+      overflow: hidden;
+      background: var(--panel-bg, #111);
+      transition: background .3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      box-sizing: border-box;
+      
+    }
+    #q1 .panel-container { grid-row: 2 / 3; }
+    #q2 .panel-container { grid-row: 1 / 2; }
+
+    .bottom-bar {
+      grid-row: 3 / 4;
+      background: #0f1422;
+      border-top: 1px solid var(--panelBorder);
+      display: flex;
+      align-items: center;
+      padding: 0 .5rem;
+      gap: .5rem;
+      z-index: 300;
+    }
+    .bottom-bar .spacer { flex: 1; }
+    .bottom-bar button {
+      background: #141b2b;
+      color: var(--fg);
+      border: 1px solid var(--panelBorder);
+      padding: .5rem .7rem;
+      border-radius: .6rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+    .bottom-bar button:hover { background: #1a2030; }
+    
+    .quad-video{
+      position:absolute;
+      top:0; left:0; width:100%; height:100%;
+      object-fit: cover;
+      background:black;
+      transition: filter .3s, transform .3s;
+      
+    }
+    
+    
+    .vibe-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 15;
+      pointer-events: none;
+      background: transparent;
+      mix-blend-mode: normal;
+      transition: background .4s, opacity .4s;
+      
+    }
+    
+    .event-overlay-custom {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+    .event-overlay-custom.active { opacity: 1; }
+    
+    .event-overlay-light { background: linear-gradient(135deg, #FF4500, #FFA500); mix-blend-mode: overlay; }
+    .event-overlay-smoke { background: rgba(255, 255, 255, 0.7); mix-blend-mode: screen; }
+    .event-overlay-inhale { background: rgba(173, 216, 230, 0.6); mix-blend-mode: screen; }
+    .event-overlay-hold { background: rgba(128, 128, 128, 0.7); mix-blend-mode: normal; }
+    .event-overlay-exhale { background: rgba(144, 238, 144, 0.6); mix-blend-mode: screen; }
+    .event-overlay-sniff { background: white; mix-blend-mode: exclusion; }
+    .event-overlay-sniff.active { animation: strobe-flash 100ms linear infinite; }
+    .video-container.sniff-effect { filter: invert(1); }
+    .video-container.sniff-effect .quad-video { animation: sniff-zoom 0.3s infinite alternate; }
+    
+    .bubble-container {
+      position: absolute;
+      inset: 0;
+      z-index:101;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .3s ease;
+    }
+    .bubble-container.active { opacity:1; }
+    .bubble {
+      position: absolute;
+      width:20px;
+      height:20px;
+      background: rgba(255,255,255,0.7);
+      border-radius:50%;
+      pointer-events:none;
+    }
+    .event-overlay-inhale .bubble { animation: move-up 3s linear infinite; }
+    .event-overlay-exhale .bubble { animation: move-down 3s linear infinite; }
+    
+    .overlay[data-type="mask"] .inner {
+      background: rgba(0,0,0,0.6);
+    }
+    
+    
+    .overlay {
+      position:absolute; inset:0; 
+      display:flex; flex-direction: column;
+      align-items:center; justify-content:center;
+      text-align:center;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      z-index:200;
+    }
+    .overlay.show { opacity: 1; }
+    
+    .video-countdown-overlay {
+      color: white;
+      text-shadow: 0 4px 20px rgba(0,0,0,.9);
+    }
+    .video-countdown-timer {
+      font-size: clamp(6rem, 20vw, 10rem);
+      font-weight: 900;
+      line-height: 1;
+    }
+    .video-countdown-label {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+      margin-top: 1rem;
+    }
+    
+    .info-text-overlay {
+      color: var(--themeAccent, white);
+      text-shadow: 0 2px 10px rgba(0,0,0,.5);
+      justify-content: center;
+      z-index: 150;
+    }
+    .info-text-xxl {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .info-text-lg {
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      font-weight: 800;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .info-text-idle {
+      gap: 1.5rem;
+    }
+    .info-text-idle .countdown {
+      font-size: clamp(6rem, 20vw, 10rem);
+      font-weight: 900;
+      line-height: 1;
+    }
+    .info-text-idle .label {
+      display: flex;
+      flex-direction: column;
+      font-weight: 700;
+      line-height: 1.1;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+    }
+    .info-text-idle .label .until-text {
+      font-size: 0.7em;
+      opacity: 0.8;
+      font-weight: 600;
+    }
+
+    
+    .special-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--panel-bg, rgba(0,0,0,.85));
+      z-index: 400;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      gap: 1.5rem;
+      pointer-events: none;
+      color: white;
+    }
+    .special-overlay.show {
+      display: flex;
+      pointer-events: auto;
+    }
+    
+    .special-overlay-title { 
+      font-size: clamp(1.5rem, 4vw, 2.5rem); 
+      font-weight: 700; 
+      text-shadow: 0 1px 3px #000;
+    }
+    .special-overlay-timer { 
+      position: absolute; 
+      top: 1rem; right: 1rem; 
+      font-size: clamp(1.2rem, 3vw, 2.4rem); 
+      padding:.25rem .6rem; 
+      background: rgba(192,0,0,0.95); 
+      box-shadow: 0 6px 18px rgba(0,0,0,.5); 
+      font-weight: 800; 
+      color: #fff; 
+      border-radius: .4rem; 
+    }
+
+    .validation-buttons {
+      display: flex;
+      gap: 2rem;
+    }
+    .validation-button {
+      background: #141b2b;
+      color: var(--fg);
+      border: 1px solid var(--panelBorder);
+      padding: 1.5rem 3rem;
+      border-radius: .6rem;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 3rem;
+      transition: transform .1s ease, background .1s ease;
+    }
+    .validation-button:hover { background: #1a2030; transform: scale(1.05); }
+    .validation-button.confirm { background: #080; color: white; }
+    .validation-button.fail { background: #b00; color: white; }
+    .validation-button.confirm:hover { background: #0a0; }
+    .validation-button.fail:hover { background: #d00; }
+
+    .grid-choice-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: .5rem; width: 80%; height: 70%; max-width: 800px; }
+    .grid-choice-item { position: relative; cursor: pointer; border: 2px solid #555; border-radius: .5rem; overflow: hidden; transition: border-color .2s; }
+    .grid-choice-item:hover { border-color: #fff; transform: scale(1.03); }
+    .grid-choice-item video { width: 100%; height: 100%; object-fit: cover; }
+    .grid-choice-item .item-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,.7); color: white; padding: .2rem .4rem; font-size: .8rem; text-align: center; }
+
+    .action-choice-list { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 1rem; width: 90%; max-width: 800px; }
+    .action-choice-item { background: #141b2b; color: var(--fg); border: 1px solid var(--panelBorder); padding: 1rem; border-radius: .6rem; cursor: pointer; font-weight: 600; font-size: 1rem; transition: transform .1s ease, background .1s ease; display: flex; flex-direction: column; align-items: center; gap: .5rem; min-width: 100px; }
+    .action-choice-item .emoji { font-size: 3rem; line-height: 1; }
+    .action-choice-item:hover { background: #1a2030; transform: scale(1.03); }
+
+    .breath-count-list { display: flex; flex-direction: row; gap: 1rem; width: 80%; max-width: 600px; justify-content: center; }
+    .breath-count-item { background: #141b2b; color: var(--fg); border: 1px solid var(--panelBorder); padding: 1.5rem 2rem; border-radius: .6rem; cursor: pointer; font-weight: 800; font-size: 2rem; transition: transform .1s ease, background .1s ease; }
+    .breath-count-item:hover { background: #1a2030; transform: scale(1.05); }
+
+    
+    .bottom-bar .btn-phase-cancel {
+      display: none;
+    }
+    .bottom-bar.show-cancel-buttons .btn-phase-cancel {
+      display: inline-block;
+    }
+    .bottom-bar .btn-phase-fail { background: #b00; color: white; }
+    .bottom-bar .btn-phase-confirm { background: #080; color: white; }
+    .bottom-bar .btn-phase-fail:hover { background: #d00; }
+    .bottom-bar .btn-phase-confirm:hover { background: #0a0; }
+
+    
+    .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300; padding:1rem; box-sizing:border-box;}
+    .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
+    .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
+    .btn-change-theme { pointer-events:auto; cursor:pointer; font-size:1rem; padding:.5rem 1rem; margin-top:.25rem; border-radius:.5rem; background:rgba(255,255,255,.1); color:white; border:1px solid white; font-weight: 600; }
+    .btn-change-theme:hover { background:rgba(255,255,255,.2); }
+    .choose-grid { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:.6rem; width: min(520px, 90vw); aspect-ratio:1; margin:1rem auto; }
+    .choose-grid-item { position:relative; overflow:hidden; border:2px solid rgba(255,255,255,.35); border-radius:.6rem; cursor:pointer; background:#000; }
+    .choose-grid-item video { width:100%; height:100%; object-fit:cover; display:block; }
+    .choose-grid-item .item-label { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55); padding:.35rem .5rem; font-weight:700; text-transform:uppercase; font-size:.9rem; }
+    .choose-grid-item.active { border-color:white; box-shadow:0 0 0 3px rgba(255,255,255,.4); }
+    .vibe-preview { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.75rem 1rem; border-radius:.75rem; background:rgba(0,0,0,.35); min-width:260px; }
+    .vibe-preview .preview-panel { width:100%; padding:.75rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.25); text-align:center; font-weight:800; }
+    .vibe-preview .preview-title { font-size:1rem; letter-spacing:.03em; opacity:.9; }
+
+    .selectBadge{position:absolute; top:.5rem; left:.5rem; background:var(--themeBase, rgba(0,0,0,.6)); border:1px solid rgba(255,255,255,.25); padding:.15rem .45rem; border-radius:.4rem; font-weight:800; pointer-events:none; z-index: 70;}
+    
+    @keyframes strobe-flash { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    @keyframes sniff-zoom { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes vibe-anim-grain { 0%, 100% { transform: translate(0, 0); } 10% { transform: translate(-1%, -1%); } 20% { transform: translate(1%, 1%); } 30% { transform: translate(-2%, 2%); } 40% { transform: translate(2%, -1%); } 50% { transform: translate(-1%, 1%); } 60% { transform: translate(1%, -2%); } 70% { transform: translate(-2%, -1%); } 80% { transform: translate(2%, 2%); } 90% { transform: translate(-1%, -2%); } }
+    @keyframes vibe-anim-text-glitch { 0%, 100% { text-shadow: 1px 0 0 #ff00ff, -1px 0 0 #00ffff; } 50% { text-shadow: 2px 1px 0 #ff00ff, -2px -1px 0 #00ffff; } }
+    @keyframes vibe-anim-dreamy-glow { from { box-shadow: 0 0 10px 5px #6c5ce7; } to { box-shadow: 0 0 20px 10px #fd79a8; } }
+    @keyframes vibe-anim-heartbeat { 0%, 100% { transform: scale(1); } 10% { transform: scale(1.02); } 20% { transform: scale(1); } }
+    @keyframes vibe-anim-glitch { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-3px, 3px); } 40% { transform: translate(3px, -3px); } 60% { transform: translate(-2px, 2px); } 80% { transform: translate(2px, -2px); } }
+    @keyframes vibe-anim-hue-rotate { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+    @keyframes vibe-anim-starfield { from { background-position: 0 0; } to { background-position: 0 256px; } }
+    @keyframes move-up { 0% { transform: translateY(100vh) scale(0.5); opacity: 0; left: var(--x-start); } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100px) scale(1); opacity: 0; left: var(--x-end); } }
+    @keyframes move-down { 0% { transform: translateY(-100px) scale(1); opacity: 0; left: var(--x-start); } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(100vh) scale(0.5); opacity: 0; left: var(--x-end); } }
+  </style>
+</head>
+<body>
+  <div class="dock">
+    <label for="folderPicker">🎬 Pick videos</label>
+    <input id="folderPicker" type="file" webkitdirectory directory multiple accept="video/*" />
+    <button id="btnStart">▶︎ Start</button>
+    <button id="btnStop">⏹ Stop</button>
+    <button id="btnFSAll" title="Fullscreen app">⛶</button>
+    <span class="spacer"></span>
+    <button id="btnMuteAll" title="Mute/Unmute all">🔇</button>
+    <span id="status" class="hint">Load ≥4 vids, Start, then pick theme.</span>
+  </div>
+
+  <div class="stage">
+<div class="quadrant" id="q1">
+
+  <div class="video-container">
+    <div class="selectBadge"></div>
+    <video playsinline webkit-playsinline muted preload="metadata" class="quad-video"></video>
+    
+    
+    <div class="vibe-overlay"></div>
+    <div class="event-overlay-custom event-overlay-light"></div>
+    <div class="event-overlay-custom event-overlay-smoke"></div>
+    <div class="bubble-container event-overlay-inhale"></div>
+    <div class="event-overlay-custom event-overlay-hold"></div>
+    <div class="bubble-container event-overlay-exhale"></div>
+    <div class="event-overlay-custom event-overlay-sniff"></div>
+    
+    
+    <div class="overlay video-countdown-overlay">
+      <div class="video-countdown-timer">--</div>
+      <div class="video-countdown-label"></div>
+    </div>
+  </div>
+
+  <div class="panel-container">
+    
+    <div class="overlay info-text-overlay">
+      
+      
+      
+      
+    </div>
+    
+    
+    <div class="special-overlay validation-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title validation-title">Did you complete it?</div>
+      <div class="validation-buttons">
+        <button class="validation-button fail">✗</button>
+        <button class="validation-button confirm">✓</button>
+      </div>
+    </div>
+
+    <div class="special-overlay grid-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title grid-choice-title">CHOOSE NEW VIDEO</div>
+      <div class="grid-choice-grid">
+        <div class="grid-choice-item" data-idx="0"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="1"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="2"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="3"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      </div>
+    </div>
+    
+    <div class="special-overlay action-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title action-choice-title">CHOOSE NEXT EVENT</div>
+      <div class="action-choice-list"></div>
+    </div>
+    
+    <div class="special-overlay breath-count-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title breath-count-title">HOW MANY BREATHS?</div>
+      <div class="breath-count-list">
+        <div class="breath-count-item" data-num="1">1</div>
+        <div class="breath-count-item" data-num="2">2</div>
+        <div class="breath-count-item" data-num="3">3</div>
+        <div class="breath-count-item" data-num="4">4</div>
+        <div class="breath-count-item" data-num="5">5</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-phase-cancel btn-phase-fail" title="Fail/Skip Event">✗</button>
+    <button class="btn-phase-cancel btn-phase-confirm" title="Complete Event">✓</button>
+    <span class="spacer"></span>
+    <button class="btnReset" title="Reset phase visuals">🧹</button>
+    <button class="btnRestart" title="Restart (20s)">🔄</button>
+    <div class="tally">Score: 0</div>
+    <button class="shuffleVideo" title="Next video">⇄</button>
+    <button class="btnFS" title="Fullscreen this quad">⛶</button>
+    <button class="btnSound" title="Play this quad's audio">🔈</button>
+  </div>
+
+  <div class="overlay chooseTint">
+    <div class="chooseTitle">CHOOSE THEME</div>
+    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
+    <div class="choose-grid">
+      <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+    </div>
+    <div class="vibe-preview">
+      <div class="preview-title">VIBE PREVIEW</div>
+      <div class="preview-panel preview-panel-info">Info panel</div>
+      <div class="preview-panel preview-panel-video">Video label</div>
+    </div>
+    <button class="btn-change-theme" style="margin-bottom:.5rem;">Change Theme</button>
+    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+  </div>
+</div>
+
+
+<div class="quadrant" id="q2">
+  
+  <div class="video-container">
+    <div class="selectBadge"></div>
+    <video playsinline webkit-playsinline muted preload="metadata" class="quad-video"></video>
+    
+    <div class="vibe-overlay"></div>
+    <div class="event-overlay-custom event-overlay-light"></div>
+    <div class="event-overlay-custom event-overlay-smoke"></div>
+    <div class="bubble-container event-overlay-inhale"></div>
+    <div class="event-overlay-custom event-overlay-hold"></div>
+    <div class="bubble-container event-overlay-exhale"></div>
+    <div class="event-overlay-custom event-overlay-sniff"></div>
+    
+    <div class="overlay video-countdown-overlay">
+      <div class="video-countdown-timer">--</div>
+      <div class="video-countdown-label"></div>
+    </div>
+  </div>
+
+  <div class="panel-container">
+    <div class="overlay info-text-overlay">
+    </div>
+    
+    <div class="special-overlay validation-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title validation-title">Did you complete it?</div>
+      <div class="validation-buttons">
+        <button class="validation-button fail">✗</button>
+        <button class="validation-button confirm">✓</button>
+      </div>
+    </div>
+
+    <div class="special-overlay grid-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title grid-choice-title">CHOOSE NEW VIDEO</div>
+      <div class="grid-choice-grid">
+        <div class="grid-choice-item" data-idx="0"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="1"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="2"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="3"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      </div>
+    </div>
+    
+    <div class="special-overlay action-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title action-choice-title">CHOOSE NEXT EVENT</div>
+      <div class="action-choice-list"></div>
+    </div>
+    
+    <div class="special-overlay breath-count-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title breath-count-title">HOW MANY BREATHS?</div>
+      <div class="breath-count-list">
+        <div class="breath-count-item" data-num="1">1</div>
+        <div class="breath-count-item" data-num="2">2</div>
+        <div class="breath-count-item" data-num="3">3</div>
+        <div class="breath-count-item" data-num="4">4</div>
+        <div class="breath-count-item" data-num="5">5</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-phase-cancel btn-phase-fail" title="Fail/Skip Event">✗</button>
+    <button class="btn-phase-cancel btn-phase-confirm" title="Complete Event">✓</button>
+    <span class="spacer"></span>
+    <button class="btnReset" title="Reset phase visuals">🧹</button>
+    <button class="btnRestart" title="Restart (20s)">🔄</button>
+    <div class="tally">Score: 0</div>
+    <button class="shuffleVideo" title="Next video">⇄</button>
+    <button class="btnFS" title="Fullscreen this quad">⛶</button>
+    <button class="btnSound" title="Play this quad's audio">🔈</button>
+  </div>
+
+  <div class="overlay chooseTint">
+    <div class="chooseTitle">CHOOSE THEME</div>
+    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
+    <div class="choose-grid">
+      <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+    </div>
+    <div class="vibe-preview">
+      <div class="preview-title">VIBE PREVIEW</div>
+      <div class="preview-panel preview-panel-info">Info panel</div>
+      <div class="preview-panel preview-panel-video">Video label</div>
+    </div>
+    <button class="btn-change-theme" style="margin-bottom:.5rem;">Change Theme</button>
+    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+  </div>
+</div>
+</div>
+
+
+  
+
+  <script>
+  (()=>{
+    
+    
+    
+    const VIBES = [
+      {
+        key: "vintage",
+        name: "Vintage",
+        palette: { base: "#f5e8d7", accent: "#5c4033", dark: "#422d24" },
+        panel_pattern: "radial-gradient(circle at 20% 20%, #ffffff22, transparent 45%), #f5e8d7",
+        layout: { video: 2, panel: 1 },
+        font: { family: '"Special Elite", monospace', weight: "400", transform: "none" },
+        video_effects: {
+          css_filter: "sepia(0.8) contrast(1.1) saturate(0.8)",
+          css_animation: "vibe-anim-grain 0.3s steps(1) infinite",
+          overlay_gradient: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%)",
+          overlay_blend_mode: "multiply",
+          overlay_video: null
+        }
+      },
+      {
+        key: "cosmic",
+        name: "Cosmic",
+        palette: { base: "#0c0a1f", accent: "#e6a7ff", dark: "#000000" },
+        panel_pattern: "radial-gradient(circle at 60% 40%, rgba(230,167,255,0.12), transparent 50%), #0c0a1f",
+        layout: { video: 2.2, panel: 0.8 },
+        font: { family: '"Orbitron", sans-serif', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.05) saturate(1.1)",
+          css_animation: "vibe-anim-hue-rotate 16s linear infinite",
+          overlay_gradient: "radial-gradient(ellipse at center, rgba(255,255,255,0) 0%,rgba(0,0,0,0) 50%,rgba(0,0,0,0.8) 100%)",
+          overlay_blend_mode: "normal",
+          overlay_video: null
+        }
+      },
+      {
+        key: "glitch",
+        name: "Glitch",
+        palette: { base: "#0a0a0a", accent: "#ff00ff", dark: "#000000" },
+        panel_pattern: "linear-gradient(90deg, rgba(255,0,255,0.08) 0, rgba(0,255,255,0.08) 50%, rgba(255,0,255,0.08) 100%), #0a0a0a",
+        layout: { video: 1.6, panel: 1.4 },
+        font: { family: '"Share Tech Mono", monospace', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.2)",
+          css_animation: "vibe-anim-glitch 0.5s steps(3) infinite",
+          overlay_gradient: "linear-gradient(90deg, rgba(255,0,255,0.1), rgba(0,255,255,0.1))",
+          overlay_blend_mode: "screen",
+          overlay_video: null
+        }
+      },
+      {
+        key: "neon_noir",
+        name: "Neon Noir",
+        palette: { base: "#0b1021", accent: "#00f3ff", dark: "#05080f" },
+        panel_pattern: "linear-gradient(135deg, rgba(0,243,255,0.08) 0%, rgba(255,0,136,0.08) 100%), #0b1021",
+        layout: { video: 2.4, panel: 0.8 },
+        font: { family: '"Orbitron", sans-serif', weight: "600", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.15) saturate(1.25)",
+          css_animation: "vibe-anim-glitch 1s steps(2) infinite",
+          overlay_gradient: "radial-gradient(circle at 50% 30%, rgba(0,243,255,0.35), rgba(255,0,136,0.15) 40%, transparent 70%)",
+          overlay_blend_mode: "screen",
+          overlay_video: null
+        }
+      },
+      {
+        key: "arcade",
+        name: "Arcade",
+        palette: { base: "#0b0014", accent: "#39ff14", dark: "#1a0f2e" },
+        panel_pattern: "linear-gradient(90deg, rgba(57,255,20,0.12) 10%, transparent 10%) repeat, #0b0014",
+        layout: { video: 1.8, panel: 1.2 },
+        font: { family: '"Press Start 2P", monospace', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "saturate(1.3)",
+          css_animation: "vibe-anim-heartbeat 2s ease-in-out infinite",
+          overlay_gradient: "radial-gradient(circle at 30% 30%, rgba(57,255,20,0.18), transparent 55%), radial-gradient(circle at 70% 70%, rgba(255,20,147,0.16), transparent 55%)",
+          overlay_blend_mode: "screen",
+          overlay_video: null
+        }
+      },
+      {
+        key: "pastel_dream",
+        name: "Pastel Dream",
+        palette: { base: "#f7f0ff", accent: "#9b7bff", dark: "#e2d9f7" },
+        panel_pattern: "linear-gradient(135deg, rgba(155,123,255,0.18), rgba(253,121,168,0.18)), #f7f0ff",
+        layout: { video: 1.5, panel: 1.5 },
+        font: { family: '"Pacifico", cursive', weight: "400", transform: "none" },
+        video_effects: {
+          css_filter: "saturate(1.2)",
+          css_animation: "vibe-anim-dreamy-glow 6s ease-in-out infinite",
+          overlay_gradient: "linear-gradient(135deg, rgba(108,92,231,0.25), rgba(253,121,168,0.2))",
+          overlay_blend_mode: "overlay",
+          overlay_video: null
+        }
+      },
+      {
+        key: "zen_garden",
+        name: "Zen Garden",
+        palette: { base: "#0f1a14", accent: "#7bd389", dark: "#0a120d" },
+        panel_pattern: "radial-gradient(circle at 40% 60%, rgba(123,211,137,0.15), transparent 55%), #0f1a14",
+        layout: { video: 1.4, panel: 1.6 },
+        font: { family: '"Quicksand", sans-serif', weight: "700", transform: "none" },
+        video_effects: {
+          css_filter: "saturate(1.05) contrast(1.05)",
+          css_animation: "vibe-anim-heartbeat 5s ease-in-out infinite",
+          overlay_gradient: "linear-gradient(180deg, rgba(123,211,137,0.08), rgba(0,0,0,0.55))",
+          overlay_blend_mode: "multiply",
+          overlay_video: null
+        }
+      },
+      {
+        key: "magma",
+        name: "Magma",
+        palette: { base: "#1a0b0b", accent: "#ff5f45", dark: "#0c0404" },
+        panel_pattern: "radial-gradient(circle at 30% 30%, rgba(255,95,69,0.2), transparent 50%), #1a0b0b",
+        layout: { video: 2.1, panel: 0.9 },
+        font: { family: '"Bangers", cursive', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: "contrast(1.15) saturate(1.35)",
+          css_animation: "vibe-anim-heartbeat 3s ease-in-out infinite",
+          overlay_gradient: "linear-gradient(120deg, rgba(255,95,69,0.25), rgba(255,165,0,0.15))",
+          overlay_blend_mode: "overlay",
+          overlay_video: null
+        }
+      }
+    ];
+
+    const ACTIONS = [
+      {label:"Copy the main actor's pose", seconds:5, points: 5},
+      {label:"Drink something", seconds:10, points: 5},
+      {label:"Balance on one foot (10s)", seconds:10, points: 10},
+      {label:"Put your feet above your head", seconds:10, points: 15},
+    ];
+    
+    const EMOJI = {
+      puff:'🌬️', sniff:'🍾', mask:'🤿', action:'📨', chill:'🧊', replay_video:'🔁', trivia:'❓', peace:'🕊️', redo_last:'🔂'
+    };
+
+    const PHASES = {
+      
+      "IDLE_GAP": {
+        handler: "handleIdlePhase",
+        duration: [30000, 75000], 
+        ui: {
+          infoColor: "vibe_base",
+          
+        }
+      },
+      
+      "READY_TO_PUFF": {
+        handler: "handleTimedPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Get Ready to Light",
+          infoSize: "lg"
+        }
+      },
+      "READY_TO_SNIFF": {
+        handler: "handleTimedPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Get ready to sniff",
+          infoSize: "lg"
+        }
+      },
+      "READY_FOR_MASK": {
+        handler: "handleTimedPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Get ready for the mask",
+          infoSize: "lg"
+        }
+      },
+      
+      "PUFF_LIGHT": {
+        handler: "handleTimedPhase",
+        duration: 25000,
+        ui: {
+          videoEffect: "light",
+          videoCountdown: true,
+          infoColor: "#FF4500",
+          infoText: "LIGHT",
+          infoSize: "xxl"
+        }
+      },
+      "PUFF_SMOKE": {
+        handler: "handleTimedPhase",
+        duration: 12000,
+        ui: {
+          videoEffect: "smoke",
+          videoCountdown: true,
+          infoColor: "linear-gradient(to bottom, #FFA500, #808080)",
+          infoText: "SMOKE",
+          infoSize: "xxl"
+        }
+      },
+      "PUFF_INHALE": {
+        handler: "handleTimedPhase",
+        duration: 5000,
+        ui: {
+          videoEffect: "inhale",
+          videoCountdown: true,
+          videoText: "INHALE", 
+          infoColor: "#008000",
+          infoText: "INHALE",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "PUFF_VALIDATION"
+        }
+      },
+      "PUFF_HOLD": {
+        handler: "handleTimedPhase",
+        duration: 4000,
+        ui: {
+          videoEffect: "hold",
+          videoCountdown: true,
+          videoText: "HOLD",
+          infoColor: "#808080",
+          infoText: "HOLD",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "PUFF_VALIDATION"
+        }
+      },
+      "PUFF_EXHALE": {
+        handler: "handleTimedPhase",
+        duration: 5000,
+        ui: {
+          videoEffect: "exhale",
+          videoCountdown: true,
+          videoText: "EXHALE",
+          infoColor: "#0000FF",
+          infoText: "EXHALE",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "PUFF_VALIDATION"
+        }
+      },
+      "PUFF_VALIDATION": {
+        handler: "handleValidationPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "validationOverlay",
+          infoText: "Did you complete the puff?",
+        }
+      },
+      "BREATH_COUNT_QUESTION": {
+        handler: "handleBreathQuestionPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "breathCountOverlay",
+        }
+      },
+      
+      "SNIFF_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 8000,
+        ui: {
+          videoEffect: "sniff",
+          videoCountdown: true,
+          videoText: "SNIFF",
+          infoColor: "#FFFF00",
+          infoText: "SNIFF",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "SNIFF_VALIDATION": {
+        handler: "handleValidationPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "validationOverlay",
+          infoText: "Did you complete the sniff?",
+        }
+      },
+      
+      "MASK_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 20000,
+        ui: {
+          videoEffect: "mask", 
+          videoCountdown: true,
+          videoText: "MASK",
+          infoColor: "#36454F",
+          infoText: "Keep the mask on",
+          infoSize: "lg",
+          showCancel: true,
+          cancelTarget: "MASK_VALIDATION"
+        }
+      },
+      "MASK_VALIDATION": {
+        handler: "handleValidationPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "validationOverlay",
+          infoText: "Did you keep it on?",
+        }
+      },
+      
+      "YOU_CHOOSE_OVERLAY": {
+        handler: "handleChoicePhase",
+        duration: 20000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "actionChoiceOverlay",
+        }
+      },
+      "GRID_CHOICE_OVERLAY": {
+        handler: "handleGridChoicePhase",
+        duration: 20000,
+        ui: {
+          videoStop: true, 
+          videoCountdown: false, 
+          infoColor: "vibe_base",
+          infoOverlay: "gridChoiceOverlay",
+        }
+      },
+      "ACTION_MAIN": {
+        handler: "handleActionPhase",
+        duration: 90000, 
+        ui: {
+          videoEffect: "action", 
+          videoCountdown: true,
+          
+          infoColor: "vibe_accent",
+          infoText: "ACTION",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "TRIVIA_MAIN": {
+        handler: "handleTriviaPhase",
+        duration: 90000,
+        ui: {
+          videoEffect: "trivia", 
+          infoColor: "#6a0dad",
+          infoText: "Trivia Question...",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "CHILL_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 30000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Chill for 30 seconds",
+          infoSize: "lg",
+        }
+      },
+      "PEACE_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 90000,
+        ui: {
+          videoEffect: "peace", 
+          videoCountdown: true,
+          infoColor: "#FFFFFF",
+          infoText: "Chill for 90 seconds",
+          infoSize: "lg",
+        }
+      },
+      "REPLAY_VIDEO_MAIN": {
+        handler: "handleReplayPhase",
+        duration: 60000, 
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "REPLAY",
+          infoSize: "xxl",
+        }
+      },
+    };
+
+    
+
+    let quads = []; 
+    let videos = [];
+    let createdObjectURLs = [];
+    let globalRafId = null;
+    let cycleAbort = false;
+    const activeIntervals = new Set(); 
+
+    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+    
+    const sleep = (ms, signal) => new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            activeIntervals.delete(timeout);
+            resolve(true); 
+        }, ms);
+        activeIntervals.add(timeout);
+        
+        signal.addEventListener('abort', () => {
+            clearTimeout(timeout);
+            activeIntervals.delete(timeout);
+            reject(new DOMException('Aborted', 'AbortError'));
+        });
+    });
+    
+    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
+
+    const clipName = (clip) => (clip && clip.file && clip.file.name) || (clip && clip.name) || '';
+
+    const getClipSource = (clip) => {
+      if (!clip) return '';
+      if (clip.file) {
+        const url = URL.createObjectURL(clip.file);
+        createdObjectURLs.push(url);
+        return url;
+      }
+      if (clip.url) {
+        return clip.url;
+      }
+      return '';
+    };
+
+    let fallbackLoadPromise = null;
+    async function loadFallbackClips() {
+      if (fallbackLoadPromise) return fallbackLoadPromise;
+      fallbackLoadPromise = (async () => {
+        try {
+          const res = await fetch('clips.json', { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const list = await res.json();
+          if (Array.isArray(list) && list.length) {
+            videos = list.map(path => {
+              const cleanPath = path.replace(/^\//, '');
+              const name = cleanPath.split('/').pop() || cleanPath;
+              return { name, url: cleanPath };
+            });
+            status.textContent = `Loaded ${videos.length} built-in clips. Choose theme and press START.`;
+          }
+        } catch (err) {
+          console.warn('Fallback clips unavailable', err);
+        }
+        return videos;
+      })();
+      return fallbackLoadPromise;
+    }
+
+    async function ensureClipsAvailable() {
+      if (videos.length >= 4) return true;
+      await loadFallbackClips();
+      return videos.length >= 4;
+    }
+
+    function randomMidStart(duration){
+      const dur = Number.isFinite(duration) && duration>1 ? duration : 5;
+      const padStart = 0.5, padEnd = 1.0;
+      const min = padStart, max = Math.max(min+0.5, dur - padEnd);
+      return min + Math.random()*(max - min);
+    }
+
+    function getVibeBase(q) {
+      return (q?.vibe?.panel_pattern) || (q?.vibe?.palette?.base) || '#111';
+    }
+
+    function getPhaseGroup(phaseName = '') {
+      if (phaseName.startsWith('PUFF_')) return 'puff';
+      if (phaseName.startsWith('SNIFF')) return 'sniff';
+      if (phaseName.startsWith('MASK')) return 'mask';
+      if (phaseName.startsWith('ACTION')) return 'action';
+      return 'other';
+    }
+
+    function awardManualPoints(phase) {
+      if (!phase) return 0;
+      const group = getPhaseGroup(phase.phaseName);
+      if (group === 'sniff') return 10;
+      if (group === 'mask') return 10;
+      if (group === 'action') return phase.action?.points || 8;
+      return 0;
+    }
+
+    
+    function createQuad(rootEl, index) {
+      const q = {
+        
+        el: rootEl,
+        videoContainer: rootEl.querySelector('.video-container'),
+        panelContainer: rootEl.querySelector('.panel-container'),
+        video: rootEl.querySelector('.quad-video'),
+        vibeOverlay: rootEl.querySelector('.vibe-overlay'),
+        
+        videoCountdownOverlay: rootEl.querySelector('.video-countdown-overlay'),
+        videoCountdownTimer: rootEl.querySelector('.video-countdown-timer'),
+        videoCountdownLabel: rootEl.querySelector('.video-countdown-label'),
+        
+        infoTextOverlay: rootEl.querySelector('.info-text-overlay'),
+        
+        eventOverlays: {
+          light: rootEl.querySelector('.video-container .event-overlay-light'),
+          smoke: rootEl.querySelector('.video-container .event-overlay-smoke'),
+          inhale: rootEl.querySelector('.video-container .event-overlay-inhale'),
+          hold: rootEl.querySelector('.video-container .event-overlay-hold'),
+          exhale: rootEl.querySelector('.video-container .event-overlay-exhale'),
+          sniff: rootEl.querySelector('.video-container .event-overlay-sniff'),
+          mask: rootEl.querySelector('.video-container .overlay[data-type="mask"]'), 
+          action: rootEl.querySelector('.video-container .overlay[data-type="action"]'), 
+          trivia: rootEl.querySelector('.video-container .overlay[data-type="trivia"]'), 
+          peace: rootEl.querySelector('.video-container .overlay[data-type="peace"]'), 
+        },
+        chooseTint: rootEl.querySelector('.chooseTint'),
+        chooseGrid: rootEl.querySelector('.chooseTint .choose-grid'),
+        chooseGridItems: rootEl.querySelectorAll('.chooseTint .choose-grid-item'),
+        vibePreview: rootEl.querySelector('.chooseTint .vibe-preview'),
+        vibePreviewInfo: rootEl.querySelector('.chooseTint .preview-panel-info'),
+        vibePreviewVideo: rootEl.querySelector('.chooseTint .preview-panel-video'),
+        bottomBar: rootEl.querySelector('.bottom-bar'),
+        btnPhaseConfirm: rootEl.querySelector('.bottom-bar .btn-phase-confirm'),
+        btnPhaseFail: rootEl.querySelector('.bottom-bar .btn-phase-fail'),
+        btnReset: rootEl.querySelector('.bottom-bar .btnReset'),
+        tally: rootEl.querySelector('.bottom-bar .tally'),
+        shuffleVideo: rootEl.querySelector('.bottom-bar .shuffleVideo'),
+        btnFS: rootEl.querySelector('.bottom-bar .btnFS'),
+        btnSound: rootEl.querySelector('.bottom-bar .btnSound'),
+        btnRestart: rootEl.querySelector('.bottom-bar .btnRestart'),
+        
+        
+        validationOverlay: rootEl.querySelector('.panel-container .validation-overlay'),
+        breathCountOverlay: rootEl.querySelector('.panel-container .breath-count-overlay'),
+        actionChoiceOverlay: rootEl.querySelector('.panel-container .action-choice-overlay'),
+        gridChoiceOverlay: rootEl.querySelector('.panel-container .grid-choice-overlay'),
+
+        
+        id: index,
+        score: 0,
+        lastEvent: null, 
+        isProcessing: false, 
+        phaseQueue: [], 
+        currentPhase: null, 
+        abortController: new AbortController(),
+        vibe: null,
+        clipIndex: 0,
+        selectedStartClip: null,
+        loopCounter: 0, 
+        completedBreaths: 0, 
+        currentCountdownTimer: null,
+      };
+      return q;
+    }
+
+    
+
+    
+    async function processNextPhaseInQueue(q) {
+      if (q.isProcessing || cycleAbort) return;
+      q.isProcessing = true;
+
+      
+      if (q.phaseQueue.length < 3) {
+        buildAndEnqueueNextEvent(q);
+      }
+
+      
+      const phase = q.phaseQueue.shift();
+      q.currentPhase = phase;
+      
+      q.abortController.abort(); 
+      q.abortController = new AbortController();
+      const signal = q.abortController.signal;
+      
+      const rules = PHASES[phase.phaseName];
+      if (!rules) {
+        console.error(`Unknown phase: ${phase.phaseName}. Skipping.`);
+        q.isProcessing = false;
+        setTimeout(() => processNextPhaseInQueue(q), 10);
+        return;
+      }
+      
+      
+      let handlerResult = false;
+      try {
+        
+        handlerResult = await rules.handler(q, phase, rules, signal);
+        
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error(`Error during phase ${phase.phaseName}:`, err);
+        }
+        handlerResult = false; 
+      }
+      
+      
+      clearPhaseUI(q);
+
+      
+      q.isProcessing = false;
+      q.currentPhase = null;
+      if (!cycleAbort) {
+        setTimeout(() => processNextPhaseInQueue(q), 10);
+      }
+    }
+    
+    
+    function getEventPhases(q, eventName) {
+      let eventPhases = [];
+      
+      switch (eventName) {
+        case "Puff":
+          eventPhases.push({ phaseName: "READY_TO_PUFF" });
+          eventPhases.push({ phaseName: "PUFF_LIGHT" });
+          eventPhases.push({ phaseName: "PUFF_SMOKE" });
+          q.loopCounter = 0;
+          q.completedBreaths = 0;
+          for (let i = 0; i < 5; i++) {
+            eventPhases.push({ phaseName: "PUFF_INHALE", loop: i + 1 });
+            eventPhases.push({ phaseName: "PUFF_HOLD" });
+            eventPhases.push({ phaseName: "PUFF_EXHALE" });
+          }
+          eventPhases.push({ phaseName: "PUFF_VALIDATION" });
+          eventPhases.push({ phaseName: "BREATH_COUNT_QUESTION" });
+          break;
+        case "Sniff":
+          eventPhases.push({ phaseName: "READY_TO_SNIFF" });
+          eventPhases.push({ phaseName: "SNIFF_MAIN" });
+          eventPhases.push({ phaseName: "SNIFF_VALIDATION" });
+          break;
+        case "Mask":
+          eventPhases.push({ phaseName: "READY_FOR_MASK" });
+          eventPhases.push({ phaseName: "MASK_MAIN" });
+          eventPhases.push({ phaseName: "MASK_VALIDATION" });
+          break;
+        case "Action":
+          const action = pick(ACTIONS);
+          eventPhases.push({ 
+            phaseName: "ACTION_MAIN", 
+            duration: action.seconds * 1000, 
+            action: action 
+          });
+          break;
+        case "You Choose":
+          eventPhases.push({ phaseName: "YOU_CHOOSE_OVERLAY" });
+          break;
+        case "Grid":
+          eventPhases.push({ phaseName: "GRID_CHOICE_OVERLAY" });
+          break;
+        case "Chill":
+          eventPhases.push({ phaseName: "CHILL_MAIN" });
+          break;
+        case "Peace":
+          eventPhases.push({ phaseName: "PEACE_MAIN" });
+          break;
+        case "Trivia":
+          eventPhases.push({ phaseName: "TRIVIA_MAIN" });
+          break;
+        case "Replay":
+          eventPhases.push({ phaseName: "REPLAY_VIDEO_MAIN" });
+          break;
+        case "Redo Last":
+          if (q.lastEvent && q.lastEvent !== "Redo Last") {
+            return getEventPhases(q, q.lastEvent);
+          } else {
+            return getEventPhases(q, "Chill");
+          }
+        default:
+          return getEventPhases(q, "Chill");
+      }
+      return eventPhases;
+    }
+
+    
+    function buildAndEnqueueNextEvent(q) {
+      
+      const rand = Math.random();
+      let nextEventName;
+      if (rand < 0.50) { 
+        nextEventName = "You Choose";
+      } else if (rand < 0.60) { 
+        nextEventName = "Puff";
+      } else if (rand < 0.70) { 
+        nextEventName = "Sniff";
+      } else if (rand < 0.80) { 
+        nextEventName = "Mask";
+      } else if (rand < 0.90) { 
+        nextEventName = "Action";
+      } else { 
+        nextEventName = "Trivia";
+      }
+      
+      
+      const idleRules = PHASES["IDLE_GAP"];
+      const idleDuration = idleRules.duration[0] + Math.random() * (idleRules.duration[1] - idleRules.duration[0]);
+      
+      const idlePhase = { 
+        phaseName: "IDLE_GAP", 
+        duration: idleDuration,
+        nextEventName: nextEventName 
+      };
+      
+      
+      const eventPhases = getEventPhases(q, nextEventName);
+      
+      
+      q.phaseQueue.push(idlePhase, ...eventPhases);
+      
+      q.lastEvent = nextEventName;
+    }
+
+    
+
+    async function handleIdlePhase(q, phase, rules, signal) {
+      const duration = phase.duration;
+      setPhaseUI(q, phase, rules.ui, { 
+        duration: duration, 
+        nextEventName: phase.nextEventName 
+      });
+      await sleep(duration, signal);
+      return true; 
+    }
+
+    async function handleTimedPhase(q, phase, rules, signal) {
+      const duration = phase.duration || rules.duration;
+      setPhaseUI(q, phase, rules.ui, { 
+        duration: duration, 
+        videoText: rules.ui.videoText, 
+        loop: phase.loop 
+      });
+      
+      const timerPromise = sleep(duration, signal);
+      
+      if (rules.ui.showCancel) {
+        const { promise: cancelPromise, cleanup } = showCancelButtons(q, rules.ui.cancelTarget);
+        
+        try {
+          const winner = await Promise.race([timerPromise, cancelPromise]);
+          cleanup(); 
+          if (winner === "cancel") {
+            return false; 
+          }
+        } catch (e) {
+          cleanup(); 
+          throw e; 
+        }
+      } else {
+        await timerPromise;
+      }
+      
+      
+      if (phase.phaseName === "PUFF_EXHALE") {
+        q.loopCounter++;
+        q.completedBreaths++;
+      }
+      
+      return true; 
+    }
+
+    async function handleValidationPhase(q, phase, rules, signal) {
+      return new Promise(async (resolve, reject) => {
+        const duration = rules.duration;
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        const overlay = q.validationOverlay;
+        const title = overlay.querySelector('.validation-title');
+        const btnConfirm = overlay.querySelector('.validation-button.confirm');
+        const btnFail = overlay.querySelector('.validation-button.fail');
+        
+        title.textContent = rules.ui.infoText;
+        overlay.classList.add('show');
+        
+        const onConfirm = () => {
+          if (phase.phaseName === "SNIFF_VALIDATION" || phase.phaseName === "MASK_VALIDATION") {
+            addTally(q, 10);
+          }
+          cleanup();
+          resolve(true);
+        };
+        
+        const onFail = () => {
+          addTally(q, -5);
+          cleanup();
+          resolve(true);
+        };
+
+        const timerId = startOverlayTimer(overlay, duration, () => {
+          addTally(q, -2);
+          cleanup();
+          resolve(true);
+        });
+        
+        btnConfirm.addEventListener('click', onConfirm);
+        btnFail.addEventListener('click', onFail);
+
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+        
+        function cleanup() {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          btnConfirm.removeEventListener('click', onConfirm);
+          btnFail.removeEventListener('click', onFail);
+          overlay.classList.remove('show');
+        }
+      });
+    }
+    
+    async function handleBreathQuestionPhase(q, phase, rules, signal) {
+      return new Promise(async (resolve, reject) => {
+        const duration = rules.duration;
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        const overlay = q.breathCountOverlay;
+        const items = overlay.querySelectorAll('.breath-count-item');
+        const clickHandlers = [];
+        
+        overlay.classList.add('show');
+        
+        const timerId = startOverlayTimer(overlay, duration, () => {
+          cleanup();
+          resolve(true);
+        });
+
+        items.forEach(item => {
+          const handler = () => {
+            const clickedNum = parseInt(item.dataset.num, 10);
+            let score = 0;
+            if (clickedNum <= q.completedBreaths) {
+              score = clickedNum * 10;
+            }
+            addTally(q, score);
+            cleanup();
+            resolve(true);
+          };
+          item.addEventListener('click', handler);
+          clickHandlers.push({ item, handler });
+        });
+        
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+        
+        function cleanup() {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          overlay.classList.remove('show');
+        }
+      });
+    }
+    
+    async function handleActionPhase(q, phase, rules, signal) {
+      const action = phase.action;
+      const duration = phase.duration;
+      
+      setPhaseUI(q, phase, rules.ui, { 
+        duration: duration, 
+        videoText: action.label 
+      });
+      
+      const { promise: cancelPromise, cleanup } = showCancelButtons(q, rules.ui.cancelTarget);
+      let result = { success: true, score: -2 }; 
+      
+      try {
+        const timerPromise = sleep(duration, signal);
+        const winner = await Promise.race([timerPromise, cancelPromise]);
+        
+        if (winner === "cancel") {
+          const clickedConfirm = q.abortController.signal.reason === "confirm";
+          result.success = clickedConfirm;
+          result.score = clickedConfirm ? action.points : -5;
+          addTally(q, result.score);
+          cleanup();
+          return false; 
+        }
+      } catch (e) {
+        cleanup();
+        throw e; 
+      }
+      
+      
+      addTally(q, result.score);
+      cleanup();
+      return true;
+    }
+    
+    async function handleChoicePhase(q, phase, rules, signal) {
+      return new Promise(async (resolve, reject) => {
+        const duration = rules.duration;
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        const overlay = q.actionChoiceOverlay;
+        const listEl = overlay.querySelector('.action-choice-list');
+        listEl.innerHTML = '';
+        const clickHandlers = [];
+
+        
+        let choicePool = [
+          {label: "Puff", emoji: EMOJI.puff, event: "Puff"},
+          {label: "Sniff", emoji: EMOJI.sniff, event: "Sniff"},
+          {label: "Mask", emoji: EMOJI.mask, event: "Mask"},
+          {label: "Task", emoji: EMOJI.action, event: "Action"},
+          {label: "New Vid", emoji: '🔠', event: "Grid"},
+          {label: "Chill", emoji: EMOJI.chill, event: "Chill"},
+          {label: "Replay", emoji: EMOJI.replay_video, event: "Replay"},
+          {label: "Trivia", emoji: EMOJI.trivia, event: "Trivia"},
+          {label: "Peace", emoji: EMOJI.peace, event: "Peace"},
+        ];
+        if (q.lastEvent) {
+          choicePool.push({label: "Redo Last", emoji: EMOJI.redo_last, event: "Redo Last"});
+        }
+        
+        
+        const choices = [];
+        for(let i=0; i<3; i++) {
+          if(choicePool.length === 0) break;
+          const randIdx = Math.floor(Math.random() * choicePool.length);
+          choices.push(choicePool.splice(randIdx, 1)[0]);
+        }
+
+        
+        overlay.classList.add('show');
+        
+        choices.forEach(choice => {
+          const item = document.createElement('div');
+          item.className = 'action-choice-item';
+          item.innerHTML = `<div class="emoji">${choice.emoji}</div><div>${choice.label}</div>`;
+          
+          const handler = () => {
+            const newEventPhases = getEventPhases(q, choice.event);
+            q.phaseQueue.unshift(...newEventPhases); 
+            cleanup();
+            resolve(true);
+          };
+          item.addEventListener('click', handler);
+          clickHandlers.push({ item, handler });
+          listEl.appendChild(item);
+        });
+
+        
+        const timerId = startOverlayTimer(overlay, duration, () => {
+          cleanup();
+          resolve(true); 
+        });
+        
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+        
+        function cleanup() {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          overlay.classList.remove('show');
+        }
+      });
+    }
+
+    async function handleGridChoicePhase(q, phase, rules, signal) {
+        return new Promise(async (resolve, reject) => {
+          const duration = rules.duration;
+          setPhaseUI(q, phase, rules.ui, { duration: duration });
+          
+          if (rules.ui.videoStop) q.video.pause();
+          
+          const overlay = q.gridChoiceOverlay;
+          const gridItems = overlay.querySelectorAll('.grid-choice-item');
+          const clickHandlers = [];
+          
+          const currentUrl = q.video.src;
+          const pool = videos.filter(v => {
+            const name = clipName(v);
+            return name ? !currentUrl.includes(name) : true;
+          });
+          let tempPool = [...pool];
+          const choices = [];
+          while(choices.length < 4 && tempPool.length > 0){
+            choices.push(tempPool.splice(Math.floor(Math.random() * tempPool.length), 1)[0]);
+          }
+          if (choices.length < 1) { 
+            if (rules.ui.videoStop) q.video.play();
+            resolve(true); 
+            return; 
+          }
+
+          choices.forEach((clip, idx) => {
+            const item = gridItems[idx];
+            if (!item) return;
+            const v = item.querySelector('video');
+            const label = item.querySelector('.item-label');
+            setThumbnail(v, clip);
+            if(label) label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+            item.style.display = 'block';
+
+            const handler = () => {
+              addTally(q, 10);
+              startVideoCycling(q.id, clip);
+              cleanup();
+              resolve(true);
+            };
+            item.addEventListener('click', handler);
+            clickHandlers.push({item, handler});
+          });
+          for(let j=choices.length; j<gridItems.length; j++) { gridItems[j].style.display = 'none'; }
+          
+          overlay.classList.add('show');
+
+          const timerId = startOverlayTimer(overlay, duration, () => {
+            if (rules.ui.videoStop) q.video.play();
+            cleanup();
+            resolve(true);
+          });
+
+          signal.addEventListener('abort', () => {
+            if (rules.ui.videoStop) q.video.play();
+            cleanup();
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+          
+          function cleanup(){
+            clearInterval(timerId);
+            activeIntervals.delete(timerId);
+            clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+            gridItems.forEach(item => {
+              const v = item.querySelector('video');
+              if (v && v.src && v.src.startsWith('blob:')) {
+                URL.revokeObjectURL(v.src);
+                v.src = '';
+              }
+            });
+            overlay.classList.remove('show');
+          }
+        });
+    }
+
+    async function handleReplayPhase(q, phase, rules, signal) {
+        q.video.currentTime = 0;
+        await q.video.play().catch(()=>{});
+        const duration = (q.video.duration || 60) * 1000;
+        
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        await sleep(duration, signal);
+        addTally(q, 5);
+        return true;
+    }
+    
+    async function handleTriviaPhase(q, phase, rules, signal) {
+      
+      
+      console.log("Trivia Phase Started");
+      const duration = rules.duration;
+      setPhaseUI(q, phase, rules.ui, { duration: duration });
+      await sleep(duration, signal);
+      return true;
+    }
+
+
+    
+
+    
+    function setPhaseUI(q, phase, uiRules, data = {}) {
+      const now = performance.now();
+      if (q.currentPhase) {
+        if (typeof data.duration === 'number') {
+          q.currentPhase.startTime = now;
+          q.currentPhase.duration = data.duration;
+        } else {
+          q.currentPhase.startTime = null;
+          q.currentPhase.duration = null;
+        }
+      }
+      
+      let infoColor = uiRules.infoColor || "vibe_base";
+      if (infoColor === "vibe_base") {
+        q.panelContainer.style.background = getVibeBase(q);
+      } else if (infoColor === "vibe_accent") {
+        q.panelContainer.style.background = q.vibe.palette.accent;
+      } else {
+        q.panelContainer.style.background = infoColor;
+      }
+
+      
+      if (phase.phaseName === "IDLE_GAP") {
+        q.infoTextOverlay.innerHTML = `
+          <div class="info-text-idle">
+            <div class="countdown">${Math.ceil(data.duration / 1000)}</div>
+            <div class="label">
+              <span class="until-text">Until</span>
+              <span class="next-event-name">${data.nextEventName.toUpperCase()}</span>
+            </div>
+          </div>`;
+      } else if (uiRules.infoText) {
+        const sizeClass = uiRules.infoSize === "lg" ? "info-text-lg" : "info-text-xxl";
+        q.infoTextOverlay.innerHTML = `<div class="${sizeClass}">${uiRules.infoText}</div>`;
+      } else {
+        q.infoTextOverlay.innerHTML = "";
+      }
+      if (q.infoTextOverlay.innerHTML.trim()) {
+        q.infoTextOverlay.classList.add('show');
+      }
+
+
+      
+      if (uiRules.videoCountdown || phase.phaseName === "IDLE_GAP") {
+        let label = (data.videoText ?? uiRules.videoText) || "";
+        if (phase.phaseName === 'PUFF_INHALE' && data.loop) {
+          label = `${label} ${data.loop}`.trim();
+        }
+        q.videoCountdownLabel.textContent = label;
+        startCountdown(q, data.duration, q.abortController.signal);
+        q.videoCountdownOverlay.classList.add('show');
+      }
+      
+      
+      if (uiRules.videoEffect) {
+        if (q.eventOverlays[uiRules.videoEffect]) {
+          q.eventOverlays[uiRules.videoEffect].classList.add('active');
+        }
+        if (uiRules.videoEffect === 'inhale' || uiRules.videoEffect === 'exhale') {
+          createBubbles(q.eventOverlays[uiRules.videoEffect], 10);
+        } else if (uiRules.videoEffect === 'sniff') {
+          q.videoContainer.classList.add('sniff-effect');
+        }
+      }
+      
+      
+      if (uiRules.infoOverlay) {
+        if(q[uiRules.infoOverlay]) {
+            q[uiRules.infoOverlay].classList.add('show');
+        }
+      }
+      
+      
+      if (uiRules.showCancel) {
+        q.bottomBar.classList.add('show-cancel-buttons');
+      }
+    }
+    
+    
+    function clearPhaseUI(q) {
+      
+      q.infoTextOverlay.classList.remove('show');
+      q.infoTextOverlay.innerHTML = "";
+      q.panelContainer.style.background = q.vibe ? getVibeBase(q) : q.panelContainer.style.background;
+
+      
+      q.videoCountdownOverlay.classList.remove('show');
+      q.videoCountdownTimer.textContent = "--";
+      q.videoCountdownLabel.textContent = "";
+      
+      
+      for(const k in q.eventOverlays){
+        if (q.eventOverlays[k]) q.eventOverlays[k].classList.remove('active');
+      }
+      q.videoContainer.classList.remove('sniff-effect');
+      
+      
+      q.validationOverlay.classList.remove('show');
+      q.breathCountOverlay.classList.remove('show');
+      q.actionChoiceOverlay.classList.remove('show');
+      q.gridChoiceOverlay.classList.remove('show');
+
+      
+      q.bottomBar.classList.remove('show-cancel-buttons');
+    }
+
+    
+    function updateGlobalPanelTimers(){
+      if (globalRafId) return;
+      const tick = () => {
+        const now = performance.now();
+        quads.forEach(q => {
+          if (
+            q.currentPhase &&
+            q.currentPhase.phaseName === "IDLE_GAP" &&
+            typeof q.currentPhase.startTime === 'number' &&
+            typeof q.currentPhase.duration === 'number'
+          ) {
+            const msLeft = (q.currentPhase.startTime + q.currentPhase.duration) - now;
+            const sLeft = Math.max(0, Math.ceil(msLeft / 1000));
+            
+            
+            q.videoCountdownTimer.textContent = sLeft;
+            const infoTimer = q.infoTextOverlay.querySelector('.countdown');
+            if (infoTimer) infoTimer.textContent = sLeft;
+          }
+        });
+        globalRafId = requestAnimationFrame(tick);
+      };
+      globalRafId = requestAnimationFrame(tick);
+    }
+    
+    function stopGlobalClock(){
+      if (globalRafId) {
+        cancelAnimationFrame(globalRafId);
+        globalRafId = null;
+      }
+    }
+
+    
+    function startCountdown(q, duration, signal) {
+      if (typeof duration !== 'number' || duration <= 0) return;
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+      }
+
+      const end = performance.now() + duration;
+      let timerId = null;
+
+      const update = ()=>{
+        const leftMs = (end - performance.now());
+        if (leftMs <= 0) {
+            q.videoCountdownTimer.textContent = "0";
+            if (timerId) {
+                clearInterval(timerId);
+                activeIntervals.delete(timerId);
+                if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+                timerId = null;
+            }
+            return;
+        }
+        q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
+      };
+
+      timerId = setInterval(update, 100);
+      q.currentCountdownTimer = timerId; 
+      activeIntervals.add(timerId);
+      update(); 
+
+      signal.addEventListener('abort', () => {
+        if (timerId) {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+          timerId = null;
+        }
+      });
+    }
+    
+    
+    function startOverlayTimer(overlay, duration, onTimeout) {
+      const timerEl = overlay.querySelector('.special-overlay-timer');
+      let timeLeft = Math.ceil(duration / 1000);
+      timerEl.textContent = timeLeft;
+      
+      const timerId = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          onTimeout();
+        }
+      }, 1000);
+      activeIntervals.add(timerId);
+      return timerId;
+    }
+
+    function createBubbles(container, count) {
+      container.innerHTML = ''; 
+      for(let i=0; i < count; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = `bubble`;
+        bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
+        bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
+        bubble.style.animationDelay = `${Math.random() * 3}s`;
+        bubble.style.animationDuration = `${2 + Math.random() * 2}s`;
+        container.appendChild(bubble);
+      }
+    }
+    
+    function addTally(q, points){
+      q.score += points;
+      q.tally.textContent = `Score: ${q.score}`;
+    }
+
+    async function promptManualBreaths(q){
+      return new Promise((resolve) => {
+        const overlay = q.breathCountOverlay;
+        const items = overlay.querySelectorAll('.breath-count-item');
+        const handlers = [];
+        overlay.classList.add('show');
+        const timerId = startOverlayTimer(overlay, 10000, () => {
+          cleanup();
+          resolve();
+        });
+        items.forEach(item => {
+          const handler = () => {
+            const clickedNum = parseInt(item.dataset.num, 10);
+            if (Number.isFinite(clickedNum)) {
+              addTally(q, clickedNum * 10);
+            }
+            cleanup();
+            resolve();
+          };
+          item.addEventListener('click', handler);
+          handlers.push({ item, handler });
+        });
+        const cleanup = () => {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          handlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          overlay.classList.remove('show');
+        };
+      });
+    }
+    
+    
+    function showCancelButtons(q, cancelTargetPhase) {
+      q.bottomBar.classList.add('show-cancel-buttons');
+
+      let resolver;
+      const promise = new Promise((resolve) => { resolver = resolve; });
+
+      const finalize = (reason) => {
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        if (cancelTargetPhase) q.phaseQueue.unshift({ phaseName: cancelTargetPhase });
+        q.btnPhaseConfirm.removeEventListener('click', onConfirm);
+        q.btnPhaseFail.removeEventListener('click', onFail);
+        if (!q.abortController.signal.aborted) q.abortController.abort(reason);
+        resolver('cancel');
+      };
+
+      const phaseName = q.currentPhase?.phaseName || '';
+      const onConfirm = async () => {
+        const group = getPhaseGroup(phaseName);
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        if (group === 'puff') {
+          await promptManualBreaths(q);
+        } else {
+          addTally(q, awardManualPoints(q.currentPhase));
+        }
+        finalize('confirm');
+      };
+
+      const onFail = () => {
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        finalize('fail');
+      };
+
+      q.btnPhaseConfirm.addEventListener('click', onConfirm, { once: true });
+      q.btnPhaseFail.addEventListener('click', onFail, { once: true });
+
+      const cleanup = () => {
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        q.btnPhaseConfirm.removeEventListener('click', onConfirm);
+        q.btnPhaseFail.removeEventListener('click', onFail);
+      };
+
+      return { promise, cleanup };
+    }
+
+    
+
+    async function setThumbnail(videoEl, clip){
+      if (!clip) return;
+      const url = getClipSource(clip);
+      if (!url) return;
+      videoEl.src = url;
+
+      videoEl.onloadedmetadata = () => {
+        videoEl.currentTime = randomMidStart(videoEl.duration);
+        videoEl.play().catch(()=>{});
+        videoEl.onloadedmetadata = null;
+      };
+      videoEl.onerror = () => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        videoEl.onerror = null;
+      };
+    }
+
+    function startVideoCycling(qi, initialClip) {
+      const q = quads[qi];
+      const v = q.video;
+      if (!v || !initialClip || videos.length === 0) return;
+
+      q.clipIndex = videos.indexOf(initialClip);
+      if (q.clipIndex === -1) q.clipIndex = 0;
+
+      v.onended = async () => {
+        if (cycleAbort) return;
+        if (v.src && v.src.startsWith('blob:')) {
+          const oldUrl = v.src;
+          const index = createdObjectURLs.indexOf(oldUrl);
+          if (index > -1) createdObjectURLs.splice(index, 1);
+          URL.revokeObjectURL(oldUrl);
+        }
+        
+        
+        let nextClipIndex = q.clipIndex;
+        let attempts = 0;
+        while(attempts < videos.length) {
+            nextClipIndex = (nextClipIndex + 1) % videos.length;
+            let isPlayingElsewhere = false;
+            for(let otherQi = 0; otherQi < quads.length; otherQi++) {
+                const otherName = clipName(videos[nextClipIndex]);
+                if(otherQi !== qi && otherName && quads[otherQi].video.src.includes(otherName)) {
+                    isPlayingElsewhere = true;
+                    break;
+                }
+            }
+            if (!isPlayingElsewhere || videos.length <= quads.length) break;
+            attempts++;
+        }
+
+        q.clipIndex = nextClipIndex;
+        const nextClip = videos[nextClipIndex];
+      if (!nextClip) return;
+      const url = getClipSource(nextClip);
+      v.src = url;
+      try { await v.play(); }
+      catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
+      };
+
+      v.onerror = () => { v.dispatchEvent(new Event('ended')); };
+
+      if (v.src && v.src.startsWith('blob:')) {
+        const oldUrl = v.src;
+        const index = createdObjectURLs.indexOf(oldUrl);
+        if (index > -1) createdObjectURLs.splice(index, 1);
+        URL.revokeObjectURL(oldUrl);
+      }
+      const url = getClipSource(initialClip);
+      v.src = url;
+      v.play().catch(e => { console.warn(`Quadrant ${qi} initial autoplay failed.`, e); });
+    }
+
+    function stopAllLoops() {
+        document.querySelectorAll('.special-overlay').forEach(o=>{
+          try{
+            o.classList.remove('show');
+            o.querySelectorAll('video').forEach(v=>{ try{ v.pause(); v.src = ''; }catch(e){} });
+            const clone = o.cloneNode(true);
+            o.parentNode.replaceChild(clone, o);
+          }catch(e){}
+        });
+        activeIntervals.forEach(id=>{ try{ clearTimeout(id); clearInterval(id); }catch(e){} });
+        activeIntervals.clear();
+    }
+    
+    function runRestart(qi) {
+      const q = quads[qi];
+      q.abortController.abort("restart");
+      q.isProcessing = false;
+      q.phaseQueue = [];
+      
+      
+      buildAndEnqueueNextEvent(q); 
+      
+      
+      const idlePhase = q.phaseQueue.find(p => p.phaseName === "IDLE_GAP");
+      if (idlePhase) {
+        idlePhase.duration = 20000;
+      }
+      
+      clearPhaseUI(q);
+      
+      
+      processNextPhaseInQueue(q);
+    }
+
+    function emergencyReset(qi) {
+      const q = quads[qi];
+      q.abortController.abort("reset");
+      q.isProcessing = false;
+      q.currentPhase = null;
+      q.phaseQueue = [];
+      clearPhaseUI(q);
+
+      
+      if (videos.length) {
+        q.clipIndex = (q.clipIndex + 1) % videos.length;
+        const clip = videos[q.clipIndex] || videos[0];
+        startVideoCycling(qi, clip);
+      }
+
+      buildAndEnqueueNextEvent(q);
+      const idlePhase = q.phaseQueue.find(p => p.phaseName === "IDLE_GAP");
+      if (idlePhase) idlePhase.duration = 20000;
+
+      processNextPhaseInQueue(q);
+    }
+
+    async function startApp(){
+      cycleAbort = false;
+      stopAllLoops();
+
+      const hasClips = await ensureClipsAvailable();
+      if (!hasClips || videos.length < 4) {
+        status.textContent = "Please load at least 4 videos.";
+        return;
+      }
+      
+      const playerReady = [false, false];
+
+      quads.forEach(async (q, i) => {
+        let vibeIdx = i % VIBES.length;
+        q.score = 0;
+        q.tally.textContent = `Score: 0`;
+        q.lastEvent = null;
+        q.phaseQueue = [];
+        q.isProcessing = false;
+
+        q.el.classList.add('choose-phase', 'selected');
+        q.chosen = true;
+
+        let startPool = [];
+
+        const chooseTint = q.chooseTint;
+        const btnTheme = chooseTint.querySelector('.btn-change-theme');
+        const btnPlayerStart = chooseTint.querySelector('.btn-player-start');
+        const themeName = chooseTint.querySelector('.theme-name');
+
+        const renderStartGrid = () => {
+          startPool = videos.slice(0, Math.min(4, videos.length));
+          if (!q.selectedStartClip && startPool.length) q.selectedStartClip = startPool[0];
+          q.chooseGridItems.forEach((item, idx) => {
+            const clip = startPool[idx];
+            if (!clip) { item.style.display = 'none'; return; }
+            item.style.display = 'block';
+            const vid = item.querySelector('video');
+            const label = item.querySelector('.item-label');
+            setThumbnail(vid, clip);
+            if (label) label.textContent = toTitle(clipName(clip)) || `Clip ${idx+1}`;
+            item.classList.toggle('active', clip === q.selectedStartClip);
+            item.onclick = (ev) => {
+              ev.stopPropagation();
+              q.selectedStartClip = clip;
+              renderStartGrid();
+            };
+          });
+        };
+
+        const renderVibePreview = () => {
+          if (!q.vibe) return;
+          const pal = q.vibe.palette;
+          const font = q.vibe.font;
+          if (q.vibePreviewInfo) {
+            q.vibePreviewInfo.style.background = getVibeBase(q);
+            q.vibePreviewInfo.style.color = pal.accent;
+            q.vibePreviewInfo.style.fontFamily = font.family;
+            q.vibePreviewInfo.style.fontWeight = font.weight;
+            q.vibePreviewInfo.style.textTransform = font.transform;
+          }
+          if (q.vibePreviewVideo) {
+            q.vibePreviewVideo.style.background = pal.dark;
+            q.vibePreviewVideo.style.color = pal.accent;
+            q.vibePreviewVideo.style.fontFamily = font.family;
+            q.vibePreviewVideo.style.fontWeight = font.weight;
+            q.vibePreviewVideo.style.textTransform = font.transform;
+          }
+        };
+
+        const updateTheme = () => {
+          if (q.vibe) { 
+            if (q.vibe.video_effects.css_animation) q.video.style.animation = "none";
+            if (q.vibeTimer) {
+              clearInterval(q.vibeTimer);
+              activeIntervals.delete(q.vibeTimer);
+              q.vibeTimer = null;
+            }
+          }
+
+          q.vibe = VIBES[vibeIdx];
+          const pal = q.vibe.palette;
+          const font = q.vibe.font;
+
+          chooseTint.style.background = `linear-gradient(120deg, ${pal.base}66, ${pal.accent}66)`;
+          themeName.textContent = q.vibe.name.toUpperCase();
+          themeName.style.color = pal.accent;
+
+          q.el.style.setProperty('--themeBase', pal.base);
+          q.el.style.setProperty('--themeAccent', pal.accent);
+          q.el.style.setProperty('--video-fr', q.vibe.layout?.video || 2);
+          q.el.style.setProperty('--panel-fr', q.vibe.layout?.panel || 1);
+
+          
+          q.panelContainer.style.fontFamily = font.family;
+          q.panelContainer.style.fontWeight = font.weight;
+          q.panelContainer.style.textTransform = font.transform;
+          q.panelContainer.style.background = getVibeBase(q);
+
+          q.video.style.filter = q.vibe.video_effects.css_filter || "none";
+          q.video.style.animation = q.vibe.video_effects.css_animation || "none";
+
+          q.vibeOverlay.style.background = q.vibe.video_effects.overlay_gradient || "transparent";
+          q.vibeOverlay.style.mixBlendMode = q.vibe.video_effects.overlay_blend_mode || "normal";
+
+          
+
+          if (q.vibe.videoChangeFrequencyMs > 0 && !q.vibeTimer) {
+            q.vibeTimer = setInterval(() => {
+              q.video?.dispatchEvent(new Event('ended'));
+            }, q.vibe.videoChangeFrequencyMs);
+            activeIntervals.add(q.vibeTimer);
+          }
+          renderVibePreview();
+        };
+
+        btnTheme.onclick = (e) => { e.stopPropagation(); vibeIdx = (vibeIdx + 1) % VIBES.length; updateTheme(); };
+
+        btnPlayerStart.onclick = (e) => {
+            e.stopPropagation();
+            playerReady[i] = true;
+            btnPlayerStart.disabled = true;
+            btnPlayerStart.textContent = 'READY!';
+            btnPlayerStart.style.opacity = '0.5';
+            
+            if (playerReady.every(ready => ready)) {
+              
+              document.querySelectorAll('.quadrant').forEach((el)=> el.classList.remove('choose-phase'));
+
+              quads.forEach((q_j, j) => {
+                if (q_j.chosen) {
+                  const initialClip = q_j.selectedStartClip || videos[j] || videos[0];
+                  startVideoCycling(j, initialClip);
+
+                  
+                  buildAndEnqueueNextEvent(q_j); 
+                  buildAndEnqueueNextEvent(q_j); 
+                  
+                  
+                  processNextPhaseInQueue(q_j);
+                }
+              });
+              
+              
+              updateGlobalPanelTimers();
+            }
+        };
+        renderStartGrid();
+        updateTheme();
+        renderVibePreview();
+      });
+    }
+    
+    function stopApp() {
+        cycleAbort = true;
+        quads.forEach(q=>{
+          q.abortController.abort("stop");
+          q.isProcessing = false;
+          q.phaseQueue = [];
+          q.currentPhase = null;
+          
+          if(q.vibeTimer) {
+            clearInterval(q.vibeTimer);
+            activeIntervals.delete(q.vibeTimer);
+            q.vibeTimer = null;
+          }
+          
+          clearPhaseUI(q);
+          
+          q.video.pause();
+          q.video.onended = null;
+          q.video.onerror = null;
+          if (q.video.src && q.video.src.startsWith('blob:')) {
+            URL.revokeObjectURL(q.video.src);
+          }
+          q.video.src = "";
+          
+          if (q.vibe) {
+             q.video.style.filter = "none";
+             q.video.style.animation = "none";
+             q.vibeOverlay.style.background = "transparent";
+          }
+        });
+        
+        stopGlobalClock();
+        stopAllLoops();
+
+        createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+        createdObjectURLs = [];
+
+        status.textContent='Stopped. Reload videos to start again.';
+        document.querySelectorAll('.quadrant').forEach(el => el.classList.add('choose-phase'));
+    }
+
+    function attachControls(){
+      quads.forEach((q, i) => {
+        q.shuffleVideo.addEventListener('click', ()=>{ q.video?.dispatchEvent(new Event('ended')); });
+        q.btnFS.addEventListener('click', ()=> fullscreenQuad(i));
+        q.btnSound.addEventListener('click', ()=> setSoundFocus(i));
+        q.btnRestart.addEventListener('click', () => runRestart(i));
+        q.btnReset.addEventListener('click', () => emergencyReset(i));
+      });
+      
+      folderPicker.addEventListener('change', async (e) => {
+        try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
+        createdObjectURLs = [];
+
+        const files = [...e.target.files].filter(f=>f.type.startsWith('video/'));
+        if(files.length < 4){ status.textContent='Load at least 4 videos.'; return; }
+        status.textContent='Loading videos…';
+
+        videos = [];
+        for(const f of files){
+          videos.push({file: f, name:f.name});
+        }
+
+        status.textContent = `Loaded ${videos.length} videos. Choose theme and press START.`;
+        btnStart.click();
+      }, {passive:true});
+
+      btnStart.addEventListener('click', async ()=> {
+        const ready = await ensureClipsAvailable();
+        if (!ready){ status.textContent='Load at least 4 videos first.'; return; }
+        startApp();
+      });
+
+      btnStop.addEventListener('click', stopApp);
+
+      btnFSAll.addEventListener('click', ()=> { const el = document.documentElement; if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); });
+      btnMuteAll.addEventListener('click', ()=> {
+        const anyMuted = quads.some(q=>q.video.muted);
+        quads.forEach(q=> {
+          q.video.muted = !anyMuted;
+        });
+        btnMuteAll.textContent = anyMuted ? '🔊' : '🔇';
+      });
+    }
+
+    function setSoundFocus(qi){
+      quads.forEach((q, idx)=>{
+        const btn = q.btnSound;
+        const on = idx===qi;
+        q.video.muted = !on;
+        btn.classList.toggle('active', on);
+        btn.textContent = on ? '🔊' : '🔈';
+      });
+    }
+    
+    function fullscreenQuad(qi){
+      const el = quads[qi].el; (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
+    }
+    
+    
+    
+    
+    quads.push(createQuad(document.getElementById('q1'), 0));
+    quads.push(createQuad(document.getElementById('q2'), 1));
+    
+    attachControls();
+    
+    loadFallbackClips();
+
+  })();
+  </script>
+</body>
+</html>
