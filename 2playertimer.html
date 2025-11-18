@@ -2039,18 +2039,7 @@
           if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
           timerId = null;
         }
-      if (!q || !q.videoCountdownTimer) return;
-      
-      // Store countdown end time for RAF-based updates in global clock
-      q.countdownEndTime = performance.now() + duration;
-      
-      // Clean up on abort
-      if (signal) {
-        const abortHandler = () => {
-          q.countdownEndTime = null;
-        };
-        signal.addEventListener('abort', abortHandler, { once: true });
-      }
+      });
     }
     
     
@@ -2073,11 +2062,6 @@
     }
 
     function createBubbles(container, count) {
-      container.innerHTML = ''; 
-      for(let i=0; i < count; i++) {
-        const bubble = document.createElement('div');
-        bubble.className = `bubble`;
-      // Reuse existing bubbles if possible
       // Reuse existing bubbles if possible to avoid DOM thrashing
       const existingBubbles = container.querySelectorAll('.bubble');
       
