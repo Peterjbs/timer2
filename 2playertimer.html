@@ -1093,8 +1093,6 @@
 
     const getClipSource = (clip) => {
       if (!clip) return '';
-      if (clip.file) {
-        const url = URL.createObjectURL(clip.file);
       if (clip.cachedUrl) return clip.cachedUrl;
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
