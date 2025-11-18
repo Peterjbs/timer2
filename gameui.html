@@ -481,6 +481,7 @@
 </div>
 
 
+  <script src="shared-utils.js"></script>
   <script>
   (()=> {
     // Ferocity params
@@ -629,16 +630,6 @@ const FURY = {
     // Global lock to prevent overlapping event executions across quads
     let globalEventLock = false;
 
-    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
-    const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
-    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
-
-    function randomMidStart(clip){
-      const dur = Number.isFinite(clip.duration) && clip.duration>10 ? clip.duration : 7200;
-      const padStart = 0.5, padEnd = 3.0;
-      const min = padStart, max = Math.max(min+1, dur - padEnd);
-      return min + Math.random()*(max - min);
-    }
     async function setClip(qi, clip, start){
       const q = quads[qi]; const v = q.video;
       

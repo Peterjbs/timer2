@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Shared Utils</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+    .test { margin: 10px 0; padding: 10px; background: #2d2d30; border-left: 3px solid #007acc; }
+    .pass { border-left-color: #4ec9b0; }
+    .fail { border-left-color: #f48771; }
+  </style>
+</head>
+<body>
+  <h1>Shared Utilities Test Suite</h1>
+  <div id="results"></div>
+
+  <script src="shared-utils.js"></script>
+  <script>
+    const results = document.getElementById('results');
+    
+    function test(name, fn) {
+      try {
+        fn();
+        results.innerHTML += `<div class="test pass">✓ ${name}</div>`;
+      } catch (e) {
+        results.innerHTML += `<div class="test fail">✗ ${name}: ${e.message}</div>`;
+      }
+    }
+
+    // Test pick function
+    test('pick() returns element from array', () => {
+      const arr = [1, 2, 3, 4, 5];
+      const result = pick(arr);
+      if (!arr.includes(result)) throw new Error('Result not in array');
+    });
+
+    // Test toTitle function
+    test('toTitle() formats filename correctly', () => {
+      const result = toTitle('my-video-file_name.mp4');
+      if (result !== 'My Video File') throw new Error(`Expected "My Video File", got "${result}"`);
+    });
+
+    test('toTitle() handles empty string', () => {
+      const result = toTitle('');
+      if (result !== '') throw new Error(`Expected empty string, got "${result}"`);
+    });
+
+    test('toTitle() limits to 3 words', () => {
+      const result = toTitle('one-two-three-four-five.mp4');
+      const words = result.split(' ');
+      if (words.length > 3) throw new Error(`Expected max 3 words, got ${words.length}`);
+    });
+
+    // Test randomMidStart function
+    test('randomMidStart() returns number within range', () => {
+      const result = randomMidStart(100);
+      if (result < 0.5 || result > 99) throw new Error(`Out of range: ${result}`);
+    });
+
+    test('randomMidStart() works with object', () => {
+      const clip = { duration: 50 };
+      const result = randomMidStart(clip);
+      if (result < 0.5 || result > 49) throw new Error(`Out of range: ${result}`);
+    });
+
+    test('randomMidStart() handles small duration', () => {
+      const result = randomMidStart(0.5);
+      if (result < 0.5 || result > 1.5) throw new Error(`Out of range: ${result}`);
+    });
+
+    // Test sleep function
+    test('sleep() returns a promise', () => {
+      const result = sleep(10);
+      if (!(result instanceof Promise)) throw new Error('Not a promise');
+    });
+
+    // Async test for sleep
+    (async () => {
+      const start = Date.now();
+      await sleep(100);
+      const elapsed = Date.now() - start;
+      if (elapsed < 90 || elapsed > 150) {
+        results.innerHTML += `<div class="test fail">✗ sleep() timing: expected ~100ms, got ${elapsed}ms</div>`;
+      } else {
+        results.innerHTML += `<div class="test pass">✓ sleep() timing correct (~${elapsed}ms)</div>`;
+      }
+    })();
+
+    // Test sleep with abort signal
+    (async () => {
+      const controller = new AbortController();
+      const sleepPromise = sleep(1000, controller.signal);
+      setTimeout(() => controller.abort(), 50);
+      
+      try {
+        await sleepPromise;
+        results.innerHTML += `<div class="test fail">✗ sleep() abort: should have thrown</div>`;
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          results.innerHTML += `<div class="test pass">✓ sleep() abort signal works</div>`;
+        } else {
+          results.innerHTML += `<div class="test fail">✗ sleep() abort: wrong error: ${e.message}</div>`;
+        }
+      }
+    })();
+
+    results.innerHTML += '<div class="test" style="margin-top: 20px; border-left-color: #dcdcaa;">Test suite completed. Check results above.</div>';
+  </script>
+</body>
+</html>
