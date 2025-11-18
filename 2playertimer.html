@@ -1303,16 +1303,30 @@
 
       
       if (q.phaseQueue.length < 3) {
+        console.log(`[PhaseQueue Q${q.id}] Queue running low (${q.phaseQueue.length} phases), building next event...`);
         buildAndEnqueueNextEvent(q);
       }
 
       
       const phase = q.phaseQueue.shift();
       if (!phase) {
+        console.warn(`[PhaseQueue Q${q.id}] No phase to process, queue is empty`);
         q.isProcessing = false;
         return;
       }
       q.currentPhase = phase;
+      
+      console.log(`[Phase Q${q.id}] ▶ Starting phase: ${phase.phaseName}`);
+      if (phase.duration) {
+        console.log(`[Phase Q${q.id}]   Duration: ${(phase.duration / 1000).toFixed(1)}s`);
+      }
+      if (phase.nextEventName) {
+        console.log(`[Phase Q${q.id}]   Next event: ${phase.nextEventName}`);
+      }
+      if (phase.action) {
+        console.log(`[Phase Q${q.id}]   Action: ${phase.action.label} (${phase.action.points}pts)`);
+      }
+      console.log(`[Phase Q${q.id}]   Remaining in queue: ${q.phaseQueue.length} phases`);
       
       q.abortController.abort(); 
       q.abortController = new AbortController();
@@ -1320,7 +1334,7 @@
       
       const rules = PHASES[phase.phaseName];
       if (!rules) {
-        console.error(`Unknown phase: ${phase.phaseName}. Skipping.`);
+        console.error(`[Phase Q${q.id}] ✗ Unknown phase: ${phase.phaseName}. Skipping.`);
         q.isProcessing = false;
         setTimeout(() => processNextPhaseInQueue(q), 10);
         return;
@@ -1331,10 +1345,13 @@
       try {
         
         handlerResult = await rules.handler(q, phase, rules, signal);
+        console.log(`[Phase Q${q.id}] ✓ Completed phase: ${phase.phaseName} (result: ${handlerResult})`);
         
       } catch (err) {
         if (err.name !== 'AbortError') {
-          console.error(`Error during phase ${phase.phaseName}:`, err);
+          console.error(`[Phase Q${q.id}] ✗ Error during phase ${phase.phaseName}:`, err);
+        } else {
+          console.log(`[Phase Q${q.id}] ⊘ Phase ${phase.phaseName} aborted`);
         }
         handlerResult = false; 
       }
@@ -1352,6 +1369,7 @@
     
     
     function getEventPhases(q, eventName) {
+      console.log(`[EventPhases Q${q.id}] Building phases for event: ${eventName}`);
       let eventPhases = [];
       
       switch (eventName) {
@@ -1386,6 +1404,7 @@
             duration: action.seconds * 1000, 
             action: action 
           });
+          console.log(`[EventPhases Q${q.id}]   Selected action: "${action.label}" (${action.seconds}s, ${action.points}pts)`);
           break;
         case "You Choose":
           eventPhases.push({ phaseName: "YOU_CHOOSE_OVERLAY" });
@@ -1407,13 +1426,17 @@
           break;
         case "Redo Last":
           if (q.lastEvent && q.lastEvent !== "Redo Last") {
+            console.log(`[EventPhases Q${q.id}]   Redoing last event: ${q.lastEvent}`);
             return getEventPhases(q, q.lastEvent);
           } else {
+            console.log(`[EventPhases Q${q.id}]   No valid last event, defaulting to Chill`);
             return getEventPhases(q, "Chill");
           }
         default:
+          console.warn(`[EventPhases Q${q.id}] Unknown event "${eventName}", defaulting to Chill`);
           return getEventPhases(q, "Chill");
       }
+      console.log(`[EventPhases Q${q.id}]   Created ${eventPhases.length} phases for ${eventName}`);
       return eventPhases;
     }
 
@@ -1436,8 +1459,13 @@
         nextEventName = "Trivia";
       }
       
+      console.log(`[EventQueue Q${q.id}] Selected next event: ${nextEventName} (random=${rand.toFixed(3)})`);
       
       const idleRules = PHASES["IDLE_GAP"];
+      if (!idleRules) {
+        console.error(`[EventQueue Q${q.id}] ✗ Failed to add event - IDLE_GAP phase rules not found`);
+        return;
+      }
       const idleDuration = idleRules.duration[0] + Math.random() * (idleRules.duration[1] - idleRules.duration[0]);
       
       const idlePhase = { 
@@ -1448,9 +1476,16 @@
       
       
       const eventPhases = getEventPhases(q, nextEventName);
+      if (!eventPhases || eventPhases.length === 0) {
+        console.error(`[EventQueue Q${q.id}] ✗ Failed to add event "${nextEventName}" - no phases returned`);
+        return;
+      }
       
       
       q.phaseQueue.push(idlePhase, ...eventPhases);
+      console.log(`[EventQueue Q${q.id}] ✓ Added ${eventPhases.length + 1} phases to queue (IDLE_GAP + ${nextEventName})`);
+      console.log(`[EventQueue Q${q.id}] Queue length now: ${q.phaseQueue.length} phases`);
+      console.log(`[EventQueue Q${q.id}] Phases added:`, [idlePhase.phaseName, ...eventPhases.map(p => p.phaseName)].join(' → '));
       
       q.lastEvent = nextEventName;
     }
