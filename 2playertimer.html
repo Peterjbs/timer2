@@ -35,13 +35,16 @@
       border: none;
       background: #000;
       display: grid;
+      --video-fr: 2;
+      --panel-fr: 1;
+      --bar-h: 60px;
     }
     #q1 {
-      grid-template-rows: 2fr 1fr 60px;
+      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr var(--bar-h);
       border-right: 1px solid var(--panelBorder);
     }
     #q2 {
-      grid-template-rows: 1fr 2fr 60px;
+      grid-template-rows: var(--panel-fr)fr var(--video-fr)fr var(--bar-h);
       border-left: 1px solid var(--panelBorder);
       border-right: none;
     }
@@ -316,11 +319,19 @@
     .bottom-bar .btn-phase-confirm:hover { background: #0a0; }
 
     /* === Misc & Vibe Animations === */
-    .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300;}
+    .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300; padding:1rem; box-sizing:border-box;}
     .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
     .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
-    .btn-change-theme { pointer-events:auto; cursor:pointer; font-size:1rem; padding:.5rem 1rem; margin-top:1rem; border-radius:.5rem; background:rgba(255,255,255,.1); color:white; border:1px solid white; font-weight: 600; }
+    .btn-change-theme { pointer-events:auto; cursor:pointer; font-size:1rem; padding:.5rem 1rem; margin-top:.25rem; border-radius:.5rem; background:rgba(255,255,255,.1); color:white; border:1px solid white; font-weight: 600; }
     .btn-change-theme:hover { background:rgba(255,255,255,.2); }
+    .choose-grid { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:.6rem; width: min(520px, 90vw); aspect-ratio:1; margin:1rem auto; }
+    .choose-grid-item { position:relative; overflow:hidden; border:2px solid rgba(255,255,255,.35); border-radius:.6rem; cursor:pointer; background:#000; }
+    .choose-grid-item video { width:100%; height:100%; object-fit:cover; display:block; }
+    .choose-grid-item .item-label { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55); padding:.35rem .5rem; font-weight:700; text-transform:uppercase; font-size:.9rem; }
+    .choose-grid-item.active { border-color:white; box-shadow:0 0 0 3px rgba(255,255,255,.4); }
+    .vibe-preview { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.75rem 1rem; border-radius:.75rem; background:rgba(0,0,0,.35); min-width:260px; }
+    .vibe-preview .preview-panel { width:100%; padding:.75rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.25); text-align:center; font-weight:800; }
+    .vibe-preview .preview-title { font-size:1rem; letter-spacing:.03em; opacity:.9; }
 
     .selectBadge{position:absolute; top:.5rem; left:.5rem; background:var(--themeBase, rgba(0,0,0,.6)); border:1px solid rgba(255,255,255,.25); padding:.15rem .45rem; border-radius:.4rem; font-weight:800; pointer-events:none; z-index: 70;}
     
@@ -425,6 +436,7 @@
     <button class="btn-phase-cancel btn-phase-fail" title="Fail/Skip Event">✗</button>
     <button class="btn-phase-cancel btn-phase-confirm" title="Complete Event">✓</button>
     <span class="spacer"></span>
+    <button class="btnReset" title="Reset phase visuals">🧹</button>
     <button class="btnRestart" title="Restart (20s)">🔄</button>
     <div class="tally">Score: 0</div>
     <button class="shuffleVideo" title="Next video">⇄</button>
@@ -435,7 +447,18 @@
   <div class="overlay chooseTint">
     <div class="chooseTitle">CHOOSE THEME</div>
     <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
-    <button class="btn-change-theme" style="margin-bottom:1rem;">Change Theme</button>
+    <div class="choose-grid">
+      <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+    </div>
+    <div class="vibe-preview">
+      <div class="preview-title">VIBE PREVIEW</div>
+      <div class="preview-panel preview-panel-info">Info panel</div>
+      <div class="preview-panel preview-panel-video">Video label</div>
+    </div>
+    <button class="btn-change-theme" style="margin-bottom:.5rem;">Change Theme</button>
     <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
   </div>
 </div>
@@ -508,6 +531,7 @@
     <button class="btn-phase-cancel btn-phase-fail" title="Fail/Skip Event">✗</button>
     <button class="btn-phase-cancel btn-phase-confirm" title="Complete Event">✓</button>
     <span class="spacer"></span>
+    <button class="btnReset" title="Reset phase visuals">🧹</button>
     <button class="btnRestart" title="Restart (20s)">🔄</button>
     <div class="tally">Score: 0</div>
     <button class="shuffleVideo" title="Next video">⇄</button>
@@ -518,7 +542,18 @@
   <div class="overlay chooseTint">
     <div class="chooseTitle">CHOOSE THEME</div>
     <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
-    <button class="btn-change-theme" style="margin-bottom:1rem;">Change Theme</button>
+    <div class="choose-grid">
+      <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+    </div>
+    <div class="vibe-preview">
+      <div class="preview-title">VIBE PREVIEW</div>
+      <div class="preview-panel preview-panel-info">Info panel</div>
+      <div class="preview-panel preview-panel-video">Video label</div>
+    </div>
+    <button class="btn-change-theme" style="margin-bottom:.5rem;">Change Theme</button>
     <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
   </div>
 </div>
@@ -542,6 +577,7 @@
         name: "Vintage",
         palette: { base: "#f5e8d7", accent: "#5c4033", dark: "#422d24" },
         panel_pattern: "radial-gradient(circle at 20% 20%, #ffffff22, transparent 45%), #f5e8d7",
+        layout: { video: 2, panel: 1 },
         font: { family: '"Special Elite", monospace', weight: "400", transform: "none" },
         video_effects: {
           css_filter: "sepia(0.8) contrast(1.1) saturate(0.8)",
@@ -556,6 +592,7 @@
         name: "Cosmic",
         palette: { base: "#0c0a1f", accent: "#e6a7ff", dark: "#000000" },
         panel_pattern: "radial-gradient(circle at 60% 40%, rgba(230,167,255,0.12), transparent 50%), #0c0a1f",
+        layout: { video: 2.2, panel: 0.8 },
         font: { family: '"Orbitron", sans-serif', weight: "400", transform: "uppercase" },
         video_effects: {
           css_filter: "contrast(1.05) saturate(1.1)",
@@ -570,6 +607,7 @@
         name: "Glitch",
         palette: { base: "#0a0a0a", accent: "#ff00ff", dark: "#000000" },
         panel_pattern: "linear-gradient(90deg, rgba(255,0,255,0.08) 0, rgba(0,255,255,0.08) 50%, rgba(255,0,255,0.08) 100%), #0a0a0a",
+        layout: { video: 1.6, panel: 1.4 },
         font: { family: '"Share Tech Mono", monospace', weight: "400", transform: "uppercase" },
         video_effects: {
           css_filter: "contrast(1.2)",
@@ -584,6 +622,7 @@
         name: "Neon Noir",
         palette: { base: "#0b1021", accent: "#00f3ff", dark: "#05080f" },
         panel_pattern: "linear-gradient(135deg, rgba(0,243,255,0.08) 0%, rgba(255,0,136,0.08) 100%), #0b1021",
+        layout: { video: 2.4, panel: 0.8 },
         font: { family: '"Orbitron", sans-serif', weight: "600", transform: "uppercase" },
         video_effects: {
           css_filter: "contrast(1.15) saturate(1.25)",
@@ -598,6 +637,7 @@
         name: "Arcade",
         palette: { base: "#0b0014", accent: "#39ff14", dark: "#1a0f2e" },
         panel_pattern: "linear-gradient(90deg, rgba(57,255,20,0.12) 10%, transparent 10%) repeat, #0b0014",
+        layout: { video: 1.8, panel: 1.2 },
         font: { family: '"Press Start 2P", monospace', weight: "400", transform: "uppercase" },
         video_effects: {
           css_filter: "saturate(1.3)",
@@ -612,6 +652,7 @@
         name: "Pastel Dream",
         palette: { base: "#f7f0ff", accent: "#9b7bff", dark: "#e2d9f7" },
         panel_pattern: "linear-gradient(135deg, rgba(155,123,255,0.18), rgba(253,121,168,0.18)), #f7f0ff",
+        layout: { video: 1.5, panel: 1.5 },
         font: { family: '"Pacifico", cursive', weight: "400", transform: "none" },
         video_effects: {
           css_filter: "saturate(1.2)",
@@ -626,6 +667,7 @@
         name: "Zen Garden",
         palette: { base: "#0f1a14", accent: "#7bd389", dark: "#0a120d" },
         panel_pattern: "radial-gradient(circle at 40% 60%, rgba(123,211,137,0.15), transparent 55%), #0f1a14",
+        layout: { video: 1.4, panel: 1.6 },
         font: { family: '"Quicksand", sans-serif', weight: "700", transform: "none" },
         video_effects: {
           css_filter: "saturate(1.05) contrast(1.05)",
@@ -640,6 +682,7 @@
         name: "Magma",
         palette: { base: "#1a0b0b", accent: "#ff5f45", dark: "#0c0404" },
         panel_pattern: "radial-gradient(circle at 30% 30%, rgba(255,95,69,0.2), transparent 50%), #1a0b0b",
+        layout: { video: 2.1, panel: 0.9 },
         font: { family: '"Bangers", cursive', weight: "400", transform: "uppercase" },
         video_effects: {
           css_filter: "contrast(1.15) saturate(1.35)",
@@ -712,9 +755,7 @@
           videoCountdown: true,
           infoColor: "#FF4500",
           infoText: "LIGHT",
-          infoSize: "xxl",
-          showCancel: true,
-          cancelTarget: "IDLE_GAP"
+          infoSize: "xxl"
         }
       },
       "PUFF_SMOKE": {
@@ -725,9 +766,7 @@
           videoCountdown: true,
           infoColor: "linear-gradient(to bottom, #FFA500, #808080)",
           infoText: "SMOKE",
-          infoSize: "xxl",
-          showCancel: true,
-          cancelTarget: "IDLE_GAP"
+          infoSize: "xxl"
         }
       },
       "PUFF_INHALE": {
@@ -802,7 +841,8 @@
           infoColor: "#FFFF00",
           infoText: "SNIFF",
           infoSize: "xxl",
-          showCancel: false // Per CSV: "no abort"
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
         }
       },
       "SNIFF_VALIDATION": {
@@ -1002,6 +1042,23 @@
       return (q?.vibe?.panel_pattern) || (q?.vibe?.palette?.base) || '#111';
     }
 
+    function getPhaseGroup(phaseName = '') {
+      if (phaseName.startsWith('PUFF_')) return 'puff';
+      if (phaseName.startsWith('SNIFF')) return 'sniff';
+      if (phaseName.startsWith('MASK')) return 'mask';
+      if (phaseName.startsWith('ACTION')) return 'action';
+      return 'other';
+    }
+
+    function awardManualPoints(phase) {
+      if (!phase) return 0;
+      const group = getPhaseGroup(phase.phaseName);
+      if (group === 'sniff') return 10;
+      if (group === 'mask') return 10;
+      if (group === 'action') return phase.action?.points || 8;
+      return 0;
+    }
+
     /**
      * Creates the master state object for a single quadrant.
      */
@@ -1033,9 +1090,15 @@
           peace: rootEl.querySelector('.video-container .overlay[data-type="peace"]'), // Special case
         },
         chooseTint: rootEl.querySelector('.chooseTint'),
+        chooseGrid: rootEl.querySelector('.chooseTint .choose-grid'),
+        chooseGridItems: rootEl.querySelectorAll('.chooseTint .choose-grid-item'),
+        vibePreview: rootEl.querySelector('.chooseTint .vibe-preview'),
+        vibePreviewInfo: rootEl.querySelector('.chooseTint .preview-panel-info'),
+        vibePreviewVideo: rootEl.querySelector('.chooseTint .preview-panel-video'),
         bottomBar: rootEl.querySelector('.bottom-bar'),
         btnPhaseConfirm: rootEl.querySelector('.bottom-bar .btn-phase-confirm'),
         btnPhaseFail: rootEl.querySelector('.bottom-bar .btn-phase-fail'),
+        btnReset: rootEl.querySelector('.bottom-bar .btnReset'),
         tally: rootEl.querySelector('.bottom-bar .tally'),
         shuffleVideo: rootEl.querySelector('.bottom-bar .shuffleVideo'),
         btnFS: rootEl.querySelector('.bottom-bar .btnFS'),
@@ -1058,6 +1121,7 @@
         abortController: new AbortController(),
         vibe: null,
         clipIndex: 0,
+        selectedStartClip: null,
         loopCounter: 0, // For breath counts
         completedBreaths: 0, // For scoring
         currentCountdownTimer: null,
@@ -1115,9 +1179,7 @@
       // 5. Loop
       q.isProcessing = false;
       q.currentPhase = null;
-      
-      if (handlerResult && !cycleAbort) {
-        // If the phase completed (wasn't aborted), process the next one.
+      if (!cycleAbort) {
         setTimeout(() => processNextPhaseInQueue(q), 10);
       }
     }
@@ -1816,6 +1878,37 @@
       q.score += points;
       q.tally.textContent = `Score: ${q.score}`;
     }
+
+    async function promptManualBreaths(q){
+      return new Promise((resolve) => {
+        const overlay = q.breathCountOverlay;
+        const items = overlay.querySelectorAll('.breath-count-item');
+        const handlers = [];
+        overlay.classList.add('show');
+        const timerId = startOverlayTimer(overlay, 10000, () => {
+          cleanup();
+          resolve();
+        });
+        items.forEach(item => {
+          const handler = () => {
+            const clickedNum = parseInt(item.dataset.num, 10);
+            if (Number.isFinite(clickedNum)) {
+              addTally(q, clickedNum * 10);
+            }
+            cleanup();
+            resolve();
+          };
+          item.addEventListener('click', handler);
+          handlers.push({ item, handler });
+        });
+        const cleanup = () => {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          handlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          overlay.classList.remove('show');
+        };
+      });
+    }
     
     /**
      * Shows the bottom-bar ✓/✗ buttons and returns a promise.
@@ -1824,31 +1917,42 @@
       q.bottomBar.classList.add('show-cancel-buttons');
 
       let resolver;
-      const promise = new Promise((resolve) => {
-          resolver = resolve;
-      });
+      const promise = new Promise((resolve) => { resolver = resolve; });
 
-      let onConfirm, onFail;
-
-      const cleanup = () => {
-          q.bottomBar.classList.remove('show-cancel-buttons');
-          q.btnPhaseConfirm.removeEventListener('click', onConfirm);
-          q.btnPhaseFail.removeEventListener('click', onFail);
+      const finalize = (reason) => {
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        if (cancelTargetPhase) q.phaseQueue.unshift({ phaseName: cancelTargetPhase });
+        q.btnPhaseConfirm.removeEventListener('click', onConfirm);
+        q.btnPhaseFail.removeEventListener('click', onFail);
+        if (!q.abortController.signal.aborted) q.abortController.abort(reason);
+        resolver('cancel');
       };
 
-      onConfirm = () => {
-          q.phaseQueue.unshift({ phaseName: cancelTargetPhase });
-          q.abortController.abort("confirm"); // Pass a reason
-          resolver("cancel");
+      const phaseName = q.currentPhase?.phaseName || '';
+      const onConfirm = async () => {
+        const group = getPhaseGroup(phaseName);
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        if (group === 'puff') {
+          await promptManualBreaths(q);
+        } else {
+          addTally(q, awardManualPoints(q.currentPhase));
+        }
+        finalize('confirm');
       };
-      onFail = () => {
-          q.phaseQueue.unshift({ phaseName: cancelTargetPhase });
-          q.abortController.abort("fail"); // Pass a reason
-          resolver("cancel");
+
+      const onFail = () => {
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        finalize('fail');
       };
 
       q.btnPhaseConfirm.addEventListener('click', onConfirm, { once: true });
       q.btnPhaseFail.addEventListener('click', onFail, { once: true });
+
+      const cleanup = () => {
+        q.bottomBar.classList.remove('show-cancel-buttons');
+        q.btnPhaseConfirm.removeEventListener('click', onConfirm);
+        q.btnPhaseFail.removeEventListener('click', onFail);
+      };
 
       return { promise, cleanup };
     }
@@ -1962,11 +2066,34 @@
       processNextPhaseInQueue(q);
     }
 
+    function emergencyReset(qi) {
+      const q = quads[qi];
+      q.abortController.abort("reset");
+      q.isProcessing = false;
+      q.currentPhase = null;
+      q.phaseQueue = [];
+      clearPhaseUI(q);
+
+      // pick a fresh clip
+      if (videos.length) {
+        q.clipIndex = (q.clipIndex + 1) % videos.length;
+        const clip = videos[q.clipIndex] || videos[0];
+        startVideoCycling(qi, clip);
+      }
+
+      buildAndEnqueueNextEvent(q);
+      const idlePhase = q.phaseQueue.find(p => p.phaseName === "IDLE_GAP");
+      if (idlePhase) idlePhase.duration = 20000;
+
+      processNextPhaseInQueue(q);
+    }
+
     async function startApp(){
       cycleAbort = false;
       stopAllLoops();
-      
-      if (videos.length < 4) {
+
+      const hasClips = await ensureClipsAvailable();
+      if (!hasClips || videos.length < 4) {
         status.textContent = "Please load at least 4 videos.";
         return;
       }
@@ -1984,10 +2111,52 @@
         q.el.classList.add('choose-phase', 'selected');
         q.chosen = true;
 
+        let startPool = [];
+
         const chooseTint = q.chooseTint;
         const btnTheme = chooseTint.querySelector('.btn-change-theme');
         const btnPlayerStart = chooseTint.querySelector('.btn-player-start');
         const themeName = chooseTint.querySelector('.theme-name');
+
+        const renderStartGrid = () => {
+          startPool = videos.slice(0, Math.min(4, videos.length));
+          if (!q.selectedStartClip && startPool.length) q.selectedStartClip = startPool[0];
+          q.chooseGridItems.forEach((item, idx) => {
+            const clip = startPool[idx];
+            if (!clip) { item.style.display = 'none'; return; }
+            item.style.display = 'block';
+            const vid = item.querySelector('video');
+            const label = item.querySelector('.item-label');
+            setThumbnail(vid, clip);
+            if (label) label.textContent = toTitle(clipName(clip)) || `Clip ${idx+1}`;
+            item.classList.toggle('active', clip === q.selectedStartClip);
+            item.onclick = (ev) => {
+              ev.stopPropagation();
+              q.selectedStartClip = clip;
+              renderStartGrid();
+            };
+          });
+        };
+
+        const renderVibePreview = () => {
+          if (!q.vibe) return;
+          const pal = q.vibe.palette;
+          const font = q.vibe.font;
+          if (q.vibePreviewInfo) {
+            q.vibePreviewInfo.style.background = getVibeBase(q);
+            q.vibePreviewInfo.style.color = pal.accent;
+            q.vibePreviewInfo.style.fontFamily = font.family;
+            q.vibePreviewInfo.style.fontWeight = font.weight;
+            q.vibePreviewInfo.style.textTransform = font.transform;
+          }
+          if (q.vibePreviewVideo) {
+            q.vibePreviewVideo.style.background = pal.dark;
+            q.vibePreviewVideo.style.color = pal.accent;
+            q.vibePreviewVideo.style.fontFamily = font.family;
+            q.vibePreviewVideo.style.fontWeight = font.weight;
+            q.vibePreviewVideo.style.textTransform = font.transform;
+          }
+        };
 
         const updateTheme = () => {
           if (q.vibe) { // Cleanup old vibe
@@ -2009,19 +2178,21 @@
 
           q.el.style.setProperty('--themeBase', pal.base);
           q.el.style.setProperty('--themeAccent', pal.accent);
-          
+          q.el.style.setProperty('--video-fr', q.vibe.layout?.video || 2);
+          q.el.style.setProperty('--panel-fr', q.vibe.layout?.panel || 1);
+
           // Apply Vibe styles
           q.panelContainer.style.fontFamily = font.family;
           q.panelContainer.style.fontWeight = font.weight;
           q.panelContainer.style.textTransform = font.transform;
           q.panelContainer.style.background = getVibeBase(q);
-          
+
           q.video.style.filter = q.vibe.video_effects.css_filter || "none";
           q.video.style.animation = q.vibe.video_effects.css_animation || "none";
-          
+
           q.vibeOverlay.style.background = q.vibe.video_effects.overlay_gradient || "transparent";
           q.vibeOverlay.style.mixBlendMode = q.vibe.video_effects.overlay_blend_mode || "normal";
-          
+
           // (Logic for overlay_video would go here if needed)
 
           if (q.vibe.videoChangeFrequencyMs > 0 && !q.vibeTimer) {
@@ -2030,6 +2201,7 @@
             }, q.vibe.videoChangeFrequencyMs);
             activeIntervals.add(q.vibeTimer);
           }
+          renderVibePreview();
         };
 
         btnTheme.onclick = (e) => { e.stopPropagation(); vibeIdx = (vibeIdx + 1) % VIBES.length; updateTheme(); };
@@ -2047,8 +2219,9 @@
 
               quads.forEach((q_j, j) => {
                 if (q_j.chosen) {
-                  startVideoCycling(j, videos[j]);
-                  
+                  const initialClip = q_j.selectedStartClip || videos[j] || videos[0];
+                  startVideoCycling(j, initialClip);
+
                   // ** Pre-populate queue **
                   buildAndEnqueueNextEvent(q_j); // Add first event
                   buildAndEnqueueNextEvent(q_j); // Add second event
@@ -2062,7 +2235,9 @@
               updateGlobalPanelTimers();
             }
         };
+        renderStartGrid();
         updateTheme();
+        renderVibePreview();
       });
     }
     
@@ -2113,6 +2288,7 @@
         q.btnFS.addEventListener('click', ()=> fullscreenQuad(i));
         q.btnSound.addEventListener('click', ()=> setSoundFocus(i));
         q.btnRestart.addEventListener('click', () => runRestart(i));
+        q.btnReset.addEventListener('click', () => emergencyReset(i));
       });
       
       folderPicker.addEventListener('change', async (e) => {
