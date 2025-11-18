@@ -1052,8 +1052,6 @@
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
         clip.cachedUrl = url;
-      if (clip.file) {
-        const url = URL.createObjectURL(clip.file);
         createdObjectURLs.push(url);
         return url;
       }
@@ -1827,6 +1825,17 @@
       const tick = () => {
         const now = performance.now();
         quads.forEach(q => {
+          // Update countdown timers using RAF instead of setInterval
+          if (q.countdownEndTime) {
+            const leftMs = q.countdownEndTime - now;
+            if (leftMs <= 0) {
+              q.videoCountdownTimer.textContent = "0";
+              q.countdownEndTime = null;
+            } else {
+              q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
+            }
+          }
+          
           if (
             q.currentPhase &&
             q.currentPhase.phaseName === "IDLE_GAP" &&
@@ -1857,41 +1866,13 @@
     
     function startCountdown(q, duration, signal) {
       if (typeof duration !== 'number' || duration <= 0) return;
-      if (q.currentCountdownTimer) {
-        clearInterval(q.currentCountdownTimer);
-        activeIntervals.delete(q.currentCountdownTimer);
-      }
-
-      const end = performance.now() + duration;
-      let timerId = null;
-
-      const update = ()=>{
-        const leftMs = (end - performance.now());
-        if (leftMs <= 0) {
-            q.videoCountdownTimer.textContent = "0";
-            if (timerId) {
-                clearInterval(timerId);
-                activeIntervals.delete(timerId);
-                if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
-                timerId = null;
-            }
-            return;
-        }
-        q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
-      };
-
-      timerId = setInterval(update, 100);
-      q.currentCountdownTimer = timerId; 
-      activeIntervals.add(timerId);
-      update(); 
-
+      
+      // Store countdown end time for RAF-based updates in global clock
+      q.countdownEndTime = performance.now() + duration;
+      
+      // Clean up on abort
       signal.addEventListener('abort', () => {
-        if (timerId) {
-          clearInterval(timerId);
-          activeIntervals.delete(timerId);
-          if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
-          timerId = null;
-        }
+        q.countdownEndTime = null;
       });
     }
     
@@ -1915,10 +1896,29 @@
     }
 
     function createBubbles(container, count) {
-      container.innerHTML = ''; 
-      for(let i=0; i < count; i++) {
+      // Reuse existing bubbles if possible
+      const existingBubbles = container.querySelectorAll('.bubble');
+      
+      // Reuse existing bubbles
+      for(let i=0; i < Math.min(count, existingBubbles.length); i++) {
+        const bubble = existingBubbles[i];
+        bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
+        bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
+        bubble.style.animationDelay = `${Math.random() * 3}s`;
+        bubble.style.animationDuration = `${2 + Math.random() * 2}s`;
+      }
+      
+      // Remove excess bubbles
+      if (existingBubbles.length > count) {
+        for(let i=count; i < existingBubbles.length; i++) {
+          existingBubbles[i].remove();
+        }
+      }
+      
+      // Create new bubbles if needed
+      for(let i=existingBubbles.length; i < count; i++) {
         const bubble = document.createElement('div');
-        bubble.className = `bubble`;
+        bubble.className = 'bubble';
         bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
         bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
         bubble.style.animationDelay = `${Math.random() * 3}s`;

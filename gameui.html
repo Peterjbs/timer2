@@ -666,9 +666,29 @@ const FURY = {
         if (!cycleAbort && quadrant.chosen && video.ended) {
           video.currentTime = randomMidStart(clip);
           video.play().catch(() => {});
+      // Use event listeners instead of polling for better performance
+      const handlePause = () => {
+        if (!cycleAbort && q.chosen && !v.ended) {
+          v.play().catch(() => {});
         }
-      }, 2000);
-      activeIntervals.add(videoMonitor);
+      };
+      
+      const handleEnded = () => {
+        if (!cycleAbort && q.chosen) {
+          v.currentTime = randomMidStart(clip);
+          v.play().catch(() => {});
+        }
+      };
+      
+      v.addEventListener('pause', handlePause);
+      v.addEventListener('ended', handleEnded);
+      
+      // Store cleanup function
+      const cleanupMonitor = () => {
+        v.removeEventListener('pause', handlePause);
+        v.removeEventListener('ended', handleEnded);
+      };
+      q.cleanupVideoMonitor = cleanupMonitor;
       
       video.onerror = handleVideoError;
       
@@ -1083,14 +1103,19 @@ function scheduleNextTask(qi, reschedule = false){
 
 
     function startJitter(){
+      // Cache quadrant references instead of querying DOM repeatedly
+      const quadElements = document.querySelectorAll('.quadrant');
+      const videoElements = Array.from(quadElements).map(q => q.querySelector('.quad-video'));
+      
       const base = 0.985, span = 0.05 * (FURY.on?FURY.jitterAmp:1);
       return setInterval(()=>{
-        document.querySelectorAll('.quadrant').forEach(q=>{
+        for(let i = 0; i < quadElements.length; i++) {
           const s = base + Math.random()*span;
-          q.style.transform = 'scale('+s.toFixed(3)+')';
-          const v = q.querySelector('.quad-video');
-          v && (v.style.transform = 'scale('+(1.03 - (s-1)).toFixed(3)+')');
-        });
+          quadElements[i].style.transform = 'scale('+s.toFixed(3)+')';
+          if (videoElements[i]) {
+            videoElements[i].style.transform = 'scale('+(1.03 - (s-1)).toFixed(3)+')';
+          }
+        }
       }, 1800);
     }
 
