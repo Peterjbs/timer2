@@ -874,8 +874,53 @@
     
     const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
 
-    function randomMidStart(clip){
-      const dur = Number.isFinite(clip.duration) && clip.duration>1 ? clip.duration : 5;
+    const clipName = (clip) => (clip && clip.file && clip.file.name) || (clip && clip.name) || '';
+
+    const getClipSource = (clip) => {
+      if (!clip) return '';
+      if (clip.file) {
+        const url = URL.createObjectURL(clip.file);
+        createdObjectURLs.push(url);
+        return url;
+      }
+      if (clip.url) {
+        return clip.url;
+      }
+      return '';
+    };
+
+    let fallbackLoadPromise = null;
+    async function loadFallbackClips() {
+      if (fallbackLoadPromise) return fallbackLoadPromise;
+      fallbackLoadPromise = (async () => {
+        try {
+          const res = await fetch('clips.json', { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const list = await res.json();
+          if (Array.isArray(list) && list.length) {
+            videos = list.map(path => {
+              const cleanPath = path.replace(/^\//, '');
+              const name = cleanPath.split('/').pop() || cleanPath;
+              return { name, url: cleanPath };
+            });
+            status.textContent = `Loaded ${videos.length} built-in clips. Choose theme and press START.`;
+          }
+        } catch (err) {
+          console.warn('Fallback clips unavailable', err);
+        }
+        return videos;
+      })();
+      return fallbackLoadPromise;
+    }
+
+    async function ensureClipsAvailable() {
+      if (videos.length >= 4) return true;
+      await loadFallbackClips();
+      return videos.length >= 4;
+    }
+
+    function randomMidStart(duration){
+      const dur = Number.isFinite(duration) && duration>1 ? duration : 5;
       const padStart = 0.5, padEnd = 1.0;
       const min = padStart, max = Math.max(min+0.5, dur - padEnd);
       return min + Math.random()*(max - min);
@@ -1375,7 +1420,10 @@
           const clickHandlers = [];
           
           const currentUrl = q.video.src;
-          const pool = videos.filter(v => !currentUrl.includes(v.file.name));
+          const pool = videos.filter(v => {
+            const name = clipName(v);
+            return name ? !currentUrl.includes(name) : true;
+          });
           let tempPool = [...pool];
           const choices = [];
           while(choices.length < 4 && tempPool.length > 0){
@@ -1733,17 +1781,17 @@
 
     async function setThumbnail(videoEl, clip){
       if (!clip) return;
-      const url = URL.createObjectURL(clip.file);
-      createdObjectURLs.push(url);
+      const url = getClipSource(clip);
+      if (!url) return;
       videoEl.src = url;
 
       videoEl.onloadedmetadata = () => {
-        videoEl.currentTime = randomMidStart(clip);
+        videoEl.currentTime = randomMidStart(videoEl.duration);
         videoEl.play().catch(()=>{});
         videoEl.onloadedmetadata = null;
       };
       videoEl.onerror = () => {
-        URL.revokeObjectURL(url);
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         videoEl.onerror = null;
       };
     }
@@ -1772,7 +1820,8 @@
             nextClipIndex = (nextClipIndex + 1) % videos.length;
             let isPlayingElsewhere = false;
             for(let otherQi = 0; otherQi < quads.length; otherQi++) {
-                if(otherQi !== qi && quads[otherQi].video.src.includes(videos[nextClipIndex].file.name)) {
+                const otherName = clipName(videos[nextClipIndex]);
+                if(otherQi !== qi && otherName && quads[otherQi].video.src.includes(otherName)) {
                     isPlayingElsewhere = true;
                     break;
                 }
@@ -1783,13 +1832,11 @@
 
         q.clipIndex = nextClipIndex;
         const nextClip = videos[nextClipIndex];
-        if (!nextClip) return;
-
-        const url = URL.createObjectURL(nextClip.file);
-        createdObjectURLs.push(url);
-        v.src = url;
-        try { await v.play(); }
-        catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
+      if (!nextClip) return;
+      const url = getClipSource(nextClip);
+      v.src = url;
+      try { await v.play(); }
+      catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
       };
 
       v.onerror = () => { v.dispatchEvent(new Event('ended')); };
@@ -1800,8 +1847,7 @@
         if (index > -1) createdObjectURLs.splice(index, 1);
         URL.revokeObjectURL(oldUrl);
       }
-      const url = URL.createObjectURL(initialClip.file);
-      createdObjectURLs.push(url);
+      const url = getClipSource(initialClip);
       v.src = url;
       v.play().catch(e => { console.warn(`Quadrant ${qi} initial autoplay failed.`, e); });
     }
@@ -2010,8 +2056,9 @@
         btnStart.click();
       }, {passive:true});
 
-      btnStart.addEventListener('click', ()=> {
-        if (videos.length < 4){ status.textContent='Load at least 4 videos first.'; return; }
+      btnStart.addEventListener('click', async ()=> {
+        const ready = await ensureClipsAvailable();
+        if (!ready){ status.textContent='Load at least 4 videos first.'; return; }
         startApp();
       });
 
@@ -2048,6 +2095,8 @@
     quads.push(createQuad(document.getElementById('q2'), 1));
     // Attach all button listeners
     attachControls();
+    // Preload built-in clips so the app can run without manual uploads
+    loadFallbackClips();
 
   })();
   </script>
