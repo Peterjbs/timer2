@@ -1026,8 +1026,9 @@
     let cycleAbort = false;
     const activeIntervals = new Set(); 
 
-    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+    const randomlySelectItem = (array)=> array[Math.floor(Math.random()*array.length)];
     
+    const waitForDuration = (milliseconds, signal) => new Promise((resolve, reject) => {
     const sleep = (ms, signal) => new Promise((resolve, reject) => {
         if (!signal || signal.aborted) {
             reject(new DOMException('Aborted', 'AbortError'));
@@ -1037,7 +1038,7 @@
         const timeout = setTimeout(() => {
             activeIntervals.delete(timeout);
             resolve(true); 
-        }, ms);
+        }, milliseconds);
         activeIntervals.add(timeout);
         
         const abortHandler = () => {
@@ -1049,7 +1050,7 @@
         signal.addEventListener('abort', abortHandler, { once: true });
     });
     
-    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
+    const convertToTitleCase = (string)=> (string||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(word=>word[0]?word[0].toUpperCase()+word.slice(1):'').join(' ');
 
     const clipName = (clip) => (clip && clip.file && clip.file.name) || (clip && clip.name) || '';
 
@@ -1294,7 +1295,7 @@
           eventPhases.push({ phaseName: "MASK_VALIDATION" });
           break;
         case "Action":
-          const action = pick(ACTIONS);
+          const action = randomlySelectItem(ACTIONS);
           eventPhases.push({ 
             phaseName: "ACTION_MAIN", 
             duration: action.seconds * 1000, 
@@ -1377,7 +1378,7 @@
         duration: duration, 
         nextEventName: phase.nextEventName 
       });
-      await sleep(duration, signal);
+      await waitForDuration(duration, signal);
       return true; 
     }
 
@@ -1389,7 +1390,7 @@
         loop: phase.loop 
       });
       
-      const timerPromise = sleep(duration, signal);
+      const timerPromise = waitForDuration(duration, signal);
 
       if (rules.ui.showCancel) {
         const { promise: cancelPromise, cleanup } = showCancelButtons(q, phase, rules.ui.cancelTarget);
@@ -1526,7 +1527,7 @@
       let result = { success: true, score: -2 }; 
       
       try {
-        const timerPromise = sleep(duration, signal);
+        const timerPromise = waitForDuration(duration, signal);
         const winner = await Promise.race([timerPromise, cancelPromise]);
         
         if (winner === "cancel") {
@@ -1654,7 +1655,7 @@
             const v = item.querySelector('video');
             const label = item.querySelector('.item-label');
             setThumbnail(v, clip);
-            if(label) label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+            if(label) label.textContent = convertToTitleCase(clip.name) || 'Video ' + (idx+1);
             item.style.display = 'block';
 
             const handler = () => {
@@ -1716,7 +1717,7 @@
         
         setPhaseUI(q, phase, rules.ui, { duration: duration });
         
-        await sleep(duration, signal);
+        await waitForDuration(duration, signal);
         addTally(q, 5);
         return true;
     }
@@ -1727,7 +1728,7 @@
       console.log("Trivia Phase Started");
       const duration = rules.duration;
       setPhaseUI(q, phase, rules.ui, { duration: duration });
-      await sleep(duration, signal);
+      await waitForDuration(duration, signal);
       return true;
     }
 
@@ -2249,7 +2250,7 @@
             const vid = item.querySelector('video');
             const label = item.querySelector('.item-label');
             setThumbnail(vid, clip);
-            if (label) label.textContent = toTitle(clipName(clip)) || `Clip ${idx+1}`;
+            if (label) label.textContent = convertToTitleCase(clipName(clip)) || `Clip ${idx+1}`;
             item.classList.toggle('active', clip === q.selectedStartClip);
             // Remove old click handler before adding new one
             if (item._chooseClickHandler) {
