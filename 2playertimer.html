@@ -1,265 +1,542 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>2 Player Timer</title>
+  <title>Quadrant Timers — Refactored (v5)</title>
   <style>
-    :root {
-      --bg: #0b0e14;
-      --fg: #eaeef5;
-      --panel: #141826;
-      --accent: #8ab4ff;
-      --border: #1f2435;
-      --dockH: 64px;
-    }
+    /* ================================================================================
+    == STYLES
+    ================================================================================
+    */
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron&family=Pacifico&family=Playfair+Display&family=Press+Start+2P&family=Quicksand:wght@300;700&family=Share+Tech+Mono&family=Special+Elite&display=swap');
 
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    :root{ --bg:#0b0e14; --fg:#eaeef5; --muted:#9aa4b2; --panelBorder:#1a2030; --dockH:64px; }
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    
+    /* === Dock === */
+    .dock{position:fixed; left:0; right:0; top:0; height:var(--dockH); display:flex; align-items:center; gap:.5rem; padding:0 .75rem; background:#0f1422; border-bottom:1px solid var(--panelBorder); z-index:100}
+    .dock .spacer{flex:1}
+    .dock button, .dock label{background:#141b2b; color:var(--fg); border:1px solid var(--panelBorder); padding:.5rem .7rem; border-radius:.6rem; cursor:pointer; font-weight:600}
+    .dock input[type=file]{display:none}
+    .hint{opacity:.9; font-size:.9rem}
 
-    .dock {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: var(--dockH);
-      display: flex;
-      gap: .5rem;
-      align-items: center;
-      padding: 0 .75rem;
-      background: #0f1422;
-      border-bottom: 1px solid var(--border);
-      z-index: 200;
-    }
-    .dock .spacer { flex: 1; }
-    .dock button, .dock select { background: #141b2b; color: var(--fg); border: 1px solid var(--border); padding: .55rem .85rem; border-radius: .65rem; font-weight: 700; cursor: pointer; }
-    .dock button:hover, .dock select:hover { background: #1c2335; }
+    /* === Layout === */
+    .stage{position:fixed; left:0; right:0; top:var(--dockH); bottom:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr; background:black; transition: filter .25s ease; gap: 0;}
 
-    .stage {
-      position: fixed;
-      left: 0; right: 0;
-      top: var(--dockH); bottom: 0;
+    .quadrant{
+      position:relative;
+      overflow:hidden;
+      border: none;
+      background: #000;
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1px;
-      background: #06080f;
     }
-    .quadrant {
+    #q1 {
+      grid-template-rows: 2fr 1fr 60px;
+      border-right: 1px solid var(--panelBorder);
+    }
+    #q2 {
+      grid-template-rows: 1fr 2fr 60px;
+      border-left: 1px solid var(--panelBorder);
+      border-right: none;
+    }
+
+    .video-container {
       position: relative;
       overflow: hidden;
-      border: 1px solid var(--border);
-      background: black;
+      background: #000;
     }
-    .video-container, .panel-container { position: relative; height: 100%; }
-    .video-container video { width: 100%; height: 100%; object-fit: cover; background: black; filter: brightness(.95); }
-    .vibe-overlay { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; opacity: .9; }
-    .event-overlay { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .15s ease; }
-    .event-overlay.show { opacity: 1; }
+    #q1 .video-container { grid-row: 1 / 2; }
+    #q2 .video-container { grid-row: 2 / 3; }
 
-    .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity .12s ease; }
-    .overlay.show { opacity: 1; }
-    .video-countdown-overlay .inner { display: flex; flex-direction: column; align-items: center; gap: .6rem; color: #fff; text-shadow: 0 4px 22px rgba(0,0,0,.8); }
-    .info-text-overlay { color: #fff; text-shadow: 0 3px 14px rgba(0,0,0,.8); font-weight: 800; letter-spacing: .08em; }
-
-    .display-xxl { font-size: clamp(6rem, 12vw, 14rem); font-weight: 900; }
-    .display-lg { font-size: clamp(2rem, 5vw, 5rem); font-weight: 800; }
-    .timer-text { font-size: clamp(2.6rem, 5vw, 6rem); font-weight: 900; letter-spacing: .1em; }
-
-    .panel-container { display: flex; align-items: center; justify-content: center; background: var(--panel); transition: background .2s ease; }
-    .panel-container .info-text-overlay { position: relative; text-align: center; padding: 1rem 2rem; }
-    .panel-container .info-text-overlay .helper { display: block; font-size: 1.3rem; opacity: .85; }
+    .panel-container {
+      position: relative;
+      overflow: hidden;
+      background: var(--panel-bg, #111);
+      transition: background .3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      box-sizing: border-box;
+      /* Vibe font will be set here by JS */
+    }
+    #q1 .panel-container { grid-row: 2 / 3; }
+    #q2 .panel-container { grid-row: 1 / 2; }
 
     .bottom-bar {
+      grid-row: 3 / 4;
+      background: #0f1422;
+      border-top: 1px solid var(--panelBorder);
+      display: flex;
+      align-items: center;
+      padding: 0 .5rem;
+      gap: .5rem;
+      z-index: 300;
+    }
+    .bottom-bar .spacer { flex: 1; }
+    .bottom-bar button {
+      background: #141b2b;
+      color: var(--fg);
+      border: 1px solid var(--panelBorder);
+      padding: .5rem .7rem;
+      border-radius: .6rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+    .bottom-bar button:hover { background: #1a2030; }
+    
+    .quad-video{
+      position:absolute;
+      top:0; left:0; width:100%; height:100%;
+      object-fit: cover;
+      background:black;
+      transition: filter .3s, transform .3s;
+      /* Vibe filter/animation will be set here by JS */
+    }
+    
+    /* === Vibe Overlays === */
+    .vibe-overlay {
       position: absolute;
-      bottom: 1rem; left: 50%; transform: translateX(-50%);
-      display: flex; gap: .8rem;
-      z-index: 50;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 15;
+      pointer-events: none;
+      background: transparent;
+      mix-blend-mode: normal;
+      transition: background .4s, opacity .4s;
+      /* Vibe gradient/blend-mode will be set here by JS */
+    }
+    
+    .event-overlay-custom {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+    .event-overlay-custom.active { opacity: 1; }
+    
+    .event-overlay-light { background: linear-gradient(135deg, #FF4500, #FFA500); mix-blend-mode: overlay; }
+    .event-overlay-smoke { background: rgba(255, 255, 255, 0.7); mix-blend-mode: screen; }
+    .event-overlay-inhale { background: rgba(173, 216, 230, 0.6); mix-blend-mode: screen; }
+    .event-overlay-hold { background: rgba(128, 128, 128, 0.7); mix-blend-mode: normal; }
+    .event-overlay-exhale { background: rgba(144, 238, 144, 0.6); mix-blend-mode: screen; }
+    .event-overlay-sniff { background: white; mix-blend-mode: exclusion; }
+    .event-overlay-sniff.active { animation: strobe-flash 100ms linear infinite; }
+    .video-container.sniff-effect { filter: invert(1); }
+    .video-container.sniff-effect .quad-video { animation: sniff-zoom 0.3s infinite alternate; }
+    
+    .bubble-container {
+      position: absolute;
+      inset: 0;
+      z-index:101;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .3s ease;
+    }
+    .bubble-container.active { opacity:1; }
+    .bubble {
+      position: absolute;
+      width:20px;
+      height:20px;
+      background: rgba(255,255,255,0.7);
+      border-radius:50%;
+      pointer-events:none;
+    }
+    .event-overlay-inhale .bubble { animation: move-up 3s linear infinite; }
+    .event-overlay-exhale .bubble { animation: move-down 3s linear infinite; }
+    
+    .overlay[data-type="mask"] .inner {
+      background: rgba(0,0,0,0.6);
+    }
+    
+    /* === Streamlined Overlays (New) === */
+    .overlay {
+      position:absolute; inset:0; 
+      display:flex; flex-direction: column;
+      align-items:center; justify-content:center;
+      text-align:center;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      z-index:200;
+    }
+    .overlay.show { opacity: 1; }
+    
+    .video-countdown-overlay {
+      color: white;
+      text-shadow: 0 4px 20px rgba(0,0,0,.9);
+    }
+    .video-countdown-timer {
+      font-size: clamp(6rem, 20vw, 10rem);
+      font-weight: 900;
+      line-height: 1;
+    }
+    .video-countdown-label {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+      margin-top: 1rem;
+    }
+    
+    .info-text-overlay {
+      color: var(--themeAccent, white);
+      text-shadow: 0 2px 10px rgba(0,0,0,.5);
+      justify-content: center;
+      z-index: 150;
+    }
+    .info-text-xxl {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .info-text-lg {
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      font-weight: 800;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .info-text-idle {
+      gap: 1.5rem;
+    }
+    .info-text-idle .countdown {
+      font-size: clamp(6rem, 20vw, 10rem);
+      font-weight: 900;
+      line-height: 1;
+    }
+    .info-text-idle .label {
+      display: flex;
+      flex-direction: column;
+      font-weight: 700;
+      line-height: 1.1;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+    }
+    .info-text-idle .label .until-text {
+      font-size: 0.7em;
+      opacity: 0.8;
+      font-weight: 600;
+    }
+
+    /* === Special Overlays (Popups) === */
+    .special-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--panel-bg, rgba(0,0,0,.85));
+      z-index: 400;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      gap: 1.5rem;
+      pointer-events: none;
+      color: white;
+    }
+    .special-overlay.show {
+      display: flex;
       pointer-events: auto;
     }
-    .bottom-bar button {
-      font-size: clamp(1.4rem, 3vw, 2.5rem);
-      padding: .8rem 1.2rem;
-      border-radius: .7rem;
-      border: 2px solid rgba(255,255,255,.25);
-      background: rgba(0,0,0,.65);
-      color: white;
+    
+    .special-overlay-title { 
+      font-size: clamp(1.5rem, 4vw, 2.5rem); 
+      font-weight: 700; 
+      text-shadow: 0 1px 3px #000;
+    }
+    .special-overlay-timer { 
+      position: absolute; 
+      top: 1rem; right: 1rem; 
+      font-size: clamp(1.2rem, 3vw, 2.4rem); 
+      padding:.25rem .6rem; 
+      background: rgba(192,0,0,0.95); 
+      box-shadow: 0 6px 18px rgba(0,0,0,.5); 
+      font-weight: 800; 
+      color: #fff; 
+      border-radius: .4rem; 
+    }
+
+    .validation-buttons {
+      display: flex;
+      gap: 2rem;
+    }
+    .validation-button {
+      background: #141b2b;
+      color: var(--fg);
+      border: 1px solid var(--panelBorder);
+      padding: 1.5rem 3rem;
+      border-radius: .6rem;
       cursor: pointer;
-      display: none;
-    }
-    .bottom-bar button.show { display: inline-flex; }
-
-    .validation-overlay, .breath-count-overlay, .action-choice-overlay, .grid-choice-overlay {
-      position: absolute; inset: 0; background: rgba(0,0,0,.7);
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 1rem;
-      color: white; font-weight: 800;
-      opacity: 0; pointer-events: none; transition: opacity .12s ease;
-    }
-    .validation-overlay.show, .breath-count-overlay.show, .action-choice-overlay.show, .grid-choice-overlay.show { opacity: 1; pointer-events: auto; }
-    .validation-overlay button, .breath-count-overlay button, .action-choice-overlay button, .grid-choice-overlay button { padding: .6rem 1rem; border-radius: .5rem; border: 0; font-size: 1.1rem; cursor: pointer; }
-    .action-choice-overlay .choices, .grid-choice-overlay .choices { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; }
-
-    .chooseTint {
-      position: absolute; inset: 0; background: rgba(0,0,0,.75);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: .8rem; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.9);
-      z-index: 90;
-      transition: opacity .2s ease;
-    }
-
-    .nextEventTimer {
-      position: absolute;
-      top: .6rem; left: .6rem;
-      padding: .35rem .65rem;
-      background: rgba(0,0,0,.82);
-      border: 1px solid var(--border);
-      border-radius: .4rem;
-      color: white;
       font-weight: 800;
+      font-size: 3rem;
+      transition: transform .1s ease, background .1s ease;
+    }
+    .validation-button:hover { background: #1a2030; transform: scale(1.05); }
+    .validation-button.confirm { background: #080; color: white; }
+    .validation-button.fail { background: #b00; color: white; }
+    .validation-button.confirm:hover { background: #0a0; }
+    .validation-button.fail:hover { background: #d00; }
+
+    .grid-choice-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: .5rem; width: 80%; height: 70%; max-width: 800px; }
+    .grid-choice-item { position: relative; cursor: pointer; border: 2px solid #555; border-radius: .5rem; overflow: hidden; transition: border-color .2s; }
+    .grid-choice-item:hover { border-color: #fff; transform: scale(1.03); }
+    .grid-choice-item video { width: 100%; height: 100%; object-fit: cover; }
+    .grid-choice-item .item-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,.7); color: white; padding: .2rem .4rem; font-size: .8rem; text-align: center; }
+
+    .action-choice-list { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 1rem; width: 90%; max-width: 800px; }
+    .action-choice-item { background: #141b2b; color: var(--fg); border: 1px solid var(--panelBorder); padding: 1rem; border-radius: .6rem; cursor: pointer; font-weight: 600; font-size: 1rem; transition: transform .1s ease, background .1s ease; display: flex; flex-direction: column; align-items: center; gap: .5rem; min-width: 100px; }
+    .action-choice-item .emoji { font-size: 3rem; line-height: 1; }
+    .action-choice-item:hover { background: #1a2030; transform: scale(1.03); }
+
+    .breath-count-list { display: flex; flex-direction: row; gap: 1rem; width: 80%; max-width: 600px; justify-content: center; }
+    .breath-count-item { background: #141b2b; color: var(--fg); border: 1px solid var(--panelBorder); padding: 1.5rem 2rem; border-radius: .6rem; cursor: pointer; font-weight: 800; font-size: 2rem; transition: transform .1s ease, background .1s ease; }
+    .breath-count-item:hover { background: #1a2030; transform: scale(1.05); }
+
+    /* === Bottom Bar Cancel Buttons === */
+    .bottom-bar .btn-phase-cancel {
       display: none;
     }
-    .nextEventTimer.show { display: inline-flex; gap: .4rem; }
+    .bottom-bar.show-cancel-buttons .btn-phase-cancel {
+      display: inline-block;
+    }
+    .bottom-bar .btn-phase-fail { background: #b00; color: white; }
+    .bottom-bar .btn-phase-confirm { background: #080; color: white; }
+    .bottom-bar .btn-phase-fail:hover { background: #d00; }
+    .bottom-bar .btn-phase-confirm:hover { background: #0a0; }
+
+    /* === Misc & Vibe Animations === */
+    .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300;}
+    .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
+    .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
+    .btn-change-theme { pointer-events:auto; cursor:pointer; font-size:1rem; padding:.5rem 1rem; margin-top:1rem; border-radius:.5rem; background:rgba(255,255,255,.1); color:white; border:1px solid white; font-weight: 600; }
+    .btn-change-theme:hover { background:rgba(255,255,255,.2); }
+
+    .selectBadge{position:absolute; top:.5rem; left:.5rem; background:var(--themeBase, rgba(0,0,0,.6)); border:1px solid rgba(255,255,255,.25); padding:.15rem .45rem; border-radius:.4rem; font-weight:800; pointer-events:none; z-index: 70;}
+    
+    @keyframes strobe-flash { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    @keyframes sniff-zoom { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes vibe-anim-grain { 0%, 100% { transform: translate(0, 0); } 10% { transform: translate(-1%, -1%); } 20% { transform: translate(1%, 1%); } 30% { transform: translate(-2%, 2%); } 40% { transform: translate(2%, -1%); } 50% { transform: translate(-1%, 1%); } 60% { transform: translate(1%, -2%); } 70% { transform: translate(-2%, -1%); } 80% { transform: translate(2%, 2%); } 90% { transform: translate(-1%, -2%); } }
+    @keyframes vibe-anim-text-glitch { 0%, 100% { text-shadow: 1px 0 0 #ff00ff, -1px 0 0 #00ffff; } 50% { text-shadow: 2px 1px 0 #ff00ff, -2px -1px 0 #00ffff; } }
+    @keyframes vibe-anim-dreamy-glow { from { box-shadow: 0 0 10px 5px #6c5ce7; } to { box-shadow: 0 0 20px 10px #fd79a8; } }
+    @keyframes vibe-anim-heartbeat { 0%, 100% { transform: scale(1); } 10% { transform: scale(1.02); } 20% { transform: scale(1); } }
+    @keyframes vibe-anim-glitch { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-3px, 3px); } 40% { transform: translate(3px, -3px); } 60% { transform: translate(-2px, 2px); } 80% { transform: translate(2px, -2px); } }
+    @keyframes vibe-anim-hue-rotate { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+    @keyframes vibe-anim-starfield { from { background-position: 0 0; } to { background-position: 0 256px; } }
+    @keyframes move-up { 0% { transform: translateY(100vh) scale(0.5); opacity: 0; left: var(--x-start); } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100px) scale(1); opacity: 0; left: var(--x-end); } }
+    @keyframes move-down { 0% { transform: translateY(-100px) scale(1); opacity: 0; left: var(--x-start); } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(100vh) scale(0.5); opacity: 0; left: var(--x-end); } }
   </style>
 </head>
 <body>
   <div class="dock">
-    <button class="btn-player-start">START</button>
-    <button class="btn-player-stop">STOP</button>
-    <button class="btn-fullscreen">Fullscreen</button>
-    <div class="spacer"></div>
-    <label>Vibe
-      <select class="vibe-select"></select>
-    </label>
-    <button class="btn-mute">Mute</button>
+    <label for="folderPicker">🎬 Pick videos</label>
+    <input id="folderPicker" type="file" webkitdirectory directory multiple accept="video/*" />
+    <button id="btnStart">▶︎ Start</button>
+    <button id="btnStop">⏹ Stop</button>
+    <button id="btnFSAll" title="Fullscreen app">⛶</button>
+    <span class="spacer"></span>
+    <button id="btnMuteAll" title="Mute/Unmute all">🔇</button>
+    <span id="status" class="hint">Load ≥4 vids, Start, then pick theme.</span>
   </div>
 
   <div class="stage">
-    <div class="quadrant" id="q1">
-      <div class="video-container">
-        <video class="quad-video" src="clips/aurora.mp4" loop muted></video>
-        <div class="vibe-overlay"></div>
-        <div class="event-overlay" data-effect="light" style="background: radial-gradient(circle at 50% 50%, rgba(255,140,0,.6), rgba(0,0,0,.75)); mix-blend-mode: screen;"></div>
-        <div class="event-overlay" data-effect="smoke" style="background: radial-gradient(circle at 50% 50%, rgba(200,200,200,.55), rgba(0,0,0,.8));"></div>
-        <div class="event-overlay" data-effect="inhale" style="background: rgba(0,128,0,.45);"></div>
-        <div class="event-overlay" data-effect="hold" style="background: rgba(128,128,128,.4);"></div>
-        <div class="event-overlay" data-effect="exhale" style="background: rgba(0,0,255,.4);"></div>
-        <div class="event-overlay" data-effect="sniff" style="background: rgba(255,255,0,.35);"></div>
-        <div class="event-overlay" data-effect="mask" style="background: rgba(20,20,25,.75);"></div>
-        <div class="event-overlay" data-effect="action" style="background: rgba(255,255,255,.08);"></div>
-        <div class="video-countdown-overlay overlay">
-          <div class="inner">
-            <div class="display-xxl countdown-text">--</div>
-            <div class="timer-text countdown-timer">0</div>
-          </div>
-        </div>
-      </div>
-      <div class="panel-container">
-        <div class="info-text-overlay display-lg">Ready</div>
-        <div class="nextEventTimer">Until <span class="nextEventName">?</span> <span class="nextEventTime">0</span>s</div>
-        <div class="validation-overlay">
-          <div class="display-lg validation-title">Did you complete?</div>
-          <div class="validation-timer">10</div>
-          <div>
-            <button class="btn-validate-yes">✓</button>
-            <button class="btn-validate-no">✗</button>
-          </div>
-        </div>
-        <div class="breath-count-overlay">
-          <div class="display-lg">How many breaths?</div>
-          <div class="breath-count-timer">10</div>
-          <div class="choices"></div>
-        </div>
-        <div class="action-choice-overlay">
-          <div class="display-lg">Choose your next event</div>
-          <div class="action-choice-timer">20</div>
-          <div class="choices"></div>
-        </div>
-        <div class="grid-choice-overlay">
-          <div class="display-lg grid-choice-title">Choose your next video</div>
-          <div class="grid-choice-timer">20</div>
-          <div class="choices"></div>
-        </div>
-      </div>
-      <div class="bottom-bar">
-        <button class="btn-task-cancel fail">✗</button>
-        <button class="btn-task-cancel confirm">✓</button>
-      </div>
-      <div class="chooseTint">
-        <div class="display-lg">Tap START to begin</div>
-        <div class="emojisPlan">⏱️🫁🔥</div>
+<div class="quadrant" id="q1">
+
+  <div class="video-container">
+    <div class="selectBadge"></div>
+    <video playsinline webkit-playsinline muted preload="metadata" class="quad-video"></video>
+    
+    <!-- Vibe & Effect Overlays -->
+    <div class="vibe-overlay"></div>
+    <div class="event-overlay-custom event-overlay-light"></div>
+    <div class="event-overlay-custom event-overlay-smoke"></div>
+    <div class="bubble-container event-overlay-inhale"></div>
+    <div class="event-overlay-custom event-overlay-hold"></div>
+    <div class="bubble-container event-overlay-exhale"></div>
+    <div class="event-overlay-custom event-overlay-sniff"></div>
+    
+    <!-- Single Countdown Overlay -->
+    <div class="overlay video-countdown-overlay">
+      <div class="video-countdown-timer">--</div>
+      <div class="video-countdown-label"></div>
+    </div>
+  </div>
+
+  <div class="panel-container">
+    <!-- Single Info Text Overlay -->
+    <div class="overlay info-text-overlay">
+      <!-- Content here is set by JS -->
+      <!-- e.g., <div class="info-text-lg">Get Ready to Light</div> -->
+      <!-- e.g., <div class="info-text-xxl">LIGHT</div> -->
+      <!-- e.g., <div class="info-text-idle">...</div> -->
+    </div>
+    
+    <!-- Special Pop-up Overlays -->
+    <div class="special-overlay validation-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title validation-title">Did you complete it?</div>
+      <div class="validation-buttons">
+        <button class="validation-button fail">✗</button>
+        <button class="validation-button confirm">✓</button>
       </div>
     </div>
 
-    <div class="quadrant" id="q2">
-      <div class="video-container">
-        <video class="quad-video" src="clips/aurora.mp4" loop muted></video>
-        <div class="vibe-overlay"></div>
-        <div class="event-overlay" data-effect="light" style="background: radial-gradient(circle at 50% 50%, rgba(255,140,0,.6), rgba(0,0,0,.75)); mix-blend-mode: screen;"></div>
-        <div class="event-overlay" data-effect="smoke" style="background: radial-gradient(circle at 50% 50%, rgba(200,200,200,.55), rgba(0,0,0,.8));"></div>
-        <div class="event-overlay" data-effect="inhale" style="background: rgba(0,128,0,.45);"></div>
-        <div class="event-overlay" data-effect="hold" style="background: rgba(128,128,128,.4);"></div>
-        <div class="event-overlay" data-effect="exhale" style="background: rgba(0,0,255,.4);"></div>
-        <div class="event-overlay" data-effect="sniff" style="background: rgba(255,255,0,.35);"></div>
-        <div class="event-overlay" data-effect="mask" style="background: rgba(20,20,25,.75);"></div>
-        <div class="event-overlay" data-effect="action" style="background: rgba(255,255,255,.08);"></div>
-        <div class="video-countdown-overlay overlay">
-          <div class="inner">
-            <div class="display-xxl countdown-text">--</div>
-            <div class="timer-text countdown-timer">0</div>
-          </div>
-        </div>
+    <div class="special-overlay grid-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title grid-choice-title">CHOOSE NEW VIDEO</div>
+      <div class="grid-choice-grid">
+        <div class="grid-choice-item" data-idx="0"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="1"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="2"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="3"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
       </div>
-      <div class="panel-container">
-        <div class="info-text-overlay display-lg">Ready</div>
-        <div class="nextEventTimer">Until <span class="nextEventName">?</span> <span class="nextEventTime">0</span>s</div>
-        <div class="validation-overlay">
-          <div class="display-lg validation-title">Did you complete?</div>
-          <div class="validation-timer">10</div>
-          <div>
-            <button class="btn-validate-yes">✓</button>
-            <button class="btn-validate-no">✗</button>
-          </div>
-        </div>
-        <div class="breath-count-overlay">
-          <div class="display-lg">How many breaths?</div>
-          <div class="breath-count-timer">10</div>
-          <div class="choices"></div>
-        </div>
-        <div class="action-choice-overlay">
-          <div class="display-lg">Choose your next event</div>
-          <div class="action-choice-timer">20</div>
-          <div class="choices"></div>
-        </div>
-        <div class="grid-choice-overlay">
-          <div class="display-lg grid-choice-title">Choose your next video</div>
-          <div class="grid-choice-timer">20</div>
-          <div class="choices"></div>
-        </div>
-      </div>
-      <div class="bottom-bar">
-        <button class="btn-task-cancel fail">✗</button>
-        <button class="btn-task-cancel confirm">✓</button>
-      </div>
-      <div class="chooseTint">
-        <div class="display-lg">Tap START to begin</div>
-        <div class="emojisPlan">⏱️🫁🔥</div>
+    </div>
+    
+    <div class="special-overlay action-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title action-choice-title">CHOOSE NEXT EVENT</div>
+      <div class="action-choice-list"></div>
+    </div>
+    
+    <div class="special-overlay breath-count-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title breath-count-title">HOW MANY BREATHS?</div>
+      <div class="breath-count-list">
+        <div class="breath-count-item" data-num="1">1</div>
+        <div class="breath-count-item" data-num="2">2</div>
+        <div class="breath-count-item" data-num="3">3</div>
+        <div class="breath-count-item" data-num="4">4</div>
+        <div class="breath-count-item" data-num="5">5</div>
       </div>
     </div>
   </div>
 
+  <div class="bottom-bar">
+    <button class="btn-phase-cancel btn-phase-fail" title="Fail/Skip Event">✗</button>
+    <button class="btn-phase-cancel btn-phase-confirm" title="Complete Event">✓</button>
+    <span class="spacer"></span>
+    <button class="btnRestart" title="Restart (20s)">🔄</button>
+    <div class="tally">Score: 0</div>
+    <button class="shuffleVideo" title="Next video">⇄</button>
+    <button class="btnFS" title="Fullscreen this quad">⛶</button>
+    <button class="btnSound" title="Play this quad's audio">🔈</button>
+  </div>
+
+  <div class="overlay chooseTint">
+    <div class="chooseTitle">CHOOSE THEME</div>
+    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
+    <button class="btn-change-theme" style="margin-bottom:1rem;">Change Theme</button>
+    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+  </div>
+</div>
+
+
+<div class="quadrant" id="q2">
+  <!-- Quadrant 2 Structure -->
+  <div class="video-container">
+    <div class="selectBadge"></div>
+    <video playsinline webkit-playsinline muted preload="metadata" class="quad-video"></video>
+    
+    <div class="vibe-overlay"></div>
+    <div class="event-overlay-custom event-overlay-light"></div>
+    <div class="event-overlay-custom event-overlay-smoke"></div>
+    <div class="bubble-container event-overlay-inhale"></div>
+    <div class="event-overlay-custom event-overlay-hold"></div>
+    <div class="bubble-container event-overlay-exhale"></div>
+    <div class="event-overlay-custom event-overlay-sniff"></div>
+    
+    <div class="overlay video-countdown-overlay">
+      <div class="video-countdown-timer">--</div>
+      <div class="video-countdown-label"></div>
+    </div>
+  </div>
+
+  <div class="panel-container">
+    <div class="overlay info-text-overlay">
+    </div>
+    
+    <div class="special-overlay validation-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title validation-title">Did you complete it?</div>
+      <div class="validation-buttons">
+        <button class="validation-button fail">✗</button>
+        <button class="validation-button confirm">✓</button>
+      </div>
+    </div>
+
+    <div class="special-overlay grid-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title grid-choice-title">CHOOSE NEW VIDEO</div>
+      <div class="grid-choice-grid">
+        <div class="grid-choice-item" data-idx="0"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="1"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="2"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        <div class="grid-choice-item" data-idx="3"><video playsinline webkit-playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+      </div>
+    </div>
+    
+    <div class="special-overlay action-choice-overlay">
+      <div class="special-overlay-timer">20</div>
+      <div class="special-overlay-title action-choice-title">CHOOSE NEXT EVENT</div>
+      <div class="action-choice-list"></div>
+    </div>
+    
+    <div class="special-overlay breath-count-overlay">
+      <div class="special-overlay-timer">10</div>
+      <div class="special-overlay-title breath-count-title">HOW MANY BREATHS?</div>
+      <div class="breath-count-list">
+        <div class="breath-count-item" data-num="1">1</div>
+        <div class="breath-count-item" data-num="2">2</div>
+        <div class="breath-count-item" data-num="3">3</div>
+        <div class="breath-count-item" data-num="4">4</div>
+        <div class="breath-count-item" data-num="5">5</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-phase-cancel btn-phase-fail" title="Fail/Skip Event">✗</button>
+    <button class="btn-phase-cancel btn-phase-confirm" title="Complete Event">✓</button>
+    <span class="spacer"></span>
+    <button class="btnRestart" title="Restart (20s)">🔄</button>
+    <div class="tally">Score: 0</div>
+    <button class="shuffleVideo" title="Next video">⇄</button>
+    <button class="btnFS" title="Fullscreen this quad">⛶</button>
+    <button class="btnSound" title="Play this quad's audio">🔈</button>
+  </div>
+
+  <div class="overlay chooseTint">
+    <div class="chooseTitle">CHOOSE THEME</div>
+    <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
+    <button class="btn-change-theme" style="margin-bottom:1rem;">Change Theme</button>
+    <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+  </div>
+</div>
+</div>
+
+
+  <!-- 
+  ================================================================================
+  == NEW REFACTORED SCRIPT (v5 - Streamlined UI)
+  ================================================================================
+  -->
+
   <script>
+  (()=>{
+    
+    // ### 1. CONFIGURATION (THE "RULEBOOKS") ###
+    
     const VIBES = [
-      {
-        key: "cosmic",
-        name: "Cosmic",
-        palette: { base: "#0c0a1f", accent: "#e6a7ff", dark: "#000000" },
-        font: { family: '"Orbitron", sans-serif', weight: "400", transform: "uppercase" },
-        video_effects: {
-          css_filter: "contrast(1.1) saturate(1.2)",
-          css_animation: null,
-          overlay_gradient: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%)",
-          overlay_blend_mode: "multiply",
-          overlay_video: null,
-        },
-      },
       {
         key: "vintage",
         name: "Vintage",
@@ -270,8 +547,21 @@
           css_animation: "vibe-anim-grain 0.3s steps(1) infinite",
           overlay_gradient: "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%)",
           overlay_blend_mode: "multiply",
-          overlay_video: null,
-        },
+          overlay_video: null
+        }
+      },
+      {
+        key: "cosmic",
+        name: "Cosmic",
+        palette: { base: "#0c0a1f", accent: "#e6a7ff", dark: "#000000" },
+        font: { family: '"Orbitron", sans-serif', weight: "400", transform: "uppercase" },
+        video_effects: {
+          css_filter: null,
+          css_animation: null,
+          overlay_gradient: "radial-gradient(ellipse at center, rgba(255,255,255,0) 0%,rgba(0,0,0,0) 50%,rgba(0,0,0,0.8) 100%)",
+          overlay_blend_mode: "normal",
+          overlay_video: null // Example: { src: "path/to/stars.mp4", blend_mode: "screen", opacity: 0.4 }
+        }
       },
       {
         key: "glitch",
@@ -283,475 +573,1475 @@
           css_animation: "vibe-anim-glitch 0.5s steps(3) infinite",
           overlay_gradient: "linear-gradient(90deg, rgba(255,0,255,0.1), rgba(0,255,255,0.1))",
           overlay_blend_mode: "screen",
-          overlay_video: null,
-        },
-      },
+          overlay_video: null
+        }
+      }
+      // Add more Vibe objects here
     ];
 
     const ACTIONS = [
-      { label: "Stretch", duration: 10000 },
-      { label: "Sip Water", duration: 12000 },
-      { label: "Shake it out", duration: 9000 },
-      { label: "Dance", duration: 15000 },
+      {label:"Copy the main actor's pose", seconds:5, points: 5},
+      {label:"Drink something", seconds:10, points: 5},
+      {label:"Balance on one foot (10s)", seconds:10, points: 10},
+      {label:"Put your feet above your head", seconds:10, points: 15},
     ];
-
-    const PHASE_SETS = {
-      puff: ["READY_TO_PUFF", "PUFF_LIGHT", "PUFF_SMOKE", "PUFF_INHALE", "PUFF_HOLD", "PUFF_EXHALE", "PUFF_VALIDATION", "BREATH_COUNT_QUESTION"],
-      sniff: ["READY_TO_SNIFF", "SNIFF_MAIN", "SNIFF_VALIDATION"],
-      mask: ["READY_TO_MASK", "MASK_MAIN", "MASK_VALIDATION"],
-      action: ["READY_TO_ACTION", "ACTION_MAIN", "ACTION_VALIDATION"],
-      you_choose: ["YOU_CHOOSE_OVERLAY"],
-      grid_choice: ["GRID_CHOICE_OVERLAY"],
+    
+    const EMOJI = {
+      puff:'🌬️', sniff:'🍾', mask:'🤿', action:'📨', chill:'🧊', replay_video:'🔁', trivia:'❓', peace:'🕊️', redo_last:'🔂'
     };
 
     const PHASES = {
-      IDLE_GAP: { handler: "handleIdlePhase", duration: [30000, 75000], ui: { infoColor: "vibe", infoText: null, videoText: null, videoEffect: null, showCancel: false, showIdleCountdown: true } },
-      READY_TO_PUFF: { handler: "handleTimedPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Get Ready to Light", videoText: "READY", videoEffect: "ready", showCancel: false } },
-      PUFF_LIGHT: { handler: "handleTimedPhase", duration: 25000, ui: { infoColor: "#FF4500", infoText: "LIGHT", videoText: "LIGHT", videoEffect: "light", showCancel: true, cancelTarget: "IDLE_GAP" } },
-      PUFF_SMOKE: { handler: "handleTimedPhase", duration: 12000, ui: { infoColor: "linear-gradient(to bottom, #FFA500, #808080)", infoText: "SMOKE", videoText: "SMOKE", videoEffect: "smoke", showCancel: true, cancelTarget: "IDLE_GAP" } },
-      PUFF_INHALE: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "#008000", infoText: "INHALE", videoText: "INHALE", videoEffect: "inhale", showCancel: true, cancelTarget: "PUFF_VALIDATION" } },
-      PUFF_HOLD: { handler: "handleTimedPhase", duration: 4000, ui: { infoColor: "#808080", infoText: "HOLD", videoText: "HOLD", videoEffect: "hold", showCancel: true, cancelTarget: "PUFF_VALIDATION" } },
-      PUFF_EXHALE: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "#0000FF", infoText: "EXHALE", videoText: "EXHALE", videoEffect: "exhale", showCancel: true, cancelTarget: "PUFF_VALIDATION" } },
-      PUFF_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you complete the puff?", videoText: "", videoEffect: "validation" } },
-      BREATH_COUNT_QUESTION: { handler: "handleBreathPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "How many breaths?", videoText: "", videoEffect: "validation" } },
-
-      READY_TO_SNIFF: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "vibe", infoText: "Get Ready", videoText: "READY", videoEffect: "ready", showCancel: false } },
-      SNIFF_MAIN: { handler: "handleTimedPhase", duration: 8000, ui: { infoColor: "#FFFF00", infoText: "SNIFF", videoText: "SNIFF", videoEffect: "sniff", showCancel: true, cancelTarget: null } },
-      SNIFF_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you complete the sniff?", videoText: "", videoEffect: "validation" } },
-
-      READY_TO_MASK: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "vibe", infoText: "Mask up", videoText: "READY", videoEffect: "ready", showCancel: false } },
-      MASK_MAIN: { handler: "handleTimedPhase", duration: 20000, ui: { infoColor: "#36454F", infoText: "Keep the mask on", videoText: "MASK", videoEffect: "mask", showCancel: true, cancelTarget: "MASK_VALIDATION" } },
-      MASK_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you keep it on?", videoText: "", videoEffect: "validation" } },
-
-      READY_TO_ACTION: { handler: "handleTimedPhase", duration: 5000, ui: { infoColor: "vibe", infoText: "Get Ready", videoText: "READY", videoEffect: "ready", showCancel: false } },
-      ACTION_MAIN: { handler: "handleActionPhase", duration: null, ui: { infoColor: "accent", infoText: "ACTION", videoText: "ACTION", videoEffect: "action", showCancel: true, cancelTarget: "IDLE_GAP" } },
-      ACTION_VALIDATION: { handler: "handleValidationPhase", duration: 10000, ui: { infoColor: "vibe", infoText: "Did you finish the action?", videoText: "", videoEffect: "validation" } },
-
-      YOU_CHOOSE_OVERLAY: { handler: "handleChoicePhase", duration: 20000, ui: { infoColor: "vibe", infoText: "Choose your next event", videoText: "READY", videoEffect: "ready" } },
-      GRID_CHOICE_OVERLAY: { handler: "handleGridChoicePhase", duration: 20000, ui: { infoColor: "vibe", infoText: "Choose your next video", videoText: "READY", videoEffect: "ready" } },
-      REPLAY_VIDEO_MAIN: { handler: "handleReplayPhase", duration: null, ui: { infoColor: "vibe", infoText: "Replay", videoText: "REPLAY", videoEffect: "action" } },
+      // IDLE
+      "IDLE_GAP": {
+        handler: "handleIdlePhase",
+        duration: [30000, 75000], // [min, max]
+        ui: {
+          infoColor: "vibe_base",
+          // videoCountdown and infoText are set by the handler
+        }
+      },
+      // "READY" PHASES
+      "READY_TO_PUFF": {
+        handler: "handleTimedPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Get Ready to Light",
+          infoSize: "lg"
+        }
+      },
+      "READY_TO_SNIFF": {
+        handler: "handleTimedPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Get ready to sniff",
+          infoSize: "lg"
+        }
+      },
+      "READY_FOR_MASK": {
+        handler: "handleTimedPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Get ready for the mask",
+          infoSize: "lg"
+        }
+      },
+      // "PUFF" EVENT
+      "PUFF_LIGHT": {
+        handler: "handleTimedPhase",
+        duration: 25000,
+        ui: {
+          videoEffect: "light",
+          videoCountdown: true,
+          infoColor: "#FF4500",
+          infoText: "LIGHT",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "PUFF_SMOKE": {
+        handler: "handleTimedPhase",
+        duration: 12000,
+        ui: {
+          videoEffect: "smoke",
+          videoCountdown: true,
+          infoColor: "linear-gradient(to bottom, #FFA500, #808080)",
+          infoText: "SMOKE",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "PUFF_INHALE": {
+        handler: "handleTimedPhase",
+        duration: 5000,
+        ui: {
+          videoEffect: "inhale",
+          videoCountdown: true,
+          videoText: "INHALE", // Shows "INHALE 1", "INHALE 2" etc.
+          infoColor: "#008000",
+          infoText: "INHALE",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "PUFF_VALIDATION"
+        }
+      },
+      "PUFF_HOLD": {
+        handler: "handleTimedPhase",
+        duration: 4000,
+        ui: {
+          videoEffect: "hold",
+          videoCountdown: true,
+          videoText: "HOLD",
+          infoColor: "#808080",
+          infoText: "HOLD",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "PUFF_VALIDATION"
+        }
+      },
+      "PUFF_EXHALE": {
+        handler: "handleTimedPhase",
+        duration: 5000,
+        ui: {
+          videoEffect: "exhale",
+          videoCountdown: true,
+          videoText: "EXHALE",
+          infoColor: "#0000FF",
+          infoText: "EXHALE",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "PUFF_VALIDATION"
+        }
+      },
+      "PUFF_VALIDATION": {
+        handler: "handleValidationPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "validationOverlay",
+          infoText: "Did you complete the puff?",
+        }
+      },
+      "BREATH_COUNT_QUESTION": {
+        handler: "handleBreathQuestionPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "breathCountOverlay",
+        }
+      },
+      // "SNIFF" EVENT
+      "SNIFF_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 8000,
+        ui: {
+          videoEffect: "sniff",
+          videoCountdown: true,
+          videoText: "SNIFF",
+          infoColor: "#FFFF00",
+          infoText: "SNIFF",
+          infoSize: "xxl",
+          showCancel: false // Per CSV: "no abort"
+        }
+      },
+      "SNIFF_VALIDATION": {
+        handler: "handleValidationPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "validationOverlay",
+          infoText: "Did you complete the sniff?",
+        }
+      },
+      // "MASK" EVENT
+      "MASK_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 20000,
+        ui: {
+          videoEffect: "mask", // This is just the video overlay
+          videoCountdown: true,
+          videoText: "MASK",
+          infoColor: "#36454F",
+          infoText: "Keep the mask on",
+          infoSize: "lg",
+          showCancel: true,
+          cancelTarget: "MASK_VALIDATION"
+        }
+      },
+      "MASK_VALIDATION": {
+        handler: "handleValidationPhase",
+        duration: 10000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "validationOverlay",
+          infoText: "Did you keep it on?",
+        }
+      },
+      // "OTHER" EVENTS
+      "YOU_CHOOSE_OVERLAY": {
+        handler: "handleChoicePhase",
+        duration: 20000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoOverlay: "actionChoiceOverlay",
+        }
+      },
+      "GRID_CHOICE_OVERLAY": {
+        handler: "handleGridChoicePhase",
+        duration: 20000,
+        ui: {
+          videoStop: true, // Special flag for this handler
+          videoCountdown: false, // No countdown, just stops video
+          infoColor: "vibe_base",
+          infoOverlay: "gridChoiceOverlay",
+        }
+      },
+      "ACTION_MAIN": {
+        handler: "handleActionPhase",
+        duration: 90000, // Default max, is overridden by action
+        ui: {
+          videoEffect: "action", // This is just the slight white overlay
+          videoCountdown: true,
+          // videoText is set by the handler
+          infoColor: "vibe_accent",
+          infoText: "ACTION",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "TRIVIA_MAIN": {
+        handler: "handleTriviaPhase",
+        duration: 90000,
+        ui: {
+          videoEffect: "trivia", // This is the 4-box overlay
+          infoColor: "#6a0dad",
+          infoText: "Trivia Question...",
+          infoSize: "xxl",
+          showCancel: true,
+          cancelTarget: "IDLE_GAP"
+        }
+      },
+      "CHILL_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 30000,
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "Chill for 30 seconds",
+          infoSize: "lg",
+        }
+      },
+      "PEACE_MAIN": {
+        handler: "handleTimedPhase",
+        duration: 90000,
+        ui: {
+          videoEffect: "peace", // This is the "peace overlay"
+          videoCountdown: true,
+          infoColor: "#FFFFFF",
+          infoText: "Chill for 90 seconds",
+          infoSize: "lg",
+        }
+      },
+      "REPLAY_VIDEO_MAIN": {
+        handler: "handleReplayPhase",
+        duration: 60000, // Failsafe, overridden by clip length
+        ui: {
+          videoCountdown: true,
+          infoColor: "vibe_base",
+          infoText: "REPLAY",
+          infoSize: "xxl",
+        }
+      },
     };
 
-    const PHASE_HANDLERS = {
-      handleIdlePhase: async (q, phase, rules, signal) => {
-        const duration = randDuration(rules.duration);
-        const nextName = phase.nextEventName || "Next";
-        setPhaseUI(q, rules.ui, { duration, nextEventName: nextName });
-        await sleep(duration, signal);
-      },
-      handleTimedPhase: async (q, phase, rules, signal) => {
-        const duration = phase.duration ?? rules.duration;
-        const data = { duration, loopText: phase.loopText };
-        setPhaseUI(q, rules.ui, data);
-        const promise = sleep(duration, signal);
-        if (rules.ui.showCancel) {
-          const aborted = await raceCancel(q, rules.ui.cancelTarget || "IDLE_GAP", promise, signal);
-          if (aborted) return;
-        } else {
-          await promise;
-        }
-      },
-      handleValidationPhase: async (q, phase, rules, signal) => {
-        const duration = rules.duration;
-        setPhaseUI(q, rules.ui, { duration });
-        showOverlayWithTimer(q.validationOverlay, duration);
-        const result = await waitForButtons(q.validationOverlay, duration, signal);
-        hideOverlay(q.validationOverlay);
-        if (result === "timeout") return;
-      },
-      handleBreathPhase: async (q, phase, rules, signal) => {
-        const duration = rules.duration;
-        setPhaseUI(q, rules.ui, { duration });
-        const overlay = q.breathCountOverlay;
-        const timerEl = overlay.querySelector(".breath-count-timer");
-        overlay.querySelector(".choices").innerHTML = "";
-        for (let i = 1; i <= 5; i++) {
-          const b = document.createElement("button");
-          b.textContent = i;
-          b.onclick = () => overlay.dispatchEvent(new CustomEvent("choice", { detail: i }));
-          overlay.querySelector(".choices").appendChild(b);
-        }
-        showOverlayWithTimer(overlay, duration, timerEl);
-        await waitForOverlayChoice(overlay, duration, signal);
-        hideOverlay(overlay);
-      },
-      handleChoicePhase: async (q, phase, rules, signal) => {
-        const duration = rules.duration;
-        setPhaseUI(q, rules.ui, { duration });
-        const overlay = q.actionChoiceOverlay;
-        const timerEl = overlay.querySelector(".action-choice-timer");
-        overlay.querySelector(".choices").innerHTML = "";
-        const options = pickUnique(["puff", "sniff", "mask", "action"], 3);
-        options.forEach(opt => {
-          const b = document.createElement("button");
-          b.textContent = opt.toUpperCase();
-          b.onclick = () => overlay.dispatchEvent(new CustomEvent("choice", { detail: opt }));
-          overlay.querySelector(".choices").appendChild(b);
-        });
-        showOverlayWithTimer(overlay, duration, timerEl);
-        const choice = await waitForOverlayChoice(overlay, duration, signal);
-        hideOverlay(overlay);
-        if (choice && choice !== "timeout") {
-          const phases = buildEventSequence(choice, q).slice(1); // skip idle so we prepend action
-          q.phaseQueue.unshift(...phases);
-        }
-      },
-      handleGridChoicePhase: async (q, phase, rules, signal) => {
-        const duration = rules.duration;
-        setPhaseUI(q, rules.ui, { duration });
-        const overlay = q.gridChoiceOverlay;
-        const timerEl = overlay.querySelector(".grid-choice-timer");
-        overlay.querySelector(".choices").innerHTML = "";
-        ["Aurora", "Ocean", "Forest", "City"].forEach(name => {
-          const b = document.createElement("button");
-          b.textContent = name;
-          b.onclick = () => overlay.dispatchEvent(new CustomEvent("choice", { detail: name }));
-          overlay.querySelector(".choices").appendChild(b);
-        });
-        showOverlayWithTimer(overlay, duration, timerEl);
-        const choice = await waitForOverlayChoice(overlay, duration, signal);
-        hideOverlay(overlay);
-        if (choice && choice !== "timeout") {
-          q.video.currentTime = 0;
-          q.video.play();
-        } else {
-          q.video.play();
-        }
-      },
-      handleActionPhase: async (q, phase, rules, signal) => {
-        const action = phase.action || ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-        const duration = action.duration;
-        setPhaseUI(q, { ...rules.ui, infoText: action.label, videoText: action.label }, { duration });
-        const promise = sleep(duration, signal);
-        const aborted = await raceCancel(q, "IDLE_GAP", promise, signal);
-        if (!aborted) await promise;
-      },
-      handleReplayPhase: async (q, phase, rules, signal) => {
-        q.video.currentTime = 0;
-        q.video.play();
-        const duration = Math.min((q.video.duration || 60) * 1000, 60000);
-        setPhaseUI(q, rules.ui, { duration });
-        await sleep(duration, signal);
-      },
-    };
+    // ### 2. GLOBAL STATE & HELPERS ###
 
-    function createQuad(el) {
+    let quads = []; // This will hold the two quad state objects
+    let videos = [];
+    let createdObjectURLs = [];
+    let globalRafId = null;
+    let cycleAbort = false;
+    const activeIntervals = new Set(); // To track timers
+
+    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+    
+    const sleep = (ms, signal) => new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            activeIntervals.delete(timeout);
+            resolve(true); // Resolves true on success
+        }, ms);
+        activeIntervals.add(timeout);
+        
+        signal.addEventListener('abort', () => {
+            clearTimeout(timeout);
+            activeIntervals.delete(timeout);
+            reject(new DOMException('Aborted', 'AbortError'));
+        });
+    });
+    
+    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
+
+    function randomMidStart(clip){
+      const dur = Number.isFinite(clip.duration) && clip.duration>1 ? clip.duration : 5;
+      const padStart = 0.5, padEnd = 1.0;
+      const min = padStart, max = Math.max(min+0.5, dur - padEnd);
+      return min + Math.random()*(max - min);
+    }
+
+    /**
+     * Creates the master state object for a single quadrant.
+     */
+    function createQuad(rootEl, index) {
       const q = {
-        el,
-        video: el.querySelector("video.quad-video"),
-        vibeOverlay: el.querySelector(".vibe-overlay"),
-        videoCountdownOverlay: el.querySelector(".video-countdown-overlay"),
-        countdownText: el.querySelector(".countdown-text"),
-        countdownTimer: el.querySelector(".countdown-timer"),
-        infoTextOverlay: el.querySelector(".info-text-overlay"),
-        panelContainer: el.querySelector(".panel-container"),
-        nextEventTimerOverlay: el.querySelector(".nextEventTimer"),
-        nextEventName: el.querySelector(".nextEventName"),
-        nextEventTime: el.querySelector(".nextEventTime"),
-        validationOverlay: el.querySelector(".validation-overlay"),
-        breathCountOverlay: el.querySelector(".breath-count-overlay"),
-        actionChoiceOverlay: el.querySelector(".action-choice-overlay"),
-        gridChoiceOverlay: el.querySelector(".grid-choice-overlay"),
-        bottomBar: el.querySelector(".bottom-bar"),
-        cancelButtons: el.querySelectorAll(".btn-task-cancel"),
-        chooseTint: el.querySelector(".chooseTint"),
-        overlays_video: {},
-        eventOverlays: {},
-        phaseQueue: [],
-        vibe: VIBES[0],
-        abortController: null,
+        // DOM Elements
+        el: rootEl,
+        videoContainer: rootEl.querySelector('.video-container'),
+        panelContainer: rootEl.querySelector('.panel-container'),
+        video: rootEl.querySelector('.quad-video'),
+        vibeOverlay: rootEl.querySelector('.vibe-overlay'),
+        
+        videoCountdownOverlay: rootEl.querySelector('.video-countdown-overlay'),
+        videoCountdownTimer: rootEl.querySelector('.video-countdown-timer'),
+        videoCountdownLabel: rootEl.querySelector('.video-countdown-label'),
+        
+        infoTextOverlay: rootEl.querySelector('.info-text-overlay'),
+        
+        eventOverlays: {
+          light: rootEl.querySelector('.video-container .event-overlay-light'),
+          smoke: rootEl.querySelector('.video-container .event-overlay-smoke'),
+          inhale: rootEl.querySelector('.video-container .event-overlay-inhale'),
+          hold: rootEl.querySelector('.video-container .event-overlay-hold'),
+          exhale: rootEl.querySelector('.video-container .event-overlay-exhale'),
+          sniff: rootEl.querySelector('.video-container .event-overlay-sniff'),
+          mask: rootEl.querySelector('.video-container .overlay[data-type="mask"]'), // Special case from old HTML
+          action: rootEl.querySelector('.video-container .overlay[data-type="action"]'), // Special case
+          trivia: rootEl.querySelector('.video-container .overlay[data-type="trivia"]'), // Special case
+          peace: rootEl.querySelector('.video-container .overlay[data-type="peace"]'), // Special case
+        },
+        chooseTint: rootEl.querySelector('.chooseTint'),
+        bottomBar: rootEl.querySelector('.bottom-bar'),
+        btnPhaseConfirm: rootEl.querySelector('.bottom-bar .btn-phase-confirm'),
+        btnPhaseFail: rootEl.querySelector('.bottom-bar .btn-phase-fail'),
+        tally: rootEl.querySelector('.bottom-bar .tally'),
+        shuffleVideo: rootEl.querySelector('.bottom-bar .shuffleVideo'),
+        btnFS: rootEl.querySelector('.bottom-bar .btnFS'),
+        btnSound: rootEl.querySelector('.bottom-bar .btnSound'),
+        btnRestart: rootEl.querySelector('.bottom-bar .btnRestart'),
+        
+        // Interactive Overlays
+        validationOverlay: rootEl.querySelector('.panel-container .validation-overlay'),
+        breathCountOverlay: rootEl.querySelector('.panel-container .breath-count-overlay'),
+        actionChoiceOverlay: rootEl.querySelector('.panel-container .action-choice-overlay'),
+        gridChoiceOverlay: rootEl.querySelector('.panel-container .grid-choice-overlay'),
+
+        // State
+        id: index,
+        score: 0,
+        lastEvent: null, // e.g., "Puff"
+        isProcessing: false, // The "q.busy" equivalent
+        phaseQueue: [], // The "smart" queue
+        currentPhase: null, // The phase object currently running
+        abortController: new AbortController(),
+        vibe: null,
+        clipIndex: 0,
+        loopCounter: 0, // For breath counts
+        completedBreaths: 0, // For scoring
+        currentCountdownTimer: null,
       };
-
-      el.querySelectorAll(".event-overlay").forEach((o) => {
-        q.eventOverlays[o.dataset.effect] = o;
-      });
-
       return q;
     }
 
-    const quads = Array.from(document.querySelectorAll(".quadrant")).map(createQuad);
+    // ### 3. THE "GAME LOOP" (NEW ARCHITECTURE) ###
 
-    function applyVibe(q, vibe) {
-      q.vibe = vibe;
-      q.panelContainer.style.fontFamily = vibe.font.family;
-      q.panelContainer.style.fontWeight = vibe.font.weight;
-      q.panelContainer.style.textTransform = vibe.font.transform;
-      q.video.style.filter = vibe.video_effects.css_filter || "none";
-      q.video.style.animation = vibe.video_effects.css_animation || "none";
-      q.vibeOverlay.style.background = vibe.video_effects.overlay_gradient;
-      q.vibeOverlay.style.mixBlendMode = vibe.video_effects.overlay_blend_mode;
-      q.panelContainer.style.background = vibe.palette.base;
+    /**
+     * This is the main "engine" loop. It processes one phase from
+     * the quadrant's queue, waits for it to finish, and then calls itself.
+     */
+    async function processNextPhaseInQueue(q) {
+      if (q.isProcessing || cycleAbort) return;
+      q.isProcessing = true;
+
+      // 1. Refill queue if it's running low
+      if (q.phaseQueue.length < 3) {
+        buildAndEnqueueNextEvent(q);
+      }
+
+      // 2. Get next phase and set up abort controller
+      const phase = q.phaseQueue.shift();
+      q.currentPhase = phase;
+      
+      q.abortController.abort(); 
+      q.abortController = new AbortController();
+      const signal = q.abortController.signal;
+      
+      const rules = PHASES[phase.phaseName];
+      if (!rules) {
+        console.error(`Unknown phase: ${phase.phaseName}. Skipping.`);
+        q.isProcessing = false;
+        setTimeout(() => processNextPhaseInQueue(q), 10);
+        return;
+      }
+      
+      // 3. Get the handler function for this phase type
+      let handlerResult = false;
+      try {
+        // This line is the "On Phase Start" setup
+        handlerResult = await rules.handler(q, phase, rules, signal);
+        
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error(`Error during phase ${phase.phaseName}:`, err);
+        }
+        handlerResult = false; // Phase was aborted
+      }
+      
+      // 4. This is the "On Phase End" cleanup
+      clearPhaseUI(q);
+
+      // 5. Loop
+      q.isProcessing = false;
+      q.currentPhase = null;
+      
+      if (handlerResult && !cycleAbort) {
+        // If the phase completed (wasn't aborted), process the next one.
+        setTimeout(() => processNextPhaseInQueue(q), 10);
+      }
+    }
+    
+    /**
+     * Helper function to get an array of phase objects for a given event name.
+     */
+    function getEventPhases(q, eventName) {
+      let eventPhases = [];
+      
+      switch (eventName) {
+        case "Puff":
+          eventPhases.push({ phaseName: "READY_TO_PUFF" });
+          eventPhases.push({ phaseName: "PUFF_LIGHT" });
+          eventPhases.push({ phaseName: "PUFF_SMOKE" });
+          q.loopCounter = 0;
+          q.completedBreaths = 0;
+          for (let i = 0; i < 5; i++) {
+            eventPhases.push({ phaseName: "PUFF_INHALE", loop: i + 1 });
+            eventPhases.push({ phaseName: "PUFF_HOLD" });
+            eventPhases.push({ phaseName: "PUFF_EXHALE" });
+          }
+          eventPhases.push({ phaseName: "PUFF_VALIDATION" });
+          eventPhases.push({ phaseName: "BREATH_COUNT_QUESTION" });
+          break;
+        case "Sniff":
+          eventPhases.push({ phaseName: "READY_TO_SNIFF" });
+          eventPhases.push({ phaseName: "SNIFF_MAIN" });
+          eventPhases.push({ phaseName: "SNIFF_VALIDATION" });
+          break;
+        case "Mask":
+          eventPhases.push({ phaseName: "READY_FOR_MASK" });
+          eventPhases.push({ phaseName: "MASK_MAIN" });
+          eventPhases.push({ phaseName: "MASK_VALIDATION" });
+          break;
+        case "Action":
+          const action = pick(ACTIONS);
+          eventPhases.push({ 
+            phaseName: "ACTION_MAIN", 
+            duration: action.seconds * 1000, 
+            action: action 
+          });
+          break;
+        case "You Choose":
+          eventPhases.push({ phaseName: "YOU_CHOOSE_OVERLAY" });
+          break;
+        case "Grid":
+          eventPhases.push({ phaseName: "GRID_CHOICE_OVERLAY" });
+          break;
+        case "Chill":
+          eventPhases.push({ phaseName: "CHILL_MAIN" });
+          break;
+        case "Peace":
+          eventPhases.push({ phaseName: "PEACE_MAIN" });
+          break;
+        case "Trivia":
+          eventPhases.push({ phaseName: "TRIVIA_MAIN" });
+          break;
+        case "Replay":
+          eventPhases.push({ phaseName: "REPLAY_VIDEO_MAIN" });
+          break;
+        case "Redo Last":
+          if (q.lastEvent && q.lastEvent !== "Redo Last") {
+            return getEventPhases(q, q.lastEvent);
+          } else {
+            return getEventPhases(q, "Chill");
+          }
+        default:
+          return getEventPhases(q, "Chill");
+      }
+      return eventPhases;
     }
 
-    function setPhaseUI(q, uiRules, data = {}) {
-      clearAllUI(q);
-      const color = uiRules.infoColor === "vibe" ? q.vibe.palette.base : uiRules.infoColor === "accent" ? q.vibe.palette.accent : uiRules.infoColor;
-      if (color) q.panelContainer.style.background = color;
-      const infoText = data.loopText ? `${uiRules.infoText || ""} ${data.loopText}` : uiRules.infoText;
-      q.infoTextOverlay.textContent = infoText || "";
-      q.infoTextOverlay.classList.toggle("show", Boolean(infoText));
+    /**
+     * This is the "logic" function. It adds a *full* event sequence
+     * (IDLE + Event Phases) to the *end* of the quadrant's queue.
+     */
+    function buildAndEnqueueNextEvent(q) {
+      // 1. Pick next event based on new probabilities
+      const rand = Math.random();
+      let nextEventName;
+      if (rand < 0.50) { // 50%
+        nextEventName = "You Choose";
+      } else if (rand < 0.60) { // 10%
+        nextEventName = "Puff";
+      } else if (rand < 0.70) { // 10%
+        nextEventName = "Sniff";
+      } else if (rand < 0.80) { // 10%
+        nextEventName = "Mask";
+      } else if (rand < 0.90) { // 10%
+        nextEventName = "Action";
+      } else { // 10%
+        nextEventName = "Trivia";
+      }
+      
+      // 2. Add IDLE phase first
+      const idleRules = PHASES["IDLE_GAP"];
+      const idleDuration = idleRules.duration[0] + Math.random() * (idleRules.duration[1] - idleRules.duration[0]);
+      
+      const idlePhase = { 
+        phaseName: "IDLE_GAP", 
+        duration: idleDuration,
+        nextEventName: nextEventName 
+      };
+      
+      // 3. Get all phases for the chosen event
+      const eventPhases = getEventPhases(q, nextEventName);
+      
+      // 4. Add them all to the end of the queue
+      q.phaseQueue.push(idlePhase, ...eventPhases);
+      
+      q.lastEvent = nextEventName;
+    }
 
-      if (uiRules.videoText) {
-        q.countdownText.textContent = uiRules.videoText;
+    // ### 4. PHASE HANDLERS (THE LOGIC FOR EACH PHASE TYPE) ###
+
+    async function handleIdlePhase(q, phase, rules, signal) {
+      const duration = phase.duration;
+      setPhaseUI(q, phase, rules.ui, { 
+        duration: duration, 
+        nextEventName: phase.nextEventName 
+      });
+      await sleep(duration, signal);
+      return true; // Completed
+    }
+
+    async function handleTimedPhase(q, phase, rules, signal) {
+      const duration = phase.duration || rules.duration;
+      setPhaseUI(q, phase, rules.ui, { 
+        duration: duration, 
+        videoText: rules.ui.videoText, 
+        loop: phase.loop 
+      });
+      
+      const timerPromise = sleep(duration, signal);
+      
+      if (rules.ui.showCancel) {
+        const { promise: cancelPromise, cleanup } = showCancelButtons(q, rules.ui.cancelTarget);
+        
+        try {
+          const winner = await Promise.race([timerPromise, cancelPromise]);
+          cleanup(); // Remove listeners
+          if (winner === "cancel") {
+            return false; // Aborted, don't auto-run next phase
+          }
+        } catch (e) {
+          cleanup(); // Clean up on abort
+          throw e; // Re-throw AbortError
+        }
       } else {
-        q.countdownText.textContent = "";
+        await timerPromise;
       }
-      if (data.duration) startCountdown(q, data.duration, uiRules);
-
-      if (uiRules.videoEffect && q.eventOverlays[uiRules.videoEffect]) {
-        q.eventOverlays[uiRules.videoEffect].classList.add("show");
+      
+      // Special logic for end of phase
+      if (phase.phaseName === "PUFF_EXHALE") {
+        q.loopCounter++;
+        q.completedBreaths++;
       }
-
-      if (uiRules.showIdleCountdown) {
-        q.nextEventTimerOverlay.classList.add("show");
-        q.nextEventName.textContent = data.nextEventName || "Event";
-        q.nextEventTime.textContent = Math.ceil((data.duration || 0) / 1000);
-      }
-
-      if (uiRules.showCancel) {
-        q.cancelButtons.forEach((btn) => btn.classList.add("show"));
-      }
+      
+      return true; // Completed successfully
     }
 
-    function clearAllUI(q) {
-      q.infoTextOverlay.classList.remove("show");
-      q.videoCountdownOverlay.classList.remove("show");
-      Object.values(q.eventOverlays).forEach((o) => o.classList.remove("show"));
-      hideOverlay(q.validationOverlay);
-      hideOverlay(q.breathCountOverlay);
-      hideOverlay(q.actionChoiceOverlay);
-      hideOverlay(q.gridChoiceOverlay);
-      q.nextEventTimerOverlay.classList.remove("show");
-      q.cancelButtons.forEach((btn) => btn.classList.remove("show"));
-      q.panelContainer.style.background = q.vibe.palette.base;
-    }
-
-    function startCountdown(q, duration, uiRules) {
-      q.videoCountdownOverlay.classList.add("show");
-      const start = performance.now();
-      const update = (now) => {
-        const elapsed = now - start;
-        const remaining = Math.max(0, duration - elapsed);
-        q.countdownTimer.textContent = Math.ceil(remaining / 1000);
-        if (uiRules.showIdleCountdown) {
-          q.nextEventTime.textContent = Math.ceil(remaining / 1000);
-        }
-        if (remaining > 0) {
-          q.countdownRaf = requestAnimationFrame(update);
-        }
-      };
-      if (q.countdownRaf) cancelAnimationFrame(q.countdownRaf);
-      q.countdownRaf = requestAnimationFrame(update);
-    }
-
-    function showOverlayWithTimer(overlay, duration, timerEl = null) {
-      overlay.classList.add("show");
-      const target = timerEl || overlay.querySelector(".validation-timer") || overlay.querySelector(".breath-count-timer") || overlay.querySelector(".action-choice-timer") || overlay.querySelector(".grid-choice-timer");
-      const start = performance.now();
-      const tick = (now) => {
-        const remaining = Math.max(0, duration - (now - start));
-        if (target) target.textContent = Math.ceil(remaining / 1000);
-        if (remaining > 0) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }
-
-    function hideOverlay(overlay) {
-      overlay.classList.remove("show");
-    }
-
-    function waitForButtons(overlay, duration, signal) {
-      return new Promise((resolve) => {
-        const timer = setTimeout(() => resolve("timeout"), duration);
-        const onClick = (e) => {
-          clearTimeout(timer);
-          overlay.removeEventListener("click", onClick);
-          resolve(e.target.classList.contains("btn-validate-yes") ? "yes" : "no");
-        };
-        overlay.addEventListener("click", onClick);
-        signal.addEventListener("abort", () => {
-          clearTimeout(timer);
-          overlay.removeEventListener("click", onClick);
-          resolve("abort");
-        }, { once: true });
-      });
-    }
-
-    function waitForOverlayChoice(overlay, duration, signal) {
-      return new Promise((resolve) => {
-        const timer = setTimeout(() => resolve("timeout"), duration);
-        const handler = (e) => {
-          clearTimeout(timer);
-          overlay.removeEventListener("choice", handler);
-          resolve(e.detail);
-        };
-        overlay.addEventListener("choice", handler);
-        signal.addEventListener("abort", () => {
-          clearTimeout(timer);
-          overlay.removeEventListener("choice", handler);
-          resolve("abort");
-        }, { once: true });
-      });
-    }
-
-    function raceCancel(q, targetPhase, promise) {
-      return new Promise((resolve) => {
-        let settled = false;
-        const cleanup = () => q.cancelButtons.forEach((btn) => (btn.onclick = null));
-        const onClick = () => {
-          if (settled) return;
-          settled = true;
+    async function handleValidationPhase(q, phase, rules, signal) {
+      return new Promise(async (resolve, reject) => {
+        const duration = rules.duration;
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        const overlay = q.validationOverlay;
+        const title = overlay.querySelector('.validation-title');
+        const btnConfirm = overlay.querySelector('.validation-button.confirm');
+        const btnFail = overlay.querySelector('.validation-button.fail');
+        
+        title.textContent = rules.ui.infoText;
+        overlay.classList.add('show');
+        
+        const onConfirm = () => {
+          if (phase.phaseName === "SNIFF_VALIDATION" || phase.phaseName === "MASK_VALIDATION") {
+            addTally(q, 10);
+          }
           cleanup();
-          q.abortController?.abort();
-          q.phaseQueue.unshift({ type: targetPhase });
           resolve(true);
         };
-        q.cancelButtons.forEach((btn) => (btn.onclick = onClick));
-        promise
-          .then(() => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            resolve(false);
-          })
-          .catch(() => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            resolve(false);
-          });
+        
+        const onFail = () => {
+          addTally(q, -5);
+          cleanup();
+          resolve(true);
+        };
+
+        const timerId = startOverlayTimer(overlay, duration, () => {
+          addTally(q, -2);
+          cleanup();
+          resolve(true);
+        });
+        
+        btnConfirm.addEventListener('click', onConfirm);
+        btnFail.addEventListener('click', onFail);
+
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+        
+        function cleanup() {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          btnConfirm.removeEventListener('click', onConfirm);
+          btnFail.removeEventListener('click', onFail);
+          overlay.classList.remove('show');
+        }
       });
     }
+    
+    async function handleBreathQuestionPhase(q, phase, rules, signal) {
+      return new Promise(async (resolve, reject) => {
+        const duration = rules.duration;
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        const overlay = q.breathCountOverlay;
+        const items = overlay.querySelectorAll('.breath-count-item');
+        const clickHandlers = [];
+        
+        overlay.classList.add('show');
+        
+        const timerId = startOverlayTimer(overlay, duration, () => {
+          cleanup();
+          resolve(true);
+        });
 
-    function randDuration(range) {
-      if (Array.isArray(range)) {
-        const [min, max] = range;
-        return Math.floor(min + Math.random() * (max - min));
-      }
-      return range;
+        items.forEach(item => {
+          const handler = () => {
+            const clickedNum = parseInt(item.dataset.num, 10);
+            let score = 0;
+            if (clickedNum <= q.completedBreaths) {
+              score = clickedNum * 10;
+            }
+            addTally(q, score);
+            cleanup();
+            resolve(true);
+          };
+          item.addEventListener('click', handler);
+          clickHandlers.push({ item, handler });
+        });
+        
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+        
+        function cleanup() {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          overlay.classList.remove('show');
+        }
+      });
     }
+    
+    async function handleActionPhase(q, phase, rules, signal) {
+      const action = phase.action;
+      const duration = phase.duration;
+      
+      setPhaseUI(q, phase, rules.ui, { 
+        duration: duration, 
+        videoText: action.label // Pass the specific action text
+      });
+      
+      const { promise: cancelPromise, cleanup } = showCancelButtons(q, rules.ui.cancelTarget);
+      let result = { success: true, score: -2 }; // Default timeout result
+      
+      try {
+        const timerPromise = sleep(duration, signal);
+        const winner = await Promise.race([timerPromise, cancelPromise]);
+        
+        if (winner === "cancel") {
+          const clickedConfirm = q.abortController.signal.reason === "confirm";
+          result.success = clickedConfirm;
+          result.score = clickedConfirm ? action.points : -5;
+          addTally(q, result.score);
+          cleanup();
+          return false; // Aborted
+        }
+      } catch (e) {
+        cleanup();
+        throw e; // Re-throw AbortError
+      }
+      
+      // Timer finished naturally
+      addTally(q, result.score);
+      cleanup();
+      return true;
+    }
+    
+    async function handleChoicePhase(q, phase, rules, signal) {
+      return new Promise(async (resolve, reject) => {
+        const duration = rules.duration;
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        const overlay = q.actionChoiceOverlay;
+        const listEl = overlay.querySelector('.action-choice-list');
+        listEl.innerHTML = '';
+        const clickHandlers = [];
 
-    function sleep(ms, signal) {
-      return new Promise((resolve, reject) => {
-        const id = setTimeout(() => resolve(), ms);
-        if (signal) {
-          signal.addEventListener("abort", () => {
-            clearTimeout(id);
-            reject(new DOMException("Aborted", "AbortError"));
-          }, { once: true });
+        // 1. Define the pool of choices
+        let choicePool = [
+          {label: "Puff", emoji: EMOJI.puff, event: "Puff"},
+          {label: "Sniff", emoji: EMOJI.sniff, event: "Sniff"},
+          {label: "Mask", emoji: EMOJI.mask, event: "Mask"},
+          {label: "Task", emoji: EMOJI.action, event: "Action"},
+          {label: "New Vid", emoji: '🔠', event: "Grid"},
+          {label: "Chill", emoji: EMOJI.chill, event: "Chill"},
+          {label: "Replay", emoji: EMOJI.replay_video, event: "Replay"},
+          {label: "Trivia", emoji: EMOJI.trivia, event: "Trivia"},
+          {label: "Peace", emoji: EMOJI.peace, event: "Peace"},
+        ];
+        if (q.lastEvent) {
+          choicePool.push({label: "Redo Last", emoji: EMOJI.redo_last, event: "Redo Last"});
+        }
+        
+        // 2. Select 3 random choices
+        const choices = [];
+        for(let i=0; i<3; i++) {
+          if(choicePool.length === 0) break;
+          const randIdx = Math.floor(Math.random() * choicePool.length);
+          choices.push(choicePool.splice(randIdx, 1)[0]);
+        }
+
+        // 3. Show overlay and create buttons
+        overlay.classList.add('show');
+        
+        choices.forEach(choice => {
+          const item = document.createElement('div');
+          item.className = 'action-choice-item';
+          item.innerHTML = `<div class="emoji">${choice.emoji}</div><div>${choice.label}</div>`;
+          
+          const handler = () => {
+            const newEventPhases = getEventPhases(q, choice.event);
+            q.phaseQueue.unshift(...newEventPhases); // Prepend to queue
+            cleanup();
+            resolve(true);
+          };
+          item.addEventListener('click', handler);
+          clickHandlers.push({ item, handler });
+          listEl.appendChild(item);
+        });
+
+        // 4. Wait for outcome
+        const timerId = startOverlayTimer(overlay, duration, () => {
+          cleanup();
+          resolve(true); // Just continue
+        });
+        
+        signal.addEventListener('abort', () => {
+          cleanup();
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+        
+        function cleanup() {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+          overlay.classList.remove('show');
         }
       });
     }
 
-    function pickUnique(list, count) {
-      const arr = [...list];
-      const result = [];
-      while (result.length < count && arr.length) {
-        const idx = Math.floor(Math.random() * arr.length);
-        result.push(arr.splice(idx, 1)[0]);
-      }
-      return result;
-    }
-
-    function buildEventSequence(eventName, q) {
-      const phases = [];
-      const nextName = eventName.replace(/_/g, " ").toUpperCase();
-      phases.push({ type: "IDLE_GAP", nextEventName: nextName });
-
-      const set = PHASE_SETS[eventName];
-      if (!set) return phases;
-
-      set.forEach((type) => {
-        if (type === "PUFF_INHALE" || type === "PUFF_HOLD" || type === "PUFF_EXHALE") {
-          const loops = 2;
-          for (let i = 1; i <= loops; i++) {
-            phases.push({ type: "PUFF_INHALE", loopText: i });
-            phases.push({ type: "PUFF_HOLD", loopText: i });
-            phases.push({ type: "PUFF_EXHALE", loopText: i });
+    async function handleGridChoicePhase(q, phase, rules, signal) {
+        return new Promise(async (resolve, reject) => {
+          const duration = rules.duration;
+          setPhaseUI(q, phase, rules.ui, { duration: duration });
+          
+          if (rules.ui.videoStop) q.video.pause();
+          
+          const overlay = q.gridChoiceOverlay;
+          const gridItems = overlay.querySelectorAll('.grid-choice-item');
+          const clickHandlers = [];
+          
+          const currentUrl = q.video.src;
+          const pool = videos.filter(v => !currentUrl.includes(v.file.name));
+          let tempPool = [...pool];
+          const choices = [];
+          while(choices.length < 4 && tempPool.length > 0){
+            choices.push(tempPool.splice(Math.floor(Math.random() * tempPool.length), 1)[0]);
           }
-        } else if (type === "ACTION_MAIN") {
-          phases.push({ type, action: ACTIONS[Math.floor(Math.random() * ACTIONS.length)] });
-        } else {
-          phases.push({ type });
+          if (choices.length < 1) { 
+            if (rules.ui.videoStop) q.video.play();
+            resolve(true); 
+            return; 
+          }
+
+          choices.forEach((clip, idx) => {
+            const item = gridItems[idx];
+            if (!item) return;
+            const v = item.querySelector('video');
+            const label = item.querySelector('.item-label');
+            setThumbnail(v, clip);
+            if(label) label.textContent = toTitle(clip.name) || 'Video ' + (idx+1);
+            item.style.display = 'block';
+
+            const handler = () => {
+              addTally(q, 10);
+              startVideoCycling(q.id, clip);
+              cleanup();
+              resolve(true);
+            };
+            item.addEventListener('click', handler);
+            clickHandlers.push({item, handler});
+          });
+          for(let j=choices.length; j<gridItems.length; j++) { gridItems[j].style.display = 'none'; }
+          
+          overlay.classList.add('show');
+
+          const timerId = startOverlayTimer(overlay, duration, () => {
+            if (rules.ui.videoStop) q.video.play();
+            cleanup();
+            resolve(true);
+          });
+
+          signal.addEventListener('abort', () => {
+            if (rules.ui.videoStop) q.video.play();
+            cleanup();
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+          
+          function cleanup(){
+            clearInterval(timerId);
+            activeIntervals.delete(timerId);
+            clickHandlers.forEach(h => h.item.removeEventListener('click', h.handler));
+            gridItems.forEach(item => {
+              const v = item.querySelector('video');
+              if (v && v.src && v.src.startsWith('blob:')) {
+                URL.revokeObjectURL(v.src);
+                v.src = '';
+              }
+            });
+            overlay.classList.remove('show');
+          }
+        });
+    }
+
+    async function handleReplayPhase(q, phase, rules, signal) {
+        q.video.currentTime = 0;
+        await q.video.play().catch(()=>{});
+        const duration = (q.video.duration || 60) * 1000;
+        
+        setPhaseUI(q, phase, rules.ui, { duration: duration });
+        
+        await sleep(duration, signal);
+        addTally(q, 5);
+        return true;
+    }
+    
+    async function handleTriviaPhase(q, phase, rules, signal) {
+      // This is a complex handler, for now just treat as a timed phase
+      // In a real implementation, this would involve showing questions/answers
+      console.log("Trivia Phase Started");
+      const duration = rules.duration;
+      setPhaseUI(q, phase, rules.ui, { duration: duration });
+      await sleep(duration, signal);
+      return true;
+    }
+
+
+    // ### 5. UI & RENDERING FUNCTIONS ###
+
+    /**
+     * This is the master "Renderer". It sets all UI based on the phase rules.
+     * It is called AT THE START of every phase.
+     */
+    function setPhaseUI(q, phase, uiRules, data) {
+      const now = performance.now();
+      if (typeof data.duration === 'number') {
+        q.currentPhase.startTime = now;
+        q.currentPhase.duration = data.duration;
+      } else {
+        q.currentPhase.startTime = null;
+        q.currentPhase.duration = null;
+      }
+      // 1. Set Info Panel Color
+      let infoColor = uiRules.infoColor || "vibe_base";
+      if (infoColor === "vibe_base") {
+        q.panelContainer.style.background = q.vibe.palette.base;
+      } else if (infoColor === "vibe_accent") {
+        q.panelContainer.style.background = q.vibe.palette.accent;
+      } else {
+        q.panelContainer.style.background = infoColor;
+      }
+
+      // 2. Set Info Panel Text
+      if (phase.phaseName === "IDLE_GAP") {
+        q.infoTextOverlay.innerHTML = `
+          <div class="info-text-idle">
+            <div class="countdown">${Math.ceil(data.duration / 1000)}</div>
+            <div class="label">
+              <span class="until-text">Until</span>
+              <span class="next-event-name">${data.nextEventName.toUpperCase()}</span>
+            </div>
+          </div>`;
+      } else if (uiRules.infoText) {
+        const sizeClass = uiRules.infoSize === "lg" ? "info-text-lg" : "info-text-xxl";
+        q.infoTextOverlay.innerHTML = `<div class="${sizeClass}">${uiRules.infoText}</div>`;
+      } else {
+        q.infoTextOverlay.innerHTML = "";
+      }
+      if (q.infoTextOverlay.innerHTML.trim()) {
+        q.infoTextOverlay.classList.add('show');
+      }
+
+
+      // 3. Set Video Panel Countdown
+      if (uiRules.videoCountdown || phase.phaseName === "IDLE_GAP") {
+        let label = (data.videoText ?? uiRules.videoText) || "";
+        if (phase.phaseName === 'PUFF_INHALE' && data.loop) {
+          label = `${label} ${data.loop}`.trim();
         }
-      });
-
-      return phases;
-    }
-
-    function buildAndEnqueueNextEvent(q) {
-      const events = ["puff", "sniff", "mask", "action", "you_choose", "grid_choice"];
-      const eventName = events[Math.floor(Math.random() * events.length)];
-      const seq = buildEventSequence(eventName, q);
-      q.phaseQueue.push(...seq);
-    }
-
-    async function processNextPhaseInQueue(q) {
-      if (q.processing) return;
-      q.processing = true;
-      while (q.phaseQueue.length) {
-        if (q.phaseQueue.length < 3) buildAndEnqueueNextEvent(q);
-        const phase = q.phaseQueue.shift();
-        const rules = PHASES[phase.type];
-        if (!rules) continue;
-        q.abortController = new AbortController();
-        try {
-          await PHASE_HANDLERS[rules.handler](q, phase, rules, q.abortController.signal);
-        } catch (err) {
-          if (err.name !== "AbortError") console.error(err);
+        q.videoCountdownLabel.textContent = label;
+        startCountdown(q, data.duration, q.abortController.signal);
+        q.videoCountdownOverlay.classList.add('show');
+      }
+      
+      // 4. Set Video Effects
+      if (uiRules.videoEffect) {
+        if (q.eventOverlays[uiRules.videoEffect]) {
+          q.eventOverlays[uiRules.videoEffect].classList.add('active');
+        }
+        if (uiRules.videoEffect === 'inhale' || uiRules.videoEffect === 'exhale') {
+          createBubbles(q.eventOverlays[uiRules.videoEffect], 10);
+        } else if (uiRules.videoEffect === 'sniff') {
+          q.videoContainer.classList.add('sniff-effect');
         }
       }
-      q.processing = false;
+      
+      // 5. Set Special Overlays (Popups)
+      if (uiRules.infoOverlay) {
+        if(q[uiRules.infoOverlay]) {
+            q[uiRules.infoOverlay].classList.add('show');
+        }
+      }
+      
+      // 6. Set UI Panel Buttons
+      if (uiRules.showCancel) {
+        q.bottomBar.classList.add('show-cancel-buttons');
+      }
+    }
+    
+    /**
+     * This is the master "Cleanup" function.
+     * It is called AT THE END of every phase.
+     */
+    function clearPhaseUI(q) {
+      // 1. Clear Info Panel
+      q.infoTextOverlay.classList.remove('show');
+      q.infoTextOverlay.innerHTML = "";
+      q.panelContainer.style.background = q.vibe ? q.vibe.palette.base : q.panelContainer.style.background;
+
+      // 2. Clear Video Panel
+      q.videoCountdownOverlay.classList.remove('show');
+      q.videoCountdownTimer.textContent = "--";
+      q.videoCountdownLabel.textContent = "";
+      
+      // 3. Clear Effects
+      for(const k in q.eventOverlays){
+        if (q.eventOverlays[k]) q.eventOverlays[k].classList.remove('active');
+      }
+      q.videoContainer.classList.remove('sniff-effect');
+      
+      // 4. Clear Popups
+      q.validationOverlay.classList.remove('show');
+      q.breathCountOverlay.classList.remove('show');
+      q.actionChoiceOverlay.classList.remove('show');
+      q.gridChoiceOverlay.classList.remove('show');
+
+      // 5. Clear UI Buttons
+      q.bottomBar.classList.remove('show-cancel-buttons');
     }
 
-    function startApp() {
-      quads.forEach((q) => {
-        applyVibe(q, q.vibe);
-        q.chooseTint.style.display = "none";
-        q.video.muted = false;
-        q.video.play();
-        q.phaseQueue = [];
-        buildAndEnqueueNextEvent(q);
-        buildAndEnqueueNextEvent(q);
-        processNextPhaseInQueue(q);
+    /**
+     * This is the "Global Clock" for the idle timer.
+     * It runs constantly to update the IDLE_GAP countdown.
+     */
+    function updateGlobalPanelTimers(){
+      if (globalRafId) return;
+      const tick = () => {
+        const now = performance.now();
+        quads.forEach(q => {
+          if (q.currentPhase && q.currentPhase.phaseName === "IDLE_GAP" && typeof q.currentPhase.startTime === 'number') {
+            const msLeft = (q.currentPhase.startTime + q.currentPhase.duration) - now;
+            const sLeft = Math.max(0, Math.ceil(msLeft / 1000));
+            
+            // Update both countdowns
+            q.videoCountdownTimer.textContent = sLeft;
+            const infoTimer = q.infoTextOverlay.querySelector('.countdown');
+            if (infoTimer) infoTimer.textContent = sLeft;
+          }
+        });
+        globalRafId = requestAnimationFrame(tick);
+      };
+      globalRafId = requestAnimationFrame(tick);
+    }
+    
+    function stopGlobalClock(){
+      if (globalRafId) {
+        cancelAnimationFrame(globalRafId);
+        globalRafId = null;
+      }
+    }
+
+    /**
+     * Starts the single video countdown timer.
+     */
+    function startCountdown(q, duration, signal) {
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+      }
+
+      const end = performance.now() + duration;
+      let timerId = null;
+
+      const update = ()=>{
+        const leftMs = (end - performance.now());
+        if (leftMs <= 0) {
+            q.videoCountdownTimer.textContent = "0";
+            if (timerId) {
+                clearInterval(timerId);
+                activeIntervals.delete(timerId);
+                if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+                timerId = null;
+            }
+            return;
+        }
+        q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
+      };
+
+      timerId = setInterval(update, 100);
+      q.currentCountdownTimer = timerId; 
+      activeIntervals.add(timerId);
+      update(); // Run once
+
+      signal.addEventListener('abort', () => {
+        if (timerId) {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+          timerId = null;
+        }
       });
     }
+    
+    /**
+     * Starts a countdown on an interactive overlay (validation, breath, etc.)
+     */
+    function startOverlayTimer(overlay, duration, onTimeout) {
+      const timerEl = overlay.querySelector('.special-overlay-timer');
+      let timeLeft = Math.ceil(duration / 1000);
+      timerEl.textContent = timeLeft;
+      
+      const timerId = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          onTimeout();
+        }
+      }, 1000);
+      activeIntervals.add(timerId);
+      return timerId;
+    }
 
+    function createBubbles(container, count) {
+      container.innerHTML = ''; // Clear old bubbles
+      for(let i=0; i < count; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = `bubble`;
+        bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
+        bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
+        bubble.style.animationDelay = `${Math.random() * 3}s`;
+        bubble.style.animationDuration = `${2 + Math.random() * 2}s`;
+        container.appendChild(bubble);
+      }
+    }
+    
+    function addTally(q, points){
+      q.score += points;
+      q.tally.textContent = `Score: ${q.score}`;
+    }
+    
+    /**
+     * Shows the bottom-bar ✓/✗ buttons and returns a promise.
+     */
+    function showCancelButtons(q, cancelTargetPhase) {
+      q.bottomBar.classList.add('show-cancel-buttons');
+
+      let resolver;
+      const promise = new Promise((resolve) => {
+          resolver = resolve;
+      });
+
+      let onConfirm, onFail;
+
+      const cleanup = () => {
+          q.bottomBar.classList.remove('show-cancel-buttons');
+          q.btnPhaseConfirm.removeEventListener('click', onConfirm);
+          q.btnPhaseFail.removeEventListener('click', onFail);
+      };
+
+      onConfirm = () => {
+          q.phaseQueue.unshift({ phaseName: cancelTargetPhase });
+          q.abortController.abort("confirm"); // Pass a reason
+          resolver("cancel");
+      };
+      onFail = () => {
+          q.phaseQueue.unshift({ phaseName: cancelTargetPhase });
+          q.abortController.abort("fail"); // Pass a reason
+          resolver("cancel");
+      };
+
+      q.btnPhaseConfirm.addEventListener('click', onConfirm, { once: true });
+      q.btnPhaseFail.addEventListener('click', onFail, { once: true });
+
+      return { promise, cleanup };
+    }
+
+    // ### 6. APP STARTUP & CONTROLS ###
+
+    async function setThumbnail(videoEl, clip){
+      if (!clip) return;
+      const url = URL.createObjectURL(clip.file);
+      createdObjectURLs.push(url);
+      videoEl.src = url;
+
+      videoEl.onloadedmetadata = () => {
+        videoEl.currentTime = randomMidStart(clip);
+        videoEl.play().catch(()=>{});
+        videoEl.onloadedmetadata = null;
+      };
+      videoEl.onerror = () => {
+        URL.revokeObjectURL(url);
+        videoEl.onerror = null;
+      };
+    }
+
+    function startVideoCycling(qi, initialClip) {
+      const q = quads[qi];
+      const v = q.video;
+      if (!v || !initialClip || videos.length === 0) return;
+
+      q.clipIndex = videos.indexOf(initialClip);
+      if (q.clipIndex === -1) q.clipIndex = 0;
+
+      v.onended = async () => {
+        if (cycleAbort) return;
+        if (v.src && v.src.startsWith('blob:')) {
+          const oldUrl = v.src;
+          const index = createdObjectURLs.indexOf(oldUrl);
+          if (index > -1) createdObjectURLs.splice(index, 1);
+          URL.revokeObjectURL(oldUrl);
+        }
+        
+        // Find next non-duplicate clip
+        let nextClipIndex = q.clipIndex;
+        let attempts = 0;
+        while(attempts < videos.length) {
+            nextClipIndex = (nextClipIndex + 1) % videos.length;
+            let isPlayingElsewhere = false;
+            for(let otherQi = 0; otherQi < quads.length; otherQi++) {
+                if(otherQi !== qi && quads[otherQi].video.src.includes(videos[nextClipIndex].file.name)) {
+                    isPlayingElsewhere = true;
+                    break;
+                }
+            }
+            if (!isPlayingElsewhere || videos.length <= quads.length) break;
+            attempts++;
+        }
+
+        q.clipIndex = nextClipIndex;
+        const nextClip = videos[nextClipIndex];
+        if (!nextClip) return;
+
+        const url = URL.createObjectURL(nextClip.file);
+        createdObjectURLs.push(url);
+        v.src = url;
+        try { await v.play(); }
+        catch (e) { setTimeout(() => v.dispatchEvent(new Event('ended')), 100); }
+      };
+
+      v.onerror = () => { v.dispatchEvent(new Event('ended')); };
+
+      if (v.src && v.src.startsWith('blob:')) {
+        const oldUrl = v.src;
+        const index = createdObjectURLs.indexOf(oldUrl);
+        if (index > -1) createdObjectURLs.splice(index, 1);
+        URL.revokeObjectURL(oldUrl);
+      }
+      const url = URL.createObjectURL(initialClip.file);
+      createdObjectURLs.push(url);
+      v.src = url;
+      v.play().catch(e => { console.warn(`Quadrant ${qi} initial autoplay failed.`, e); });
+    }
+
+    function stopAllLoops() {
+        document.querySelectorAll('.special-overlay').forEach(o=>{
+          try{
+            o.classList.remove('show');
+            o.querySelectorAll('video').forEach(v=>{ try{ v.pause(); v.src = ''; }catch(e){} });
+            const clone = o.cloneNode(true);
+            o.parentNode.replaceChild(clone, o);
+          }catch(e){}
+        });
+        activeIntervals.forEach(id=>{ try{ clearTimeout(id); clearInterval(id); }catch(e){} });
+        activeIntervals.clear();
+    }
+    
+    function runRestart(qi) {
+      const q = quads[qi];
+      q.abortController.abort("restart");
+      q.isProcessing = false;
+      q.phaseQueue = [];
+      
+      // Build the next event
+      buildAndEnqueueNextEvent(q); 
+      
+      // Find the IDLE_GAP we just added and set its duration to 20s
+      const idlePhase = q.phaseQueue.find(p => p.phaseName === "IDLE_GAP");
+      if (idlePhase) {
+        idlePhase.duration = 20000;
+      }
+      
+      clearPhaseUI(q);
+      
+      // Restart the loop
+      processNextPhaseInQueue(q);
+    }
+
+    async function startApp(){
+      cycleAbort = false;
+      stopAllLoops();
+      
+      if (videos.length < 4) {
+        status.textContent = "Please load at least 4 videos.";
+        return;
+      }
+      
+      const playerReady = [false, false];
+
+      quads.forEach(async (q, i) => {
+        let vibeIdx = i % VIBES.length;
+        q.score = 0;
+        q.tally.textContent = `Score: 0`;
+        q.lastEvent = null;
+        q.phaseQueue = [];
+        q.isProcessing = false;
+
+        q.el.classList.add('choose-phase', 'selected');
+        q.chosen = true;
+
+        const chooseTint = q.chooseTint;
+        const btnTheme = chooseTint.querySelector('.btn-change-theme');
+        const btnPlayerStart = chooseTint.querySelector('.btn-player-start');
+        const themeName = chooseTint.querySelector('.theme-name');
+
+        const updateTheme = () => {
+          if (q.vibe) { // Cleanup old vibe
+            if (q.vibe.video_effects.css_animation) q.video.style.animation = "none";
+            if (q.vibeTimer) {
+              clearInterval(q.vibeTimer);
+              activeIntervals.delete(q.vibeTimer);
+              q.vibeTimer = null;
+            }
+          }
+
+          q.vibe = VIBES[vibeIdx];
+          const pal = q.vibe.palette;
+          const font = q.vibe.font;
+
+          chooseTint.style.background = `linear-gradient(120deg, ${pal.base}66, ${pal.accent}66)`;
+          themeName.textContent = q.vibe.name.toUpperCase();
+          themeName.style.color = pal.accent;
+
+          q.el.style.setProperty('--themeBase', pal.base);
+          q.el.style.setProperty('--themeAccent', pal.accent);
+          
+          // Apply Vibe styles
+          q.panelContainer.style.fontFamily = font.family;
+          q.panelContainer.style.fontWeight = font.weight;
+          q.panelContainer.style.textTransform = font.transform;
+          q.panelContainer.style.background = pal.base;
+          
+          q.video.style.filter = q.vibe.video_effects.css_filter || "none";
+          q.video.style.animation = q.vibe.video_effects.css_animation || "none";
+          
+          q.vibeOverlay.style.background = q.vibe.video_effects.overlay_gradient || "transparent";
+          q.vibeOverlay.style.mixBlendMode = q.vibe.video_effects.overlay_blend_mode || "normal";
+          
+          // (Logic for overlay_video would go here if needed)
+
+          if (q.vibe.videoChangeFrequencyMs > 0 && !q.vibeTimer) {
+            q.vibeTimer = setInterval(() => {
+              q.video?.dispatchEvent(new Event('ended'));
+            }, q.vibe.videoChangeFrequencyMs);
+            activeIntervals.add(q.vibeTimer);
+          }
+        };
+
+        btnTheme.onclick = (e) => { e.stopPropagation(); vibeIdx = (vibeIdx + 1) % VIBES.length; updateTheme(); };
+
+        btnPlayerStart.onclick = (e) => {
+            e.stopPropagation();
+            playerReady[i] = true;
+            btnPlayerStart.disabled = true;
+            btnPlayerStart.textContent = 'READY!';
+            btnPlayerStart.style.opacity = '0.5';
+            
+            if (playerReady.every(ready => ready)) {
+              // All players are ready. Start the game.
+              document.querySelectorAll('.quadrant').forEach((el)=> el.classList.remove('choose-phase'));
+
+              quads.forEach((q_j, j) => {
+                if (q_j.chosen) {
+                  startVideoCycling(j, videos[j]);
+                  
+                  // ** Pre-populate queue **
+                  buildAndEnqueueNextEvent(q_j); // Add first event
+                  buildAndEnqueueNextEvent(q_j); // Add second event
+                  
+                  // Start the engine!
+                  processNextPhaseInQueue(q_j);
+                }
+              });
+              
+              // Start the global idle timer clock
+              updateGlobalPanelTimers();
+            }
+        };
+        updateTheme();
+      });
+    }
+    
     function stopApp() {
-      quads.forEach((q) => {
-        q.abortController?.abort();
-        q.phaseQueue = [];
-        clearAllUI(q);
-        q.chooseTint.style.display = "flex";
+        cycleAbort = true;
+        quads.forEach(q=>{
+          q.abortController.abort("stop");
+          q.isProcessing = false;
+          q.phaseQueue = [];
+          q.currentPhase = null;
+          
+          if(q.vibeTimer) {
+            clearInterval(q.vibeTimer);
+            activeIntervals.delete(q.vibeTimer);
+            q.vibeTimer = null;
+          }
+          
+          clearPhaseUI(q);
+          
+          q.video.pause();
+          q.video.onended = null;
+          q.video.onerror = null;
+          if (q.video.src && q.video.src.startsWith('blob:')) {
+            URL.revokeObjectURL(q.video.src);
+          }
+          q.video.src = "";
+          
+          if (q.vibe) {
+             q.video.style.filter = "none";
+             q.video.style.animation = "none";
+             q.vibeOverlay.style.background = "transparent";
+          }
+        });
+        
+        stopGlobalClock();
+        stopAllLoops();
+
+        createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+        createdObjectURLs = [];
+
+        status.textContent='Stopped. Reload videos to start again.';
+        document.querySelectorAll('.quadrant').forEach(el => el.classList.add('choose-phase'));
+    }
+
+    function attachControls(){
+      quads.forEach((q, i) => {
+        q.shuffleVideo.addEventListener('click', ()=>{ q.video?.dispatchEvent(new Event('ended')); });
+        q.btnFS.addEventListener('click', ()=> fullscreenQuad(i));
+        q.btnSound.addEventListener('click', ()=> setSoundFocus(i));
+        q.btnRestart.addEventListener('click', () => runRestart(i));
+      });
+      
+      folderPicker.addEventListener('change', async (e) => {
+        try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
+        createdObjectURLs = [];
+
+        const files = [...e.target.files].filter(f=>f.type.startsWith('video/'));
+        if(files.length < 4){ status.textContent='Load at least 4 videos.'; return; }
+        status.textContent='Loading videos…';
+
+        videos = [];
+        for(const f of files){
+          videos.push({file: f, name:f.name});
+        }
+
+        status.textContent = `Loaded ${videos.length} videos. Choose theme and press START.`;
+        btnStart.click();
+      }, {passive:true});
+
+      btnStart.addEventListener('click', ()=> {
+        if (videos.length < 4){ status.textContent='Load at least 4 videos first.'; return; }
+        startApp();
+      });
+
+      btnStop.addEventListener('click', stopApp);
+
+      btnFSAll.addEventListener('click', ()=> { const el = document.documentElement; if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); });
+      btnMuteAll.addEventListener('click', ()=> {
+        const anyMuted = quads.some(q=>q.video.muted);
+        quads.forEach(q=> {
+          q.video.muted = !anyMuted;
+        });
+        btnMuteAll.textContent = anyMuted ? '🔊' : '🔇';
       });
     }
 
-    function attachControls() {
-      document.querySelector(".btn-player-start").addEventListener("click", startApp);
-      document.querySelector(".btn-player-stop").addEventListener("click", stopApp);
-      document.querySelector(".btn-fullscreen").addEventListener("click", () => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        else document.exitFullscreen();
-      });
-      document.querySelector(".btn-mute").addEventListener("click", () => {
-        quads.forEach((q) => (q.video.muted = !q.video.muted));
-      });
-
-      const select = document.querySelector(".vibe-select");
-      VIBES.forEach((v) => {
-        const opt = document.createElement("option");
-        opt.value = v.key;
-        opt.textContent = v.name;
-        select.appendChild(opt);
-      });
-      select.addEventListener("change", (e) => {
-        const vibe = VIBES.find((v) => v.key === e.target.value);
-        quads.forEach((q) => applyVibe(q, vibe));
+    function setSoundFocus(qi){
+      quads.forEach((q, idx)=>{
+        const btn = q.btnSound;
+        const on = idx===qi;
+        q.video.muted = !on;
+        btn.classList.toggle('active', on);
+        btn.textContent = on ? '🔊' : '🔈';
       });
     }
-
+    
+    function fullscreenQuad(qi){
+      const el = quads[qi].el; (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
+    }
+    
+    // ### 7. INITIALIZE APP ###
+    
+    // Create the quad state objects
+    quads.push(createQuad(document.getElementById('q1'), 0));
+    quads.push(createQuad(document.getElementById('q2'), 1));
+    // Attach all button listeners
     attachControls();
-    quads.forEach((q) => applyVibe(q, VIBES[0]));
+
+  })();
   </script>
 </body>
 </html>
