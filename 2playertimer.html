@@ -623,7 +623,7 @@
 
 
   
-
+  <script src="shared-utils.js"></script>
   <script>
   (()=>{
     
@@ -1026,24 +1026,6 @@
     let cycleAbort = false;
     const activeIntervals = new Set(); 
 
-    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
-    
-    const sleep = (ms, signal) => new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            activeIntervals.delete(timeout);
-            resolve(true); 
-        }, ms);
-        activeIntervals.add(timeout);
-        
-        signal.addEventListener('abort', () => {
-            clearTimeout(timeout);
-            activeIntervals.delete(timeout);
-            reject(new DOMException('Aborted', 'AbortError'));
-        });
-    });
-    
-    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
-
     const clipName = (clip) => (clip && clip.file && clip.file.name) || (clip && clip.name) || '';
 
     const getClipSource = (clip) => {
@@ -1105,13 +1087,6 @@
         try { URL.revokeObjectURL(url); } catch (e) {}
       });
       createdObjectURLs = [];
-    }
-
-    function randomMidStart(duration){
-      const dur = Number.isFinite(duration) && duration>1 ? duration : 5;
-      const padStart = 0.5, padEnd = 1.0;
-      const min = padStart, max = Math.max(min+0.5, dur - padEnd);
-      return min + Math.random()*(max - min);
     }
 
     function getVibeBase(q) {

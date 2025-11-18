@@ -460,6 +460,7 @@
 </div>
 
 
+  <script src="shared-utils.js"></script>
   <script>
   (()=>{
     // Ferocity params
@@ -560,17 +561,6 @@
     let cycleAbort = null;
     let stopChoiceEvent = null;
     let globalEventLock = false;
-
-    const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
-    const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
-    const toTitle = (s)=> (s||'').replace(/\.[^/.]+$/, '').replace(/[_\-]+/g,' ').trim().split(/\s+/).slice(0,3).map(w=>w[0]?w[0].toUpperCase()+w.slice(1):'').join(' ');
-
-    function randomMidStart(clip){
-      const dur = Number.isFinite(clip.duration) && clip.duration>1 ? clip.duration : 5;
-      const padStart = 0.5, padEnd = 1.0;
-      const min = padStart, max = Math.max(min+0.5, dur - padEnd);
-      return min + Math.random()*(max - min);
-    }
 
     /**
      * [NEW] Starts the video cycling loop for a single video element.
