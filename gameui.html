@@ -9,6 +9,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quadrant Timers — Full Ferocity (v16 Challenges)</title>
+  
+  <!-- Enhanced Google Fonts for dynamic typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@600;700&family=Exo+2:wght@700;800;900&family=Montserrat:wght@700;800&family=Bebas+Neue&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+  
   <style>
     :root{ --bg:#0b0e14; --fg:#eaeef5; --muted:#9aa4b2; --panelBorder:#1a2030; --dockH:64px; }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
@@ -26,6 +32,17 @@
     .overlay .inner{padding:0; color:white; text-shadow:0 4px 20px rgba(0,0,0,.9), 0 0 60px var(--themeAccent, transparent); text-align:center; border-radius:0; background:transparent; box-shadow:none; width:100%; height:100%;}
     .display-xxl{font-size:clamp(8rem, 25vw, 20rem); font-weight:900; letter-spacing:-.02em; color:var(--themeAccent, white); text-shadow:0 0 40px var(--themeBase, transparent), 0 8px 30px rgba(0,0,0,.9); line-height:1; text-transform:uppercase;}
     .display-lg{font-size:clamp(3rem, 10vw, 8rem); font-weight:800; opacity:.95; color:var(--themeAccent, white); text-transform:uppercase; letter-spacing:.1em;}
+    
+    /* Theme-specific font families for dynamic typography */
+    .theme-graffiti .display-xxl, .theme-graffiti .display-lg { font-family: 'Bebas Neue', 'Teko', sans-serif; letter-spacing: 0.08em; }
+    .theme-danger .display-xxl, .theme-danger .display-lg { font-family: 'Exo 2', 'Rajdhani', sans-serif; font-weight: 900; letter-spacing: 0.05em; }
+    .theme-industrial .display-xxl, .theme-industrial .display-lg { font-family: 'Orbitron', sans-serif; letter-spacing: 0.12em; }
+    .theme-modern .display-xxl, .theme-modern .display-lg { font-family: 'Rajdhani', 'Teko', sans-serif; font-weight: 700; }
+    .theme-neon .display-xxl, .theme-neon .display-lg { font-family: 'Exo 2', sans-serif; font-weight: 900; letter-spacing: 0.15em; }
+    .theme-arctic .display-xxl, .theme-arctic .display-lg { font-family: 'Montserrat', sans-serif; font-weight: 800; letter-spacing: 0.1em; }
+    .theme-sunset .display-xxl, .theme-sunset .display-lg { font-family: 'Exo 2', 'Montserrat', sans-serif; font-weight: 800; }
+    .theme-midnight .display-xxl, .theme-midnight .display-lg { font-family: 'Orbitron', sans-serif; letter-spacing: 0.14em; font-weight: 900; }
+    
     .nextTimer{position:absolute; left:.5rem; bottom:.5rem; background:rgba(0,0,0,.58); border:1px solid var(--panelBorder); padding:.3rem .7rem .4rem; border-radius:.6rem; font-weight:700; font-size:1.4rem; pointer-events:none; min-width:9ch}
     .nextTimer .bar{position:absolute; left:0; bottom:0; height:3px; width:0%; background:var(--themeAccent, #8ab4ff); border-radius:0 0 .6rem .6rem; transition:width .18s linear}
     /* Timer in top left corner */
@@ -206,6 +223,43 @@
     @keyframes toxicScroll { from {background-position: 0 0;} to {background-position: 40px 40px;} }
     @keyframes bloodDrip { from {transform: translateY(-20%);} to {transform: translateY(0%);} }
     @keyframes bloodPulse { 0%, 100% {opacity: 0.8;} 50% {opacity: 1;} }
+    
+    /* --- Arctic theme overlays --- */
+    .theme-arctic .stage-overlay.ready { background: radial-gradient(ellipse at center, rgba(179,240,255,0.3), transparent 70%); }
+    .theme-arctic .stage-overlay.light { background: radial-gradient(circle at center, rgba(0,212,255,0.7), rgba(179,240,255,0.5), transparent 50%); animation: arcticShimmer 1s infinite; mix-blend-mode:screen; }
+    .theme-arctic .stage-overlay.fill { background: linear-gradient(180deg, rgba(0,212,255,0.6), rgba(179,240,255,0.4), transparent); animation: arcticFlow 2s ease-in-out infinite; }
+    .theme-arctic .stage-overlay.sniff { background: rgba(0,212,255,0.75); animation: arcticShimmer 0.3s infinite; mix-blend-mode:screen; }
+    .theme-arctic .overlay.show .inner { background: radial-gradient(circle, rgba(0,212,255,0.25), rgba(0,26,38,0.7)); border: 2px solid #00d4ff; box-shadow: 0 0 40px #00d4ff, inset 0 0 30px #b3f0ff; }
+    .theme-arctic .display-xxl { text-shadow: 0 0 25px #00d4ff, 0 0 45px #b3f0ff; animation: arcticGlow 2s infinite; }
+    
+    /* --- Sunset theme overlays --- */
+    .theme-sunset .stage-overlay.ready { background: radial-gradient(ellipse at bottom, rgba(255,107,53,0.4), rgba(255,215,0,0.3), transparent 70%); }
+    .theme-sunset .stage-overlay.light { background: radial-gradient(circle at center, rgba(255,107,53,0.85), rgba(255,215,0,0.7), transparent 50%); animation: sunsetGlow 0.15s infinite; mix-blend-mode:screen; }
+    .theme-sunset .stage-overlay.fill { background: linear-gradient(0deg, rgba(255,107,53,0.7), rgba(255,215,0,0.5), transparent); animation: sunsetRise 1.8s ease-out infinite; }
+    .theme-sunset .stage-overlay.sniff { background: radial-gradient(circle, rgba(255,107,53,0.8), rgba(255,215,0,0.6)); animation: sunsetPulse 0.25s infinite; mix-blend-mode:screen; }
+    .theme-sunset .overlay.show .inner { background: linear-gradient(135deg, rgba(255,107,53,0.35), rgba(255,215,0,0.25)); border: 2px solid #ff6b35; box-shadow: 0 0 38px #ff6b35, inset 0 0 28px #ffd700; }
+    .theme-sunset .display-xxl { text-shadow: 0 0 22px #ff6b35, 0 0 42px #ffd700; animation: warmGlow 1.5s infinite; }
+    
+    /* --- Midnight theme overlays --- */
+    .theme-midnight .stage-overlay.ready { background: radial-gradient(circle at 50% 50%, transparent 20%, rgba(138,43,226,0.4) 100%); }
+    .theme-midnight .stage-overlay.light { background: radial-gradient(circle at center, rgba(138,43,226,0.75), rgba(186,85,211,0.5), transparent 50%); animation: midnightPulse 1.2s infinite; }
+    .theme-midnight .stage-overlay.fill { background: radial-gradient(ellipse at center, rgba(138,43,226,0.55), rgba(186,85,211,0.35), transparent); animation: midnightExpand 2.2s ease-in-out infinite; }
+    .theme-midnight .stage-overlay.sniff { background: rgba(138,43,226,0.7); animation: midnightFlash 0.35s infinite; mix-blend-mode:screen; }
+    .theme-midnight .overlay.show .inner { background: radial-gradient(circle, rgba(138,43,226,0.3), rgba(13,0,24,0.75)); border: 2px solid #8a2be2; box-shadow: 0 0 45px #8a2be2, inset 0 0 35px #ba55d3; }
+    .theme-midnight .display-xxl { text-shadow: 0 0 28px #8a2be2, 0 0 48px #ba55d3; animation: midnightGlow 2.5s infinite; }
+    
+    @keyframes arcticShimmer { 0%, 100% {opacity: 0.7; transform: scale(1);} 50% {opacity: 1; transform: scale(1.02);} }
+    @keyframes arcticFlow { from {transform: translateY(-15%);} to {transform: translateY(0%);} }
+    @keyframes arcticGlow { 0%, 100% {transform: scale(1);} 50% {transform: scale(1.04);} }
+    @keyframes sunsetGlow { 0%, 100% {opacity: 0.85; filter: brightness(1);} 50% {opacity: 1; filter: brightness(1.1);} }
+    @keyframes sunsetRise { from {transform: translateY(15%); opacity: 0.7;} to {transform: translateY(-80%); opacity: 1;} }
+    @keyframes sunsetPulse { 0%, 100% {opacity: 0.8;} 50% {opacity: 1;} }
+    @keyframes warmGlow { 0%, 100% {filter: brightness(1);} 50% {filter: brightness(1.15);} }
+    @keyframes midnightPulse { 0%, 100% {transform: scale(1); opacity: 0.75;} 50% {transform: scale(1.06); opacity: 1;} }
+    @keyframes midnightExpand { 0%, 100% {transform: scale(1);} 50% {transform: scale(1.25);} }
+    @keyframes midnightFlash { 0%, 100% {opacity: 0.7;} 50% {opacity: 1;} }
+    @keyframes midnightGlow { 0%, 100% {transform: scale(1);} 33% {transform: scale(1.05);} 66% {transform: scale(1.02);} }
+    
     /* FX */
     .fx-strobe{animation: strobe 95ms steps(2, jump-none) infinite}
     .fx-chroma{filter: drop-shadow(2px 0 0 rgba(255,0,120,.5)) drop-shadow(-2px 0 0 rgba(0,200,255,.5))}
@@ -498,13 +552,16 @@ const FURY = {
   precueScale:1
 };
 
-    // 5 Dramatic Visual Themes
+    // 8 Dramatic Visual Themes - Enhanced and Expanded
     const VIBES = [
-      {key:'graffiti', palette:{base:'#00ffff', accent:'#ff00ff', dark:'#0a0a0a'}, intensity:1.0, clipCutsPerTask:5, gap:[15,35], sniff:8000, precue:600, overlay:'cyan-magenta-strobe', pulseEffect:'strobe'},
-      {key:'danger', palette:{base:'#ff4400', accent:'#ffaa00', dark:'#330000'}, intensity:0.95, clipCutsPerTask:4, gap:[18,40], sniff:9000, precue:800, overlay:'fire-gradient', pulseEffect:'flicker'},
-      {key:'industrial', palette:{base:'#6600ff', accent:'#cc00ff', dark:'#000000'}, intensity:0.85, clipCutsPerTask:3, gap:[20,45], sniff:10000, precue:900, overlay:'purple-smoke', pulseEffect:'pulse'},
-      {key:'modern', palette:{base:'#00ff00', accent:'#88ff00', dark:'#001100'}, intensity:0.9, clipCutsPerTask:4, gap:[17,38], sniff:8500, precue:700, overlay:'green-haze', pulseEffect:'glitch'},
-      {key:'neon', palette:{base:'#ff0000', accent:'#ff6666', dark:'#220000'}, intensity:1.0, clipCutsPerTask:6, gap:[15,35], sniff:7500, precue:500, overlay:'red-vignette', pulseEffect:'heartbeat'}
+      {key:'graffiti', name:'Graffiti Storm', palette:{base:'#00ffff', accent:'#ff00ff', dark:'#0a0a0a'}, intensity:1.0, clipCutsPerTask:5, gap:[15,35], sniff:8000, precue:600, overlay:'cyan-magenta-strobe', pulseEffect:'strobe'},
+      {key:'danger', name:'Danger Zone', palette:{base:'#ff4400', accent:'#ffaa00', dark:'#330000'}, intensity:0.95, clipCutsPerTask:4, gap:[18,40], sniff:9000, precue:800, overlay:'fire-gradient', pulseEffect:'flicker'},
+      {key:'industrial', name:'Industrial Void', palette:{base:'#6600ff', accent:'#cc00ff', dark:'#000000'}, intensity:0.85, clipCutsPerTask:3, gap:[20,45], sniff:10000, precue:900, overlay:'purple-smoke', pulseEffect:'pulse'},
+      {key:'modern', name:'Toxic Modern', palette:{base:'#00ff00', accent:'#88ff00', dark:'#001100'}, intensity:0.9, clipCutsPerTask:4, gap:[17,38], sniff:8500, precue:700, overlay:'green-haze', pulseEffect:'glitch'},
+      {key:'neon', name:'Blood Neon', palette:{base:'#ff0000', accent:'#ff6666', dark:'#220000'}, intensity:1.0, clipCutsPerTask:6, gap:[15,35], sniff:7500, precue:500, overlay:'red-vignette', pulseEffect:'heartbeat'},
+      {key:'arctic', name:'Arctic Freeze', palette:{base:'#00d4ff', accent:'#b3f0ff', dark:'#001a26'}, intensity:0.92, clipCutsPerTask:4, gap:[16,38], sniff:8200, precue:650, overlay:'ice-crystal', pulseEffect:'shimmer'},
+      {key:'sunset', name:'Sunset Blaze', palette:{base:'#ff6b35', accent:'#ffd700', dark:'#331400'}, intensity:0.97, clipCutsPerTask:5, gap:[15,36], sniff:7800, precue:550, overlay:'golden-hour', pulseEffect:'warm-glow'},
+      {key:'midnight', name:'Midnight Shadow', palette:{base:'#1a0033', accent:'#8a2be2', dark:'#0d0018'}, intensity:0.88, clipCutsPerTask:3, gap:[19,42], sniff:9500, precue:850, overlay:'dark-pulse', pulseEffect:'shadow-shift'}
     ];
     const ACTIONS = [
       {label:"Stand up and stretch", seconds:10},
