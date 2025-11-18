@@ -32,6 +32,16 @@
       border: none;
       background: #000;
       display: grid;
+      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr;
+      --video-fr: 2.9;
+      --panel-fr: 0.8;
+      --bar-h: 44px;
+      padding-bottom: var(--bar-h);
+    }
+    #q1 {
+      border-right: 1px solid var(--panelBorder);
+    }
+    #q2 {
       --video-fr: 2.7;
       --panel-fr: 0.9;
       --bar-h: 44px;
@@ -71,6 +81,8 @@
     #q2 .panel-container { grid-row: 1 / 2; }
 
     .bottom-bar {
+      position:absolute;
+      left:0; right:0; bottom:0;
       grid-row: 3 / 4;
       background: #0f1422;
       border-top: 1px solid var(--panelBorder);
@@ -319,6 +331,12 @@
     
     .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300; padding:1rem; box-sizing:border-box;}
     .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
+    .choose-layout{display:grid; grid-template-rows: var(--video-fr)fr var(--panel-fr)fr; width:100%; height:100%;}
+    .choose-video-area{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; padding:.5rem;}
+    .choose-panel-area{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.6rem; padding:.5rem; text-align:center;}
+    .choose-actions{display:flex; gap:.6rem; flex-wrap:wrap; justify-content:center;}
+    .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
+    .theme-name{font-size:clamp(2rem, 6vw, 3rem); font-weight:900; letter-spacing:.05em;}
     .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
     .btn-change-theme { pointer-events:auto; cursor:pointer; font-size:1rem; padding:.5rem 1rem; margin-top:.25rem; border-radius:.5rem; background:rgba(255,255,255,.1); color:white; border:1px solid white; font-weight: 600; }
     .btn-change-theme:hover { background:rgba(255,255,255,.2); }
@@ -443,6 +461,29 @@
   </div>
 
   <div class="overlay chooseTint">
+    <div class="choose-layout">
+      <div class="choose-video-area">
+        <div class="chooseTitle">PICK A VIDEO</div>
+        <div class="choose-grid">
+          <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+          <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+          <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+          <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        </div>
+      </div>
+      <div class="choose-panel-area">
+        <div class="theme-name"></div>
+        <div class="vibe-preview">
+          <div class="preview-title">VIBE PREVIEW</div>
+          <div class="preview-panel preview-panel-info">Info panel</div>
+          <div class="preview-panel preview-panel-video">Video label</div>
+        </div>
+        <div class="choose-actions">
+          <button class="btn-change-theme">Switch Theme</button>
+          <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:1.4rem; padding:.9rem 2.2rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+        </div>
+      </div>
+    </div>
     <div class="chooseTitle">CHOOSE THEME</div>
     <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
     <div class="choose-grid">
@@ -538,6 +579,29 @@
   </div>
 
   <div class="overlay chooseTint">
+    <div class="choose-layout">
+      <div class="choose-video-area">
+        <div class="chooseTitle">PICK A VIDEO</div>
+        <div class="choose-grid">
+          <div class="choose-grid-item" data-idx="0"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+          <div class="choose-grid-item" data-idx="1"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+          <div class="choose-grid-item" data-idx="2"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+          <div class="choose-grid-item" data-idx="3"><video playsinline muted preload="metadata"></video><div class="item-label"></div></div>
+        </div>
+      </div>
+      <div class="choose-panel-area">
+        <div class="theme-name"></div>
+        <div class="vibe-preview">
+          <div class="preview-title">VIBE PREVIEW</div>
+          <div class="preview-panel preview-panel-info">Info panel</div>
+          <div class="preview-panel preview-panel-video">Video label</div>
+        </div>
+        <div class="choose-actions">
+          <button class="btn-change-theme">Switch Theme</button>
+          <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:1.4rem; padding:.9rem 2.2rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
+        </div>
+      </div>
+    </div>
     <div class="chooseTitle">CHOOSE THEME</div>
     <div class="theme-name" style="font-size:1.5rem; margin:.5rem 0; font-weight:700;"></div>
     <div class="choose-grid">
@@ -986,10 +1050,15 @@
       if (!clip) return '';
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
+      if (clip.cachedUrl) return clip.cachedUrl;
+      if (clip.file) {
+        const url = URL.createObjectURL(clip.file);
+        clip.cachedUrl = url;
         createdObjectURLs.push(url);
         return url;
       }
       if (clip.url) {
+        clip.cachedUrl = clip.url;
         return clip.url;
       }
       return '';
@@ -1023,6 +1092,19 @@
       if (videos.length >= 4) return true;
       await loadFallbackClips();
       return videos.length >= 4;
+    }
+
+    function releaseClipUrls() {
+      videos.forEach(clip => {
+        if (clip && clip.cachedUrl && clip.cachedUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(clip.cachedUrl); } catch (e) {}
+        }
+        delete clip.cachedUrl;
+      });
+      createdObjectURLs.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch (e) {}
+      });
+      createdObjectURLs = [];
     }
 
     function randomMidStart(duration){
@@ -1745,6 +1827,17 @@
       const tick = () => {
         const now = performance.now();
         quads.forEach(q => {
+          // Update countdown timers using RAF instead of setInterval
+          if (q.countdownEndTime) {
+            const leftMs = q.countdownEndTime - now;
+            if (leftMs <= 0) {
+              q.videoCountdownTimer.textContent = "0";
+              q.countdownEndTime = null;
+            } else {
+              q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
+            }
+          }
+          
           if (
             q.currentPhase &&
             q.currentPhase.phaseName === "IDLE_GAP" &&
@@ -1810,6 +1903,13 @@
           if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
           timerId = null;
         }
+      
+      // Store countdown end time for RAF-based updates in global clock
+      q.countdownEndTime = performance.now() + duration;
+      
+      // Clean up on abort
+      signal.addEventListener('abort', () => {
+        q.countdownEndTime = null;
       });
     }
     
@@ -1837,6 +1937,29 @@
       for(let i=0; i < count; i++) {
         const bubble = document.createElement('div');
         bubble.className = `bubble`;
+      // Reuse existing bubbles if possible
+      const existingBubbles = container.querySelectorAll('.bubble');
+      
+      // Reuse existing bubbles
+      for(let i=0; i < Math.min(count, existingBubbles.length); i++) {
+        const bubble = existingBubbles[i];
+        bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
+        bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
+        bubble.style.animationDelay = `${Math.random() * 3}s`;
+        bubble.style.animationDuration = `${2 + Math.random() * 2}s`;
+      }
+      
+      // Remove excess bubbles
+      if (existingBubbles.length > count) {
+        for(let i=count; i < existingBubbles.length; i++) {
+          existingBubbles[i].remove();
+        }
+      }
+      
+      // Create new bubbles if needed
+      for(let i=existingBubbles.length; i < count; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
         bubble.style.setProperty('--x-start', `${Math.random() * 100}vw`);
         bubble.style.setProperty('--x-end', `${Math.random() * 100}vw`);
         bubble.style.animationDelay = `${Math.random() * 3}s`;
@@ -1932,6 +2055,11 @@
       if (!clip) return;
       const url = getClipSource(clip);
       if (!url) return;
+      const prev = videoEl.dataset.srcUrl;
+      if (prev && prev !== url && prev.startsWith('blob:')) {
+        try { URL.revokeObjectURL(prev); } catch (e) {}
+      }
+      videoEl.dataset.srcUrl = url;
       videoEl.src = url;
 
       videoEl.onloadedmetadata = () => {
@@ -2252,6 +2380,7 @@
         stopGlobalClock();
         stopAllLoops();
 
+        releaseClipUrls();
         createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
         createdObjectURLs = [];
 
@@ -2269,6 +2398,7 @@
       });
       
       folderPicker.addEventListener('change', async (e) => {
+        releaseClipUrls();
         try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
         createdObjectURLs = [];
 
