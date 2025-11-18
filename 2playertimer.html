@@ -1781,9 +1781,6 @@
     }
     
     async function handleTriviaPhase(q, phase, rules, signal) {
-      
-      
-      console.log("Trivia Phase Started");
       const duration = rules.duration;
       setPhaseUI(q, phase, rules.ui, { duration: duration });
       await waitForDuration(duration, signal);
