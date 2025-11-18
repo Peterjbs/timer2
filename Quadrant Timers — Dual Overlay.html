@@ -9,6 +9,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quadrant Timers — Dual Overlay</title>
+  
+  <!-- Enhanced Google Fonts for dynamic typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@600;700&family=Exo+2:wght@700;800;900&family=Montserrat:wght@700;800&family=Bebas+Neue&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+  
   <style>
     :root{ --bg:#0b0e14; --fg:#eaeef5; --muted:#9aa4b2; --panelBorder:#1a2030; --dockH:64px; }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
@@ -38,6 +44,87 @@
     /* --- Text & Timer Redesign --- */
     .display-xxl{font-size:clamp(3.2rem, 10vw, 8rem); font-weight:900; letter-spacing:-.02em; color:var(--themeAccent, white); text-shadow:0 0 20px var(--themeBase, transparent), 0 4px 15px rgba(0,0,0,.9); line-height:1; text-transform:uppercase; z-index: 205; position: relative;}
     .display-lg{font-size:clamp(1.2rem, 4vw, 3.2rem); font-weight:800; opacity:.95; color:var(--themeAccent, white); text-transform:uppercase; letter-spacing:.1em; z-index: 205; position: relative;}
+
+    /* Theme-specific font families and enhanced visual effects */
+    .theme-inferno .display-xxl, .theme-inferno .display-lg { 
+      font-family: 'Exo 2', 'Rajdhani', sans-serif; 
+      font-weight: 900; 
+      letter-spacing: 0.05em;
+      text-shadow: 0 0 30px #ff4400, 0 0 50px #ffaa00, 0 4px 20px rgba(0,0,0,.9);
+      animation: flameFlicker 0.15s infinite;
+    }
+    .theme-void .display-xxl, .theme-void .display-lg { 
+      font-family: 'Orbitron', sans-serif; 
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 35px #6600ff, 0 0 55px #cc00ff, 0 4px 20px rgba(0,0,0,.9);
+      animation: cosmicPulse 2s ease-in-out infinite;
+    }
+    .theme-toxic .display-xxl, .theme-toxic .display-lg { 
+      font-family: 'Rajdhani', 'Teko', sans-serif; 
+      font-weight: 700;
+      text-shadow: 0 0 25px #00ff00, 0 0 45px #88ff00, 0 4px 20px rgba(0,0,0,.9);
+      animation: toxicGlow 1s ease-in-out infinite;
+    }
+    .theme-mono .display-xxl, .theme-mono .display-lg { 
+      font-family: 'Bebas Neue', sans-serif; 
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 15px #ffffff, 0 4px 20px rgba(0,0,0,.9);
+    }
+    .theme-ocean .display-xxl, .theme-ocean .display-lg { 
+      font-family: 'Montserrat', sans-serif; 
+      font-weight: 800;
+      text-shadow: 0 0 28px #0080ff, 0 0 48px #00d4ff, 0 4px 20px rgba(0,0,0,.9);
+      animation: oceanWave 2.5s ease-in-out infinite;
+    }
+    .theme-sunset .display-xxl, .theme-sunset .display-lg { 
+      font-family: 'Exo 2', 'Montserrat', sans-serif; 
+      font-weight: 800;
+      text-shadow: 0 0 30px #ff6b35, 0 0 50px #ffd700, 0 4px 20px rgba(0,0,0,.9);
+      animation: sunsetGlow 1.8s ease-in-out infinite;
+    }
+    .theme-neon .display-xxl, .theme-neon .display-lg { 
+      font-family: 'Exo 2', sans-serif; 
+      font-weight: 900; 
+      letter-spacing: 0.15em;
+      text-shadow: 0 0 32px #ff1493, 0 0 52px #00ffff, 0 4px 20px rgba(0,0,0,.9);
+      animation: neonPulse 0.8s ease-in-out infinite;
+    }
+    .theme-arctic .display-xxl, .theme-arctic .display-lg { 
+      font-family: 'Orbitron', sans-serif; 
+      letter-spacing: 0.14em; 
+      font-weight: 900;
+      text-shadow: 0 0 30px #00d4ff, 0 0 50px #b3f0ff, 0 4px 20px rgba(0,0,0,.9);
+      animation: arcticShimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes flameFlicker {
+      0%, 100% { opacity: 1; filter: brightness(1); }
+      50% { opacity: 0.92; filter: brightness(1.1); }
+    }
+    @keyframes cosmicPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    @keyframes toxicGlow {
+      0%, 100% { filter: drop-shadow(0 0 10px rgba(0,255,0,0.5)); }
+      50% { filter: drop-shadow(0 0 20px rgba(0,255,0,0.9)); }
+    }
+    @keyframes oceanWave {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    @keyframes sunsetGlow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.15); }
+    }
+    @keyframes neonPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+    @keyframes arcticShimmer {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.12); }
+    }
 
     .cue-timer-bg {
       position: absolute;
@@ -467,10 +554,14 @@
 
     // [MODIFIED] Added 'mono' theme and changed 'void' clipPath
     const VIBES = [
-      {key:'inferno', palette:{base:'#ff4400', accent:'#ffaa00', dark:'#330000'}, clipPath: 'polygon(0 0, 100% 0, 100% 60%, 0 60%)'}, // Top 60%
-      {key:'void', palette:{base:'#6600ff', accent:'#cc00ff', dark:'#000000'}, clipPath: 'polygon(0 40%, 100% 40%, 100% 100%, 0 100%)'}, // Bottom 60%
-      {key:'toxic', palette:{base:'#00ff00', accent:'#88ff00', dark:'#001100'}, clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)'}, // Left 50%
-      {key:'mono', palette:{base:'#ffffff', accent:'#999999', dark:'#111111'}, clipPath: 'none'} // Full overlay
+      {key:'inferno', name:'Inferno Blaze', palette:{base:'#ff4400', accent:'#ffaa00', dark:'#330000'}, clipPath: 'polygon(0 0, 100% 0, 100% 60%, 0 60%)'}, // Top 60%
+      {key:'void', name:'Cosmic Void', palette:{base:'#6600ff', accent:'#cc00ff', dark:'#000000'}, clipPath: 'polygon(0 40%, 100% 40%, 100% 100%, 0 100%)'}, // Bottom 60%
+      {key:'toxic', name:'Toxic Waste', palette:{base:'#00ff00', accent:'#88ff00', dark:'#001100'}, clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)'}, // Left 50%
+      {key:'mono', name:'Monochrome', palette:{base:'#ffffff', accent:'#999999', dark:'#111111'}, clipPath: 'none'}, // Full overlay
+      {key:'ocean', name:'Deep Ocean', palette:{base:'#0080ff', accent:'#00d4ff', dark:'#001a33'}, clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)'}, // Top 50%
+      {key:'sunset', name:'Golden Sunset', palette:{base:'#ff6b35', accent:'#ffd700', dark:'#331400'}, clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)'}, // Right 50%
+      {key:'neon', name:'Neon Dreams', palette:{base:'#ff1493', accent:'#00ffff', dark:'#1a0033'}, clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)'}, // Bottom 50%
+      {key:'arctic', name:'Arctic Freeze', palette:{base:'#00d4ff', accent:'#b3f0ff', dark:'#001a26'}, clipPath: 'circle(60% at 50% 50%)'} // Center circle
     ];
     const ACTIONS = [
       {label:"Stand up and stretch", seconds:10}, {label:"Copy the main actor's pose", seconds:5},
