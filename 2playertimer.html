@@ -1044,7 +1044,7 @@
 
     let quads = []; 
     let videos = [];
-    let createdObjectURLs = [];
+    let createdObjectURLs = new Set();
     let globalRafId = null;
     let cycleAbort = false;
     const activeIntervals = new Set(); 
@@ -1090,7 +1090,7 @@
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
         clip.cachedUrl = url;
-        createdObjectURLs.push(url);
+        createdObjectURLs.add(url);
         return url;
       }
       if (clip.url) {
@@ -1168,7 +1168,7 @@
       createdObjectURLs.forEach(url => {
         try { URL.revokeObjectURL(url); } catch (e) {}
       });
-      createdObjectURLs = [];
+      createdObjectURLs.clear();
     }
 
     function randomMidStart(duration){
@@ -1295,7 +1295,7 @@
       if (!rules) {
         console.error(`Unknown phase: ${phase.phaseName}. Skipping.`);
         q.isProcessing = false;
-        setTimeout(() => processNextPhaseInQueue(q), 10);
+        requestAnimationFrame(() => processNextPhaseInQueue(q));
         return;
       }
       
@@ -1319,7 +1319,7 @@
       q.isProcessing = false;
       q.currentPhase = null;
       if (!cycleAbort) {
-        setTimeout(() => processNextPhaseInQueue(q), 10);
+        requestAnimationFrame(() => processNextPhaseInQueue(q));
       }
     }
     
@@ -2154,8 +2154,7 @@
         if (cycleAbort) return;
         if (v.src && v.src.startsWith('blob:')) {
           const oldUrl = v.src;
-          const index = createdObjectURLs.indexOf(oldUrl);
-          if (index > -1) createdObjectURLs.splice(index, 1);
+          createdObjectURLs.delete(oldUrl);
           try { URL.revokeObjectURL(oldUrl); } catch (e) {}
         }
         
@@ -2193,8 +2192,7 @@
       // Clean up old blob URL
       if (v.src && v.src.startsWith('blob:')) {
         const oldUrl = v.src;
-        const index = createdObjectURLs.indexOf(oldUrl);
-        if (index > -1) createdObjectURLs.splice(index, 1);
+        createdObjectURLs.delete(oldUrl);
         try { URL.revokeObjectURL(oldUrl); } catch (e) {}
       }
       const url = getClipSource(initialClip);
@@ -2514,7 +2512,7 @@
         createdObjectURLs.forEach(url => {
           try { URL.revokeObjectURL(url); } catch (e) {}
         });
-        createdObjectURLs = [];
+        createdObjectURLs.clear();
 
         status.textContent='Stopped. Reload videos to start again.';
         document.querySelectorAll('.quadrant').forEach(el => el.classList.add('choose-phase'));
@@ -2532,7 +2530,7 @@
       folderPicker.addEventListener('change', async (e) => {
         releaseClipUrls();
         try{ createdObjectURLs.forEach(u=>URL.revokeObjectURL(u)); }catch(e){}
-        createdObjectURLs = [];
+        createdObjectURLs.clear();
 
         const files = [...e.target.files].filter(isLikelyVideo);
         if(files.length < 4){ status.textContent='Load at least 4 videos.'; return; }
