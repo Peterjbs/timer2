@@ -26,27 +26,9 @@
     .overlay .inner{padding:0; color:white; text-shadow:0 4px 20px rgba(0,0,0,.9), 0 0 60px var(--themeAccent, transparent); text-align:center; border-radius:0; background:transparent; box-shadow:none; width:100%; height:100%;}
     .display-xxl{font-size:clamp(8rem, 25vw, 20rem); font-weight:900; letter-spacing:-.02em; color:var(--themeAccent, white); text-shadow:0 0 40px var(--themeBase, transparent), 0 8px 30px rgba(0,0,0,.9); line-height:1; text-transform:uppercase;}
     .display-lg{font-size:clamp(3rem, 10vw, 8rem); font-weight:800; opacity:.95; color:var(--themeAccent, white); text-transform:uppercase; letter-spacing:.1em;}
-    .nextTimer{position:absolute; left:.5rem; bottom:.5rem; background:rgba(0,0,0,.58); border:1px solid var(--panelBorder); padding:.3rem .7rem .4rem; border-radius:.6rem; font-weight:700; font-size:1.4rem; pointer-events:none; min-width:9ch}
+    /* Timer in top left corner */
+    .nextTimer{position:absolute; left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
     .nextTimer .bar{position:absolute; left:0; bottom:0; height:3px; width:0%; background:var(--themeAccent, #8ab4ff); border-radius:0 0 .6rem .6rem; transition:width .18s linear}
-    /* Timer in top left corner */
-    .nextTimer{left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
-    .nextTimer .bar{height:3px; background:var(--themeAccent, #8ab4ff);}
-    .tally{position:absolute; top:.5rem; left:.5rem; right:.5rem; padding:.4rem .6rem; border:1px solid var(--panelBase, var(--panelBorder)); border-radius:.6rem; background:rgba(0,0,0,.75); font-size:1.15rem; letter-spacing:.08em; font-weight: 600; max-height: 3rem; overflow-y: auto; line-height: 1.4; z-index: 70;}
-    .task-buttons{position:absolute; bottom:5rem; left:50%; transform:translateX(-50%); display:none; gap:1rem; z-index:250; pointer-events:auto;}
-    .task-buttons.show{display:flex;}
-    .task-buttons button{font-size:clamp(2rem, 5vw, 4rem); padding:.8rem 1.5rem; border-radius:1rem; border:3px solid white; cursor:pointer; font-weight:900; transition:transform .1s, opacity .1s;}
-    .task-buttons button:hover{transform:scale(1.05);}
-    .task-buttons button:active{transform:scale(0.95);}
-    .btn-task-fail{background:#ff4444; color:white;}
-    .btn-task-complete{background:#44ff44; color:white;}
-    .manual-controls{position:absolute; bottom:1.25rem; left:50%; transform:translateX(-50%); display:flex; gap:.75rem; z-index:260;}
-    .manual-controls button{background:rgba(0,0,0,.75); color:#fff; border:2px solid rgba(255,255,255,.25); border-radius:.5rem; padding:.4rem .9rem; font-weight:700; cursor:pointer; font-size:1rem; letter-spacing:.05em;}
-    .manual-controls button:hover{background:rgba(255,255,255,.15);}
-    .manual-controls .btn-manual-skip{border-color:#ff7676;}
-    .manual-controls .btn-manual-shuffle{border-color:#7ac4ff;}
-    /* Timer in top left corner */
-    .nextTimer{left:.5rem; top:.5rem; right:auto; bottom:auto; min-width:8ch; font-size:clamp(.9rem, 2vw, 1.2rem); padding:.3rem .5rem; background:rgba(5,5,10,.85); box-shadow:0 4px 16px rgba(0,0,0,.6); border-radius:.4rem; display:flex; align-items:center; justify-content:center; border:1px solid var(--themeBase, var(--panelBorder)); z-index:80;}
-    .nextTimer .bar{height:3px; background:var(--themeAccent, #8ab4ff);}
     .tally{position:absolute; top:.5rem; left:.5rem; right:.5rem; padding:.4rem .6rem; border:1px solid var(--panelBase, var(--panelBorder)); border-radius:.6rem; background:rgba(0,0,0,.75); font-size:1.15rem; letter-spacing:.08em; font-weight: 600; max-height: 3rem; overflow-y: auto; line-height: 1.4; z-index: 70;}
     .task-buttons{position:absolute; bottom:5rem; left:50%; transform:translateX(-50%); display:none; gap:1rem; z-index:250; pointer-events:auto;}
     .task-buttons.show{display:flex;}
