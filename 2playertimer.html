@@ -5,9 +5,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0e14">
-
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quadrant Timers — Refactored (v5)</title>
   <style>
     
@@ -45,18 +43,13 @@
       padding-bottom: var(--bar-h);
     }
     #q1 {
+      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr var(--bar-h);
       border-right: 1px solid var(--panelBorder);
     }
     #q2 {
       --video-fr: 2.7;
       --panel-fr: 0.9;
       --bar-h: 44px;
-    }
-    #q1 {
-      grid-template-rows: var(--video-fr)fr var(--panel-fr)fr var(--bar-h);
-      border-right: 1px solid var(--panelBorder);
-    }
-    #q2 {
       grid-template-rows: var(--panel-fr)fr var(--video-fr)fr var(--bar-h);
       border-left: 1px solid var(--panelBorder);
       border-right: none;
@@ -1959,43 +1952,8 @@
 
     
     function startCountdown(q, duration, signal) {
-      if (typeof duration !== 'number' || duration <= 0) return;
-      if (q.currentCountdownTimer) {
-        clearInterval(q.currentCountdownTimer);
-        activeIntervals.delete(q.currentCountdownTimer);
-      }
-
-      const end = performance.now() + duration;
-      let timerId = null;
-
-      const update = ()=>{
-        const leftMs = (end - performance.now());
-        if (leftMs <= 0) {
-            q.videoCountdownTimer.textContent = "0";
-            if (timerId) {
-                clearInterval(timerId);
-                activeIntervals.delete(timerId);
-                if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
-                timerId = null;
-            }
-            return;
-        }
-        q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
-      };
-
-      timerId = setInterval(update, 100);
-      q.currentCountdownTimer = timerId; 
-      activeIntervals.add(timerId);
-      update(); 
-
-      signal.addEventListener('abort', () => {
-        if (timerId) {
-          clearInterval(timerId);
-          activeIntervals.delete(timerId);
-          if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
-          timerId = null;
-        }
       if (!q || !q.videoCountdownTimer) return;
+      if (typeof duration !== 'number' || duration <= 0) return;
       
       // Store countdown end time for RAF-based updates in global clock
       q.countdownEndTime = performance.now() + duration;
@@ -2029,12 +1987,7 @@
     }
 
     function createBubbles(container, count) {
-      container.innerHTML = ''; 
-      for(let i=0; i < count; i++) {
-        const bubble = document.createElement('div');
-        bubble.className = `bubble`;
-      // Reuse existing bubbles if possible
-      // Reuse existing bubbles if possible to avoid DOM thrashing
+      // Reuse existing bubbles to avoid DOM thrashing
       const existingBubbles = container.querySelectorAll('.bubble');
       
       // Reuse existing bubbles
