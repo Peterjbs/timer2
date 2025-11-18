@@ -10,23 +10,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quadrant Timers — Refactored (v5)</title>
   <style>
-    /* ================================================================================
-    == STYLES
-    ================================================================================
-    */
+    
     @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron&family=Pacifico&family=Playfair+Display&family=Press+Start+2P&family=Quicksand:wght@300;700&family=Share+Tech+Mono&family=Special+Elite&display=swap');
 
     :root{ --bg:#0b0e14; --fg:#eaeef5; --muted:#9aa4b2; --panelBorder:#1a2030; --dockH:64px; }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
     
-    /* === Dock === */
+    
     .dock{position:fixed; left:0; right:0; top:0; height:var(--dockH); display:flex; align-items:center; gap:.5rem; padding:0 .75rem; background:#0f1422; border-bottom:1px solid var(--panelBorder); z-index:100}
     .dock .spacer{flex:1}
     .dock button, .dock label{background:#141b2b; color:var(--fg); border:1px solid var(--panelBorder); padding:.5rem .7rem; border-radius:.6rem; cursor:pointer; font-weight:600}
     .dock input[type=file]{display:none}
     .hint{opacity:.9; font-size:.9rem}
 
-    /* === Layout === */
+    
     .stage{position:fixed; left:0; right:0; top:var(--dockH); bottom:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr; background:black; transition: filter .25s ease; gap: 0;}
 
     .quadrant{
@@ -68,7 +65,7 @@
       justify-content: center;
       padding: 1rem;
       box-sizing: border-box;
-      /* Vibe font will be set here by JS */
+      
     }
     #q1 .panel-container { grid-row: 2 / 3; }
     #q2 .panel-container { grid-row: 1 / 2; }
@@ -102,10 +99,10 @@
       object-fit: cover;
       background:black;
       transition: filter .3s, transform .3s;
-      /* Vibe filter/animation will be set here by JS */
+      
     }
     
-    /* === Vibe Overlays === */
+    
     .vibe-overlay {
       position: absolute;
       inset: 0;
@@ -116,7 +113,7 @@
       background: transparent;
       mix-blend-mode: normal;
       transition: background .4s, opacity .4s;
-      /* Vibe gradient/blend-mode will be set here by JS */
+      
     }
     
     .event-overlay-custom {
@@ -164,7 +161,7 @@
       background: rgba(0,0,0,0.6);
     }
     
-    /* === Streamlined Overlays (New) === */
+    
     .overlay {
       position:absolute; inset:0; 
       display:flex; flex-direction: column;
@@ -233,7 +230,7 @@
       font-weight: 600;
     }
 
-    /* === Special Overlays (Popups) === */
+    
     .special-overlay {
       position: absolute;
       inset: 0;
@@ -306,7 +303,7 @@
     .breath-count-item { background: #141b2b; color: var(--fg); border: 1px solid var(--panelBorder); padding: 1.5rem 2rem; border-radius: .6rem; cursor: pointer; font-weight: 800; font-size: 2rem; transition: transform .1s ease, background .1s ease; }
     .breath-count-item:hover { background: #1a2030; transform: scale(1.05); }
 
-    /* === Bottom Bar Cancel Buttons === */
+    
     .bottom-bar .btn-phase-cancel {
       display: none;
     }
@@ -318,7 +315,7 @@
     .bottom-bar .btn-phase-fail:hover { background: #d00; }
     .bottom-bar .btn-phase-confirm:hover { background: #0a0; }
 
-    /* === Misc & Vibe Animations === */
+    
     .chooseTint{position:absolute; inset:0; opacity:0; transition:opacity .18s ease, transform .18s ease; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.9); z-index: 300; padding:1rem; box-sizing:border-box;}
     .quadrant.choose-phase .chooseTint{opacity:1; pointer-events: auto;}
     .chooseTitle{font-weight:900; font-size:clamp(1.2rem, 4vw, 2.4rem); letter-spacing:.02em; margin-bottom:.35rem}
@@ -367,7 +364,7 @@
     <div class="selectBadge"></div>
     <video playsinline webkit-playsinline muted preload="metadata" class="quad-video"></video>
     
-    <!-- Vibe & Effect Overlays -->
+    
     <div class="vibe-overlay"></div>
     <div class="event-overlay-custom event-overlay-light"></div>
     <div class="event-overlay-custom event-overlay-smoke"></div>
@@ -376,7 +373,7 @@
     <div class="bubble-container event-overlay-exhale"></div>
     <div class="event-overlay-custom event-overlay-sniff"></div>
     
-    <!-- Single Countdown Overlay -->
+    
     <div class="overlay video-countdown-overlay">
       <div class="video-countdown-timer">--</div>
       <div class="video-countdown-label"></div>
@@ -384,15 +381,15 @@
   </div>
 
   <div class="panel-container">
-    <!-- Single Info Text Overlay -->
+    
     <div class="overlay info-text-overlay">
-      <!-- Content here is set by JS -->
-      <!-- e.g., <div class="info-text-lg">Get Ready to Light</div> -->
-      <!-- e.g., <div class="info-text-xxl">LIGHT</div> -->
-      <!-- e.g., <div class="info-text-idle">...</div> -->
+      
+      
+      
+      
     </div>
     
-    <!-- Special Pop-up Overlays -->
+    
     <div class="special-overlay validation-overlay">
       <div class="special-overlay-timer">10</div>
       <div class="special-overlay-title validation-title">Did you complete it?</div>
@@ -465,7 +462,7 @@
 
 
 <div class="quadrant" id="q2">
-  <!-- Quadrant 2 Structure -->
+  
   <div class="video-container">
     <div class="selectBadge"></div>
     <video playsinline webkit-playsinline muted preload="metadata" class="quad-video"></video>
@@ -560,16 +557,12 @@
 </div>
 
 
-  <!-- 
-  ================================================================================
-  == NEW REFACTORED SCRIPT (v5 - Streamlined UI)
-  ================================================================================
-  -->
+  
 
   <script>
   (()=>{
     
-    // ### 1. CONFIGURATION (THE "RULEBOOKS") ###
+    
     
     const VIBES = [
       {
@@ -706,16 +699,16 @@
     };
 
     const PHASES = {
-      // IDLE
+      
       "IDLE_GAP": {
         handler: "handleIdlePhase",
-        duration: [30000, 75000], // [min, max]
+        duration: [30000, 75000], 
         ui: {
           infoColor: "vibe_base",
-          // videoCountdown and infoText are set by the handler
+          
         }
       },
-      // "READY" PHASES
+      
       "READY_TO_PUFF": {
         handler: "handleTimedPhase",
         duration: 10000,
@@ -746,7 +739,7 @@
           infoSize: "lg"
         }
       },
-      // "PUFF" EVENT
+      
       "PUFF_LIGHT": {
         handler: "handleTimedPhase",
         duration: 25000,
@@ -775,7 +768,7 @@
         ui: {
           videoEffect: "inhale",
           videoCountdown: true,
-          videoText: "INHALE", // Shows "INHALE 1", "INHALE 2" etc.
+          videoText: "INHALE", 
           infoColor: "#008000",
           infoText: "INHALE",
           infoSize: "xxl",
@@ -830,7 +823,7 @@
           infoOverlay: "breathCountOverlay",
         }
       },
-      // "SNIFF" EVENT
+      
       "SNIFF_MAIN": {
         handler: "handleTimedPhase",
         duration: 8000,
@@ -855,12 +848,12 @@
           infoText: "Did you complete the sniff?",
         }
       },
-      // "MASK" EVENT
+      
       "MASK_MAIN": {
         handler: "handleTimedPhase",
         duration: 20000,
         ui: {
-          videoEffect: "mask", // This is just the video overlay
+          videoEffect: "mask", 
           videoCountdown: true,
           videoText: "MASK",
           infoColor: "#36454F",
@@ -880,7 +873,7 @@
           infoText: "Did you keep it on?",
         }
       },
-      // "OTHER" EVENTS
+      
       "YOU_CHOOSE_OVERLAY": {
         handler: "handleChoicePhase",
         duration: 20000,
@@ -894,19 +887,19 @@
         handler: "handleGridChoicePhase",
         duration: 20000,
         ui: {
-          videoStop: true, // Special flag for this handler
-          videoCountdown: false, // No countdown, just stops video
+          videoStop: true, 
+          videoCountdown: false, 
           infoColor: "vibe_base",
           infoOverlay: "gridChoiceOverlay",
         }
       },
       "ACTION_MAIN": {
         handler: "handleActionPhase",
-        duration: 90000, // Default max, is overridden by action
+        duration: 90000, 
         ui: {
-          videoEffect: "action", // This is just the slight white overlay
+          videoEffect: "action", 
           videoCountdown: true,
-          // videoText is set by the handler
+          
           infoColor: "vibe_accent",
           infoText: "ACTION",
           infoSize: "xxl",
@@ -918,7 +911,7 @@
         handler: "handleTriviaPhase",
         duration: 90000,
         ui: {
-          videoEffect: "trivia", // This is the 4-box overlay
+          videoEffect: "trivia", 
           infoColor: "#6a0dad",
           infoText: "Trivia Question...",
           infoSize: "xxl",
@@ -940,7 +933,7 @@
         handler: "handleTimedPhase",
         duration: 90000,
         ui: {
-          videoEffect: "peace", // This is the "peace overlay"
+          videoEffect: "peace", 
           videoCountdown: true,
           infoColor: "#FFFFFF",
           infoText: "Chill for 90 seconds",
@@ -949,7 +942,7 @@
       },
       "REPLAY_VIDEO_MAIN": {
         handler: "handleReplayPhase",
-        duration: 60000, // Failsafe, overridden by clip length
+        duration: 60000, 
         ui: {
           videoCountdown: true,
           infoColor: "vibe_base",
@@ -959,21 +952,21 @@
       },
     };
 
-    // ### 2. GLOBAL STATE & HELPERS ###
+    
 
-    let quads = []; // This will hold the two quad state objects
+    let quads = []; 
     let videos = [];
     let createdObjectURLs = [];
     let globalRafId = null;
     let cycleAbort = false;
-    const activeIntervals = new Set(); // To track timers
+    const activeIntervals = new Set(); 
 
     const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
     
     const sleep = (ms, signal) => new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
             activeIntervals.delete(timeout);
-            resolve(true); // Resolves true on success
+            resolve(true); 
         }, ms);
         activeIntervals.add(timeout);
         
@@ -1059,12 +1052,10 @@
       return 0;
     }
 
-    /**
-     * Creates the master state object for a single quadrant.
-     */
+    
     function createQuad(rootEl, index) {
       const q = {
-        // DOM Elements
+        
         el: rootEl,
         videoContainer: rootEl.querySelector('.video-container'),
         panelContainer: rootEl.querySelector('.panel-container'),
@@ -1084,10 +1075,10 @@
           hold: rootEl.querySelector('.video-container .event-overlay-hold'),
           exhale: rootEl.querySelector('.video-container .event-overlay-exhale'),
           sniff: rootEl.querySelector('.video-container .event-overlay-sniff'),
-          mask: rootEl.querySelector('.video-container .overlay[data-type="mask"]'), // Special case from old HTML
-          action: rootEl.querySelector('.video-container .overlay[data-type="action"]'), // Special case
-          trivia: rootEl.querySelector('.video-container .overlay[data-type="trivia"]'), // Special case
-          peace: rootEl.querySelector('.video-container .overlay[data-type="peace"]'), // Special case
+          mask: rootEl.querySelector('.video-container .overlay[data-type="mask"]'), 
+          action: rootEl.querySelector('.video-container .overlay[data-type="action"]'), 
+          trivia: rootEl.querySelector('.video-container .overlay[data-type="trivia"]'), 
+          peace: rootEl.querySelector('.video-container .overlay[data-type="peace"]'), 
         },
         chooseTint: rootEl.querySelector('.chooseTint'),
         chooseGrid: rootEl.querySelector('.chooseTint .choose-grid'),
@@ -1105,46 +1096,43 @@
         btnSound: rootEl.querySelector('.bottom-bar .btnSound'),
         btnRestart: rootEl.querySelector('.bottom-bar .btnRestart'),
         
-        // Interactive Overlays
+        
         validationOverlay: rootEl.querySelector('.panel-container .validation-overlay'),
         breathCountOverlay: rootEl.querySelector('.panel-container .breath-count-overlay'),
         actionChoiceOverlay: rootEl.querySelector('.panel-container .action-choice-overlay'),
         gridChoiceOverlay: rootEl.querySelector('.panel-container .grid-choice-overlay'),
 
-        // State
+        
         id: index,
         score: 0,
-        lastEvent: null, // e.g., "Puff"
-        isProcessing: false, // The "q.busy" equivalent
-        phaseQueue: [], // The "smart" queue
-        currentPhase: null, // The phase object currently running
+        lastEvent: null, 
+        isProcessing: false, 
+        phaseQueue: [], 
+        currentPhase: null, 
         abortController: new AbortController(),
         vibe: null,
         clipIndex: 0,
         selectedStartClip: null,
-        loopCounter: 0, // For breath counts
-        completedBreaths: 0, // For scoring
+        loopCounter: 0, 
+        completedBreaths: 0, 
         currentCountdownTimer: null,
       };
       return q;
     }
 
-    // ### 3. THE "GAME LOOP" (NEW ARCHITECTURE) ###
+    
 
-    /**
-     * This is the main "engine" loop. It processes one phase from
-     * the quadrant's queue, waits for it to finish, and then calls itself.
-     */
+    
     async function processNextPhaseInQueue(q) {
       if (q.isProcessing || cycleAbort) return;
       q.isProcessing = true;
 
-      // 1. Refill queue if it's running low
+      
       if (q.phaseQueue.length < 3) {
         buildAndEnqueueNextEvent(q);
       }
 
-      // 2. Get next phase and set up abort controller
+      
       const phase = q.phaseQueue.shift();
       q.currentPhase = phase;
       
@@ -1160,23 +1148,23 @@
         return;
       }
       
-      // 3. Get the handler function for this phase type
+      
       let handlerResult = false;
       try {
-        // This line is the "On Phase Start" setup
+        
         handlerResult = await rules.handler(q, phase, rules, signal);
         
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.error(`Error during phase ${phase.phaseName}:`, err);
         }
-        handlerResult = false; // Phase was aborted
+        handlerResult = false; 
       }
       
-      // 4. This is the "On Phase End" cleanup
+      
       clearPhaseUI(q);
 
-      // 5. Loop
+      
       q.isProcessing = false;
       q.currentPhase = null;
       if (!cycleAbort) {
@@ -1184,9 +1172,7 @@
       }
     }
     
-    /**
-     * Helper function to get an array of phase objects for a given event name.
-     */
+    
     function getEventPhases(q, eventName) {
       let eventPhases = [];
       
@@ -1253,29 +1239,26 @@
       return eventPhases;
     }
 
-    /**
-     * This is the "logic" function. It adds a *full* event sequence
-     * (IDLE + Event Phases) to the *end* of the quadrant's queue.
-     */
+    
     function buildAndEnqueueNextEvent(q) {
-      // 1. Pick next event based on new probabilities
+      
       const rand = Math.random();
       let nextEventName;
-      if (rand < 0.50) { // 50%
+      if (rand < 0.50) { 
         nextEventName = "You Choose";
-      } else if (rand < 0.60) { // 10%
+      } else if (rand < 0.60) { 
         nextEventName = "Puff";
-      } else if (rand < 0.70) { // 10%
+      } else if (rand < 0.70) { 
         nextEventName = "Sniff";
-      } else if (rand < 0.80) { // 10%
+      } else if (rand < 0.80) { 
         nextEventName = "Mask";
-      } else if (rand < 0.90) { // 10%
+      } else if (rand < 0.90) { 
         nextEventName = "Action";
-      } else { // 10%
+      } else { 
         nextEventName = "Trivia";
       }
       
-      // 2. Add IDLE phase first
+      
       const idleRules = PHASES["IDLE_GAP"];
       const idleDuration = idleRules.duration[0] + Math.random() * (idleRules.duration[1] - idleRules.duration[0]);
       
@@ -1285,16 +1268,16 @@
         nextEventName: nextEventName 
       };
       
-      // 3. Get all phases for the chosen event
+      
       const eventPhases = getEventPhases(q, nextEventName);
       
-      // 4. Add them all to the end of the queue
+      
       q.phaseQueue.push(idlePhase, ...eventPhases);
       
       q.lastEvent = nextEventName;
     }
 
-    // ### 4. PHASE HANDLERS (THE LOGIC FOR EACH PHASE TYPE) ###
+    
 
     async function handleIdlePhase(q, phase, rules, signal) {
       const duration = phase.duration;
@@ -1303,7 +1286,7 @@
         nextEventName: phase.nextEventName 
       });
       await sleep(duration, signal);
-      return true; // Completed
+      return true; 
     }
 
     async function handleTimedPhase(q, phase, rules, signal) {
@@ -1321,25 +1304,25 @@
         
         try {
           const winner = await Promise.race([timerPromise, cancelPromise]);
-          cleanup(); // Remove listeners
+          cleanup(); 
           if (winner === "cancel") {
-            return false; // Aborted, don't auto-run next phase
+            return false; 
           }
         } catch (e) {
-          cleanup(); // Clean up on abort
-          throw e; // Re-throw AbortError
+          cleanup(); 
+          throw e; 
         }
       } else {
         await timerPromise;
       }
       
-      // Special logic for end of phase
+      
       if (phase.phaseName === "PUFF_EXHALE") {
         q.loopCounter++;
         q.completedBreaths++;
       }
       
-      return true; // Completed successfully
+      return true; 
     }
 
     async function handleValidationPhase(q, phase, rules, signal) {
@@ -1444,11 +1427,11 @@
       
       setPhaseUI(q, phase, rules.ui, { 
         duration: duration, 
-        videoText: action.label // Pass the specific action text
+        videoText: action.label 
       });
       
       const { promise: cancelPromise, cleanup } = showCancelButtons(q, rules.ui.cancelTarget);
-      let result = { success: true, score: -2 }; // Default timeout result
+      let result = { success: true, score: -2 }; 
       
       try {
         const timerPromise = sleep(duration, signal);
@@ -1460,14 +1443,14 @@
           result.score = clickedConfirm ? action.points : -5;
           addTally(q, result.score);
           cleanup();
-          return false; // Aborted
+          return false; 
         }
       } catch (e) {
         cleanup();
-        throw e; // Re-throw AbortError
+        throw e; 
       }
       
-      // Timer finished naturally
+      
       addTally(q, result.score);
       cleanup();
       return true;
@@ -1483,7 +1466,7 @@
         listEl.innerHTML = '';
         const clickHandlers = [];
 
-        // 1. Define the pool of choices
+        
         let choicePool = [
           {label: "Puff", emoji: EMOJI.puff, event: "Puff"},
           {label: "Sniff", emoji: EMOJI.sniff, event: "Sniff"},
@@ -1499,7 +1482,7 @@
           choicePool.push({label: "Redo Last", emoji: EMOJI.redo_last, event: "Redo Last"});
         }
         
-        // 2. Select 3 random choices
+        
         const choices = [];
         for(let i=0; i<3; i++) {
           if(choicePool.length === 0) break;
@@ -1507,7 +1490,7 @@
           choices.push(choicePool.splice(randIdx, 1)[0]);
         }
 
-        // 3. Show overlay and create buttons
+        
         overlay.classList.add('show');
         
         choices.forEach(choice => {
@@ -1517,7 +1500,7 @@
           
           const handler = () => {
             const newEventPhases = getEventPhases(q, choice.event);
-            q.phaseQueue.unshift(...newEventPhases); // Prepend to queue
+            q.phaseQueue.unshift(...newEventPhases); 
             cleanup();
             resolve(true);
           };
@@ -1526,10 +1509,10 @@
           listEl.appendChild(item);
         });
 
-        // 4. Wait for outcome
+        
         const timerId = startOverlayTimer(overlay, duration, () => {
           cleanup();
-          resolve(true); // Just continue
+          resolve(true); 
         });
         
         signal.addEventListener('abort', () => {
@@ -1636,8 +1619,8 @@
     }
     
     async function handleTriviaPhase(q, phase, rules, signal) {
-      // This is a complex handler, for now just treat as a timed phase
-      // In a real implementation, this would involve showing questions/answers
+      
+      
       console.log("Trivia Phase Started");
       const duration = rules.duration;
       setPhaseUI(q, phase, rules.ui, { duration: duration });
@@ -1646,12 +1629,9 @@
     }
 
 
-    // ### 5. UI & RENDERING FUNCTIONS ###
+    
 
-    /**
-     * This is the master "Renderer". It sets all UI based on the phase rules.
-     * It is called AT THE START of every phase.
-     */
+    
     function setPhaseUI(q, phase, uiRules, data = {}) {
       const now = performance.now();
       if (q.currentPhase) {
@@ -1663,7 +1643,7 @@
           q.currentPhase.duration = null;
         }
       }
-      // 1. Set Info Panel Color
+      
       let infoColor = uiRules.infoColor || "vibe_base";
       if (infoColor === "vibe_base") {
         q.panelContainer.style.background = getVibeBase(q);
@@ -1673,7 +1653,7 @@
         q.panelContainer.style.background = infoColor;
       }
 
-      // 2. Set Info Panel Text
+      
       if (phase.phaseName === "IDLE_GAP") {
         q.infoTextOverlay.innerHTML = `
           <div class="info-text-idle">
@@ -1694,7 +1674,7 @@
       }
 
 
-      // 3. Set Video Panel Countdown
+      
       if (uiRules.videoCountdown || phase.phaseName === "IDLE_GAP") {
         let label = (data.videoText ?? uiRules.videoText) || "";
         if (phase.phaseName === 'PUFF_INHALE' && data.loop) {
@@ -1705,7 +1685,7 @@
         q.videoCountdownOverlay.classList.add('show');
       }
       
-      // 4. Set Video Effects
+      
       if (uiRules.videoEffect) {
         if (q.eventOverlays[uiRules.videoEffect]) {
           q.eventOverlays[uiRules.videoEffect].classList.add('active');
@@ -1717,54 +1697,48 @@
         }
       }
       
-      // 5. Set Special Overlays (Popups)
+      
       if (uiRules.infoOverlay) {
         if(q[uiRules.infoOverlay]) {
             q[uiRules.infoOverlay].classList.add('show');
         }
       }
       
-      // 6. Set UI Panel Buttons
+      
       if (uiRules.showCancel) {
         q.bottomBar.classList.add('show-cancel-buttons');
       }
     }
     
-    /**
-     * This is the master "Cleanup" function.
-     * It is called AT THE END of every phase.
-     */
+    
     function clearPhaseUI(q) {
-      // 1. Clear Info Panel
+      
       q.infoTextOverlay.classList.remove('show');
       q.infoTextOverlay.innerHTML = "";
       q.panelContainer.style.background = q.vibe ? getVibeBase(q) : q.panelContainer.style.background;
 
-      // 2. Clear Video Panel
+      
       q.videoCountdownOverlay.classList.remove('show');
       q.videoCountdownTimer.textContent = "--";
       q.videoCountdownLabel.textContent = "";
       
-      // 3. Clear Effects
+      
       for(const k in q.eventOverlays){
         if (q.eventOverlays[k]) q.eventOverlays[k].classList.remove('active');
       }
       q.videoContainer.classList.remove('sniff-effect');
       
-      // 4. Clear Popups
+      
       q.validationOverlay.classList.remove('show');
       q.breathCountOverlay.classList.remove('show');
       q.actionChoiceOverlay.classList.remove('show');
       q.gridChoiceOverlay.classList.remove('show');
 
-      // 5. Clear UI Buttons
+      
       q.bottomBar.classList.remove('show-cancel-buttons');
     }
 
-    /**
-     * This is the "Global Clock" for the idle timer.
-     * It runs constantly to update the IDLE_GAP countdown.
-     */
+    
     function updateGlobalPanelTimers(){
       if (globalRafId) return;
       const tick = () => {
@@ -1779,7 +1753,7 @@
             const msLeft = (q.currentPhase.startTime + q.currentPhase.duration) - now;
             const sLeft = Math.max(0, Math.ceil(msLeft / 1000));
             
-            // Update both countdowns
+            
             q.videoCountdownTimer.textContent = sLeft;
             const infoTimer = q.infoTextOverlay.querySelector('.countdown');
             if (infoTimer) infoTimer.textContent = sLeft;
@@ -1797,9 +1771,7 @@
       }
     }
 
-    /**
-     * Starts the single video countdown timer.
-     */
+    
     function startCountdown(q, duration, signal) {
       if (typeof duration !== 'number' || duration <= 0) return;
       if (q.currentCountdownTimer) {
@@ -1828,7 +1800,7 @@
       timerId = setInterval(update, 100);
       q.currentCountdownTimer = timerId; 
       activeIntervals.add(timerId);
-      update(); // Run once
+      update(); 
 
       signal.addEventListener('abort', () => {
         if (timerId) {
@@ -1840,9 +1812,7 @@
       });
     }
     
-    /**
-     * Starts a countdown on an interactive overlay (validation, breath, etc.)
-     */
+    
     function startOverlayTimer(overlay, duration, onTimeout) {
       const timerEl = overlay.querySelector('.special-overlay-timer');
       let timeLeft = Math.ceil(duration / 1000);
@@ -1862,7 +1832,7 @@
     }
 
     function createBubbles(container, count) {
-      container.innerHTML = ''; // Clear old bubbles
+      container.innerHTML = ''; 
       for(let i=0; i < count; i++) {
         const bubble = document.createElement('div');
         bubble.className = `bubble`;
@@ -1910,9 +1880,7 @@
       });
     }
     
-    /**
-     * Shows the bottom-bar ✓/✗ buttons and returns a promise.
-     */
+    
     function showCancelButtons(q, cancelTargetPhase) {
       q.bottomBar.classList.add('show-cancel-buttons');
 
@@ -1957,7 +1925,7 @@
       return { promise, cleanup };
     }
 
-    // ### 6. APP STARTUP & CONTROLS ###
+    
 
     async function setThumbnail(videoEl, clip){
       if (!clip) return;
@@ -1993,7 +1961,7 @@
           URL.revokeObjectURL(oldUrl);
         }
         
-        // Find next non-duplicate clip
+        
         let nextClipIndex = q.clipIndex;
         let attempts = 0;
         while(attempts < videos.length) {
@@ -2051,10 +2019,10 @@
       q.isProcessing = false;
       q.phaseQueue = [];
       
-      // Build the next event
+      
       buildAndEnqueueNextEvent(q); 
       
-      // Find the IDLE_GAP we just added and set its duration to 20s
+      
       const idlePhase = q.phaseQueue.find(p => p.phaseName === "IDLE_GAP");
       if (idlePhase) {
         idlePhase.duration = 20000;
@@ -2062,7 +2030,7 @@
       
       clearPhaseUI(q);
       
-      // Restart the loop
+      
       processNextPhaseInQueue(q);
     }
 
@@ -2074,7 +2042,7 @@
       q.phaseQueue = [];
       clearPhaseUI(q);
 
-      // pick a fresh clip
+      
       if (videos.length) {
         q.clipIndex = (q.clipIndex + 1) % videos.length;
         const clip = videos[q.clipIndex] || videos[0];
@@ -2159,7 +2127,7 @@
         };
 
         const updateTheme = () => {
-          if (q.vibe) { // Cleanup old vibe
+          if (q.vibe) { 
             if (q.vibe.video_effects.css_animation) q.video.style.animation = "none";
             if (q.vibeTimer) {
               clearInterval(q.vibeTimer);
@@ -2181,7 +2149,7 @@
           q.el.style.setProperty('--video-fr', q.vibe.layout?.video || 2);
           q.el.style.setProperty('--panel-fr', q.vibe.layout?.panel || 1);
 
-          // Apply Vibe styles
+          
           q.panelContainer.style.fontFamily = font.family;
           q.panelContainer.style.fontWeight = font.weight;
           q.panelContainer.style.textTransform = font.transform;
@@ -2193,7 +2161,7 @@
           q.vibeOverlay.style.background = q.vibe.video_effects.overlay_gradient || "transparent";
           q.vibeOverlay.style.mixBlendMode = q.vibe.video_effects.overlay_blend_mode || "normal";
 
-          // (Logic for overlay_video would go here if needed)
+          
 
           if (q.vibe.videoChangeFrequencyMs > 0 && !q.vibeTimer) {
             q.vibeTimer = setInterval(() => {
@@ -2214,7 +2182,7 @@
             btnPlayerStart.style.opacity = '0.5';
             
             if (playerReady.every(ready => ready)) {
-              // All players are ready. Start the game.
+              
               document.querySelectorAll('.quadrant').forEach((el)=> el.classList.remove('choose-phase'));
 
               quads.forEach((q_j, j) => {
@@ -2222,16 +2190,16 @@
                   const initialClip = q_j.selectedStartClip || videos[j] || videos[0];
                   startVideoCycling(j, initialClip);
 
-                  // ** Pre-populate queue **
-                  buildAndEnqueueNextEvent(q_j); // Add first event
-                  buildAndEnqueueNextEvent(q_j); // Add second event
                   
-                  // Start the engine!
+                  buildAndEnqueueNextEvent(q_j); 
+                  buildAndEnqueueNextEvent(q_j); 
+                  
+                  
                   processNextPhaseInQueue(q_j);
                 }
               });
               
-              // Start the global idle timer clock
+              
               updateGlobalPanelTimers();
             }
         };
@@ -2340,14 +2308,14 @@
       const el = quads[qi].el; (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
     }
     
-    // ### 7. INITIALIZE APP ###
     
-    // Create the quad state objects
+    
+    
     quads.push(createQuad(document.getElementById('q1'), 0));
     quads.push(createQuad(document.getElementById('q2'), 1));
-    // Attach all button listeners
+    
     attachControls();
-    // Preload built-in clips so the app can run without manual uploads
+    
     loadFallbackClips();
 
   })();
