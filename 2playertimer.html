@@ -1105,6 +1105,8 @@
         console.log('[Clip] Using cached URL for:', clipName(clip));
         return clip.cachedUrl;
       }
+      if (!clip) return '';
+      if (clip.cachedUrl) return clip.cachedUrl;
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
         clip.cachedUrl = url;
