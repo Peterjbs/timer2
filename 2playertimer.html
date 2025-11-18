@@ -1057,6 +1057,8 @@
 
     const getClipSource = (clip) => {
       if (!clip) return '';
+      if (clip.file) {
+        const url = URL.createObjectURL(clip.file);
       if (clip.cachedUrl) return clip.cachedUrl;
       if (clip.file) {
         const url = URL.createObjectURL(clip.file);
@@ -1896,6 +1898,41 @@
     
     function startCountdown(q, duration, signal) {
       if (typeof duration !== 'number' || duration <= 0) return;
+      if (q.currentCountdownTimer) {
+        clearInterval(q.currentCountdownTimer);
+        activeIntervals.delete(q.currentCountdownTimer);
+      }
+
+      const end = performance.now() + duration;
+      let timerId = null;
+
+      const update = ()=>{
+        const leftMs = (end - performance.now());
+        if (leftMs <= 0) {
+            q.videoCountdownTimer.textContent = "0";
+            if (timerId) {
+                clearInterval(timerId);
+                activeIntervals.delete(timerId);
+                if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+                timerId = null;
+            }
+            return;
+        }
+        q.videoCountdownTimer.textContent = Math.ceil(leftMs / 1000);
+      };
+
+      timerId = setInterval(update, 100);
+      q.currentCountdownTimer = timerId; 
+      activeIntervals.add(timerId);
+      update(); 
+
+      signal.addEventListener('abort', () => {
+        if (timerId) {
+          clearInterval(timerId);
+          activeIntervals.delete(timerId);
+          if (q.currentCountdownTimer === timerId) q.currentCountdownTimer = null;
+          timerId = null;
+        }
       if (!q || !q.videoCountdownTimer) return;
       
       // Store countdown end time for RAF-based updates in global clock
@@ -1930,6 +1967,11 @@
     }
 
     function createBubbles(container, count) {
+      container.innerHTML = ''; 
+      for(let i=0; i < count; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = `bubble`;
+      // Reuse existing bubbles if possible
       // Reuse existing bubbles if possible to avoid DOM thrashing
       const existingBubbles = container.querySelectorAll('.bubble');
       
