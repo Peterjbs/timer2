@@ -355,7 +355,7 @@
     <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
     <div class="emojisPlan"></div>
   </div>
-  <div class="overlay cue" data-type="pre"><div class="inner><div class="display-lg">NEXT</div></div></div>
+  <div class="overlay cue" data-type="pre"><div class="inner"><div class="display-lg">NEXT</div></div></div>
   <div class="overlay cue" data-type="ready"><div class="inner"><div class="display-xxl">GET&nbsp;READY</div></div></div>
   <div class="overlay cue" data-type="light"><div class="inner"><div class="display-xxl">LIGHT</div></div></div>
   <div class="overlay cue" data-type="fill"><div class="inner"><div class="display-xxl">FILL&nbsp;THE&nbsp;BAG</div></div></div>
@@ -438,7 +438,7 @@
     <button class="btn-player-start" style="pointer-events:auto; cursor:pointer; font-size:2rem; padding:1rem 3rem; border-radius:.8rem; background:#44ff44; color:black; border:3px solid white; font-weight:900;">START</button>
     <div class="emojisPlan"></div>
   </div>
-  <div class="overlay cue" data-type="pre"><div class="inner><div class="display-lg">NEXT</div></div></div>
+  <div class="overlay cue" data-type="pre"><div class="inner"><div class="display-lg">NEXT</div></div></div>
   <div class="overlay cue" data-type="ready"><div class="inner"><div class="display-xxl">GET&nbsp;READY</div></div></div>
   <div class="overlay cue" data-type="light"><div class="inner"><div class="display-xxl">LIGHT</div></div></div>
   <div class="overlay cue" data-type="fill"><div class="inner"><div class="display-xxl">FILL&nbsp;THE&nbsp;BAG</div></div></div>
@@ -448,7 +448,7 @@
     <div class="display-xxl">ACTION</div>
     <div class="display-lg">ACTION</div>
   </div></div>
-  <div class="overlay cue" data-type="chill"><div class="inner><div class="display-xxl">CHILL</div></div></div>
+  <div class="overlay cue" data-type="chill"><div class="inner"><div class="display-xxl">CHILL</div></div></div>
   <div class="overlay cue" data-type="inhale"><div class="inner"><div class="display-xxl">INHALE</div></div></div>
   <div class="overlay cue" data-type="hold"><div class="inner"><div class="display-xxl">HOLD</div></div></div>
   <div class="overlay cue" data-type="exhale"><div class="inner"><div class="display-xxl">EXHALE</div></div></div>
@@ -658,37 +658,28 @@ const FURY = {
         }
       };
       
-      // Check if video is paused/ended and restart
-      const videoMonitor = setInterval(() => {
-        if (!cycleAbort && quadrant.chosen && video.paused && !video.ended) {
-          video.play().catch(() => {});
-        }
-        if (!cycleAbort && quadrant.chosen && video.ended) {
-          video.currentTime = randomMidStart(clip);
-          video.play().catch(() => {});
       // Use event listeners instead of polling for better performance
       const handlePause = () => {
-        if (!cycleAbort && q.chosen && !v.ended) {
-          v.play().catch(() => {});
+        if (!cycleAbort && quadrant.chosen && !video.ended) {
+          video.play().catch(() => {});
         }
       };
       
       const handleEnded = () => {
-        if (!cycleAbort && q.chosen) {
-          v.currentTime = randomMidStart(clip);
-          v.play().catch(() => {});
+        if (!cycleAbort && quadrant.chosen) {
+          video.currentTime = randomMidStart(clip);
+          video.play().catch(() => {});
         }
       };
       
-      v.addEventListener('pause', handlePause);
-      v.addEventListener('ended', handleEnded);
+      video.addEventListener('pause', handlePause);
+      video.addEventListener('ended', handleEnded);
       
       // Store cleanup function
-      const cleanupMonitor = () => {
-        v.removeEventListener('pause', handlePause);
-        v.removeEventListener('ended', handleEnded);
+      quadrant.cleanupVideoMonitor = () => {
+        video.removeEventListener('pause', handlePause);
+        video.removeEventListener('ended', handleEnded);
       };
-      q.cleanupVideoMonitor = cleanupMonitor;
       
       video.onerror = handleVideoError;
       
@@ -1326,6 +1317,32 @@ function scheduleNextTask(qi, reschedule = false){
       const el = quads[qi].el; (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
     }
 
+    function manualSkip(qi) {
+      const q = quads[qi];
+      if (q.busy || !q.queue.length) return;
+      // Skip current task and schedule next one immediately
+      if (q.nextTaskTimer) {
+        clearTimeout(q.nextTaskTimer);
+        q.nextTaskTimer = null;
+      }
+      if (q.queue.length > 0) {
+        q.queue.shift(); // Remove current task
+      }
+      q.scheduleNextTask(true); // Reschedule immediately
+    }
+
+    function manualShuffle(qi) {
+      const q = quads[qi];
+      if (!videos.length) return;
+      const current = q.baseClip;
+      const pool = videos.filter(v => v.url !== current.url);
+      if (!pool.length) return;
+      const newClip = pool[Math.floor(Math.random() * pool.length)];
+      q.baseClip = newClip;
+      q.label = convertToTitleCase(newClip.name) || q.label;
+      setClip(qi, newClip, randomMidStart(newClip));
+    }
+
     function stopAllLoops() {
         if (stopGridChoice) stopGridChoice();
         if (stopActionChoice) stopActionChoice();
@@ -1519,12 +1536,13 @@ if (clipOptions.length > 0) {
 
     function attachControls(){
       for (let i=0;i<quads.length;i++){
+        const q = quads[i];
         const controls = document.querySelector('#q'+(i+1)+' .qcontrols');
         const btnOffset = controls.querySelector('.shuffleOffset');
         const btnVideo = controls.querySelector('.shuffleVideo');
         const btnFS = controls.querySelector('.btnFS');
         const btnSound = controls.querySelector('.btnSound');
-        btnOffset.addEventListener('click', async ()=>{ const q = quads[i]; await setClip(i, q.baseClip, randomMidStart(q.baseClip)); });
+        btnOffset.addEventListener('click', async ()=>{ await setClip(i, q.baseClip, randomMidStart(q.baseClip)); });
         btnVideo.addEventListener('click', async ()=>{
           if (!videos.length) return;
           const current = quads[i].baseClip; const pool = videos.filter(v=>v.url!==current.url); if (!pool.length) return;
