@@ -270,8 +270,7 @@
         blobUrlA = blobUrlB = null;
         currentIndex = 0;
         if (files.length) {
-          prime(0);
-          play(0);
+          play(0, true);
         }
       }
       function revoke(url) { if (url) URL.revokeObjectURL(url); }
@@ -279,13 +278,16 @@
         if (!files[index]) return null;
         return URL.createObjectURL(files[index]);
       }
-      function play(index) {
+      function play(index, force=false) {
         if (!files[index]) return;
         const nextIndex = (index + 1) % Math.max(files.length, 1);
         const currentVideo = videos[active];
         const standby = videos[1 - active];
         const url = active === 0 ? (blobUrlA = blobUrlA || prime(index)) : (blobUrlB = blobUrlB || prime(index));
-        currentVideo.src = url;
+        if (force || currentVideo.src !== url) {
+          currentVideo.src = url;
+          currentVideo.load();
+        }
         currentVideo.muted = stateMachine.muted;
         currentVideo.play().catch(()=>{});
         // Preload standby
@@ -312,12 +314,18 @@
         blobUrlA = blobUrlB = null;
         videos.forEach(v => { v.removeAttribute('src'); v.load(); });
       }
-      function resumePlayback() {
+      function ensurePlaybackReady() {
+        if (!files.length) return false;
+        // Make sure an active source exists and is attached to the visible buffer
+        if (!videos[active].src) {
+          play(currentIndex, true);
+        }
         [videos[active], videos[1-active]].forEach(v => {
           if (v.src) v.play().catch(()=>{});
         });
+        return true;
       }
-      return { setFiles, swapToNext, clear, resumePlayback, get hasMedia(){ return files.length>0; } };
+      return { setFiles, swapToNext, clear, ensurePlaybackReady, get hasMedia(){ return files.length>0; } };
     })();
 
     // Queue Manager
@@ -438,17 +446,23 @@
         if (!mediaManager.hasMedia) {
           elements.phaseText.textContent = 'Load a folder of videos before starting.';
           this.setState('READY');
-          return;
+          return false;
+        }
+        if (!mediaManager.ensurePlaybackReady()) {
+          elements.phaseText.textContent = 'Video failed to load. Try selecting the folder again.';
+          this.setState('ERROR');
+          return false;
         }
         this.setState('RUNNING');
         app.score = 0; updateScore();
         queueManager.clear(); queueManager.ensure();
         timerScheduler.start();
-        mediaManager.resumePlayback();
+        mediaManager.ensurePlaybackReady();
         processQueue(this.controller.signal);
+        return true;
       },
       pause() { this.setState('PAUSED'); timerScheduler.setPaused(true); },
-      resume() { timerScheduler.setPaused(false); this.setState('RUNNING'); mediaManager.resumePlayback(); },
+      resume() { timerScheduler.setPaused(false); this.setState('RUNNING'); mediaManager.ensurePlaybackReady(); },
       stop() {
         this.controller.abort();
         timerScheduler.stop();
@@ -686,8 +700,11 @@
     elements.startBtn.addEventListener('click', handleStart);
     elements.startOverlayBtn.addEventListener('click', handleStart);
     function handleStart() {
-      elements.startScreen.classList.add('hidden');
-      stateMachine.start();
+      stateMachine.start().then(success => {
+        if (success) {
+          elements.startScreen.classList.add('hidden');
+        }
+      });
     }
     elements.pauseBtn.addEventListener('click', () => {
       if (stateMachine.current === 'RUNNING') { stateMachine.pause(); elements.pauseBtn.textContent='Resume'; }
