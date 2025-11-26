@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cyber">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single Player Timer Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Courier+Prime:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05060a;
+      --fg: #e0f4ff;
+      --accent: #1dd3f8;
+      --accent2: #ff2ead;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.2);
+      --shadow: 0 0 20px rgba(29,211,248,0.6);
+      --font: 'Orbitron', sans-serif;
+      --glow: 0 0 12px var(--accent);
+      --paper: none;
+    }
+    html[data-theme="vintage"] {
+      --bg: #f2e2c4;
+      --fg: #4b3326;
+      --accent: #b07b2a;
+      --accent2: #7f4f24;
+      --card: rgba(75,51,38,0.08);
+      --border: rgba(75,51,38,0.4);
+      --shadow: 0 0 18px rgba(176,123,42,0.5);
+      --font: 'Courier Prime', monospace;
+      --glow: 0 0 0 rgba(0,0,0,0);
+      --paper: linear-gradient(rgba(255,255,255,0.15), rgba(0,0,0,0.08));
+    }
+    html[data-theme="noir"] {
+      --bg: #0b0b0b;
+      --fg: #f8f8f8;
+      --accent: #ffffff;
+      --accent2: #999999;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.4);
+      --shadow: 0 0 14px rgba(255,255,255,0.4);
+      --font: 'Playfair Display', serif;
+      --glow: 0 0 8px rgba(255,255,255,0.4);
+      --paper: none;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      height: 100vh;
+      overflow: hidden;
+    }
+    button, input, select {
+      font-family: var(--font);
+    }
+    #video-layer {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      background: #000;
+      filter: saturate(1.1);
+    }
+    #overlay-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #overlay-layer .overlay-fill {
+      position: absolute;
+      inset: 0;
+      transition: background 0.4s ease;
+      mix-blend-mode: screen;
+      opacity: 0.6;
+    }
+    #overlay-layer .bubbles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bubble {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.4;
+      animation: floatUp 8s linear infinite;
+    }
+    @keyframes floatUp {
+      from { transform: translateY(100vh); }
+      to { transform: translateY(-30vh); }
+    }
+    .bubble.down { animation-name: floatDown; }
+    @keyframes floatDown {
+      from { transform: translateY(-30vh); }
+      to { transform: translateY(100vh); }
+    }
+    #overlay-layer .status {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 18px 24px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      min-width: 280px;
+      backdrop-filter: blur(4px);
+    }
+    #overlay-layer .status h2 { margin: 0 0 8px; letter-spacing: 1px; }
+    #overlay-layer .status .timer { font-size: 32px; text-shadow: var(--glow); }
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.04), transparent 40%),
+                  radial-gradient(circle at 80% 60%, rgba(255,255,255,0.06), transparent 45%),
+                  var(--bg);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transition: transform 0.6s ease;
+      background-image: var(--paper);
+    }
+    #start-screen.hidden { transform: translateY(-100%); }
+    #start-screen h1 { margin: 0; text-shadow: var(--glow); }
+    #start-screen .panel { background: var(--card); border: 1px solid var(--border); padding: 16px 20px; border-radius: 12px; box-shadow: var(--shadow); }
+    .primary-btn {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      color: #0b0b0b;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    .ghost-btn {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #game-dock {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      transform: translateY(-100%);
+      transition: transform 0.5s ease;
+    }
+    #game-dock.visible { transform: translateY(0); }
+    #game-dock .bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    #game-dock .bar input[type="file"] { color: var(--fg); }
+    #queue-drawer {
+      position: fixed;
+      top: 0;
+      right: -260px;
+      width: 260px;
+      height: 100%;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      z-index: 30;
+      transition: right 0.4s ease;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    #queue-drawer.open { right: 0; }
+    #queue-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    #queue-list li { background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); }
+    #modal-layer { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.3s ease; }
+    .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); background: var(--bg); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 20px; border-radius: 12px; width: min(420px, 90vw); opacity: 0; transition: all 0.3s ease; }
+    .modal.active, .modal-backdrop.active { opacity: 1; pointer-events: all; }
+    .modal.active { transform: translate(-50%, -50%) scale(1); }
+    .progress-wrap { width: 100%; background: rgba(255,255,255,0.12); border-radius: 6px; overflow: hidden; height: 10px; margin-top: 10px; }
+    .progress { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.2s linear; }
+    .blink { animation: blink 0.6s steps(1, start) infinite; }
+    @keyframes blink { 50% { filter: invert(1) brightness(1.5); } }
+    .invert { backdrop-filter: invert(1); }
+    .tag { display: inline-block; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); margin-right: 6px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <video id="video-layer" autoplay muted loop playsinline></video>
+  <div id="overlay-layer">
+    <div class="overlay-fill" id="tint"></div>
+    <div class="bubbles" id="bubble-field"></div>
+    <div class="status">
+      <h2 id="phase-label">Waiting</h2>
+      <div class="timer" id="phase-timer">00:00</div>
+      <div class="progress-wrap"><div class="progress" id="phase-progress"></div></div>
+      <div id="score-display">Score: 0</div>
+    </div>
+  </div>
+
+  <div id="start-screen">
+    <h1>Single Player Timer Game</h1>
+    <div class="panel">
+      <p>Load a folder of clips, choose your vibe, and dive into the hybrid pulse experience.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="primary-btn" id="start-btn">Start</button>
+        <select id="theme-select" class="ghost-btn">
+          <option value="cyber">Cyber</option>
+          <option value="vintage">Vintage</option>
+          <option value="noir">Noir</option>
+        </select>
+        <button class="ghost-btn" id="open-actions">Action Editor</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="game-dock">
+    <div class="bar">
+      <label class="tag">Clip Folder<input type="file" id="folder-input" webkitdirectory multiple></label>
+      <button class="ghost-btn" id="toggle-queue">Queue</button>
+      <button class="ghost-btn" id="toggle-fury">Fury Mode</button>
+      <button class="ghost-btn" id="mute-btn">Mute</button>
+      <button class="ghost-btn" id="you-choose-btn">You Choose</button>
+      <span id="current-theme" class="tag">Theme: Cyber</span>
+      <span id="dock-status">Idle</span>
+    </div>
+  </div>
+
+  <div id="queue-drawer">
+    <h3>Upcoming</h3>
+    <ul id="queue-list"></ul>
+  </div>
+
+  <div id="modal-layer">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script>
+    const app = {
+      queue: [],
+      videos: [],
+      blobMap: new Map(),
+      score: 0,
+      theme: 'cyber',
+      furyMode: false,
+      controller: new AbortController(),
+      actions: JSON.parse(localStorage.getItem('sp_timer_actions') || '[]')
+    };
+
+    const state = {
+      phase: 'INIT',
+      label: 'Waiting',
+      phaseStart: 0,
+      phaseDuration: 0,
+      progress: 0,
+      statusText: 'Ready',
+      overlayColor: 'transparent',
+      bubbles: 'none',
+      inverted: false,
+      muted: true,
+      running: false,
+      videoIndex: 0,
+      nextQuestionCache: null,
+      triviaToken: null,
+      awaitingInput: false
+    };
+
+    const localTrivia = [
+      {question: 'What gas do humans need to breathe to survive?', correct_answer: 'Oxygen', incorrect_answers: ['Nitrogen','Hydrogen','Helium']},
+      {question: 'How many minutes are in two hours?', correct_answer: '120', incorrect_answers: ['90','110','140']},
+      {question: 'Which planet is known as the Red Planet?', correct_answer: 'Mars', incorrect_answers: ['Jupiter','Venus','Saturn']}
+    ];
+
+    const PhaseTypes = {
+      IDLE_GAP: 'IDLE_GAP',
+      PUFF_SEQUENCE: 'PUFF_SEQUENCE',
+      SNIFF_SEQUENCE: 'SNIFF_SEQUENCE',
+      YOU_CHOOSE: 'YOU_CHOOSE',
+      TRIVIA: 'TRIVIA',
+      CUSTOM_ACTION: 'CUSTOM_ACTION'
+    };
+
+    const elements = {
+      video: document.getElementById('video-layer'),
+      tint: document.getElementById('tint'),
+      bubbleField: document.getElementById('bubble-field'),
+      phaseLabel: document.getElementById('phase-label'),
+      phaseTimer: document.getElementById('phase-timer'),
+      phaseProgress: document.getElementById('phase-progress'),
+      score: document.getElementById('score-display'),
+      startScreen: document.getElementById('start-screen'),
+      startBtn: document.getElementById('start-btn'),
+      themeSelect: document.getElementById('theme-select'),
+      gameDock: document.getElementById('game-dock'),
+      queueDrawer: document.getElementById('queue-drawer'),
+      queueList: document.getElementById('queue-list'),
+      toggleQueue: document.getElementById('toggle-queue'),
+      dockStatus: document.getElementById('dock-status'),
+      furyBtn: document.getElementById('toggle-fury'),
+      muteBtn: document.getElementById('mute-btn'),
+      youChooseBtn: document.getElementById('you-choose-btn'),
+      themeBadge: document.getElementById('current-theme'),
+      modal: document.getElementById('modal'),
+      modalBackdrop: document.getElementById('modal-backdrop'),
+      modalLayer: document.getElementById('modal-layer'),
+      actionsBtn: document.getElementById('open-actions'),
+      folderInput: document.getElementById('folder-input')
+    };
+
+    function setTheme(theme) {
+      app.theme = theme;
+      document.documentElement.dataset.theme = theme;
+      elements.themeBadge.textContent = `Theme: ${theme[0].toUpperCase()}${theme.slice(1)}`;
+    }
+
+    elements.themeSelect.addEventListener('change', (e) => setTheme(e.target.value));
+
+    function toggleDrawer() {
+      elements.queueDrawer.classList.toggle('open');
+    }
+
+    elements.toggleQueue.addEventListener('click', toggleDrawer);
+
+    elements.furyBtn.addEventListener('click', () => {
+      app.furyMode = !app.furyMode;
+      elements.furyBtn.textContent = app.furyMode ? 'Fury: ON' : 'Fury Mode';
+    });
+
+    elements.muteBtn.addEventListener('click', () => {
+      state.muted = !state.muted;
+      elements.video.muted = state.muted;
+      elements.muteBtn.textContent = state.muted ? 'Mute' : 'Sound On';
+    });
+
+    elements.youChooseBtn.addEventListener('click', () => {
+      if (!state.running) return;
+      app.queue.unshift({ type: PhaseTypes.YOU_CHOOSE, label: 'Your Choice' });
+      updateQueueDrawer();
+    });
+
+    elements.startBtn.addEventListener('click', () => {
+      elements.startScreen.classList.add('hidden');
+      elements.gameDock.classList.add('visible');
+      state.running = true;
+      runRenderLoop();
+      fetchTriviaToken();
+      seedQueue();
+      processQueue(app.controller.signal);
+    });
+
+    elements.actionsBtn.addEventListener('click', openActionEditor);
+
+    elements.folderInput.addEventListener('change', handleFolder);
+
+    function seedQueue() {
+      if (app.queue.length === 0) {
+        app.queue.push(
+          { type: PhaseTypes.IDLE_GAP, label: 'Idle' },
+          { type: PhaseTypes.PUFF_SEQUENCE, label: 'Puff Sequence' },
+          { type: PhaseTypes.IDLE_GAP, label: 'Idle' },
+          { type: PhaseTypes.SNIFF_SEQUENCE, label: 'Sniff Sequence' },
+          { type: PhaseTypes.YOU_CHOOSE, label: 'Choice' },
+          { type: PhaseTypes.TRIVIA, label: 'Trivia' }
+        );
+      }
+      updateQueueDrawer();
+    }
+
+    async function processQueue(signal) {
+      if (signal.aborted || !state.running) return;
+      if (app.queue.length === 0) seedQueue();
+      const phase = app.queue.shift();
+      updateQueueDrawer();
+      if (!phase) return;
+      try {
+        switch (phase.type) {
+          case PhaseTypes.IDLE_GAP:
+            await runIdleGap(signal);
+            break;
+          case PhaseTypes.PUFF_SEQUENCE:
+            await runPuffSequence(signal);
+            break;
+          case PhaseTypes.SNIFF_SEQUENCE:
+            await runSniffSequence(signal);
+            break;
+          case PhaseTypes.YOU_CHOOSE:
+            await runYouChoose(signal);
+            break;
+          case PhaseTypes.TRIVIA:
+            await runTrivia(signal);
+            break;
+          case PhaseTypes.CUSTOM_ACTION:
+            await runCustomAction(phase.label, signal);
+            break;
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error(err);
+      }
+      if (!signal.aborted) {
+        processQueue(signal);
+      }
+    }
+
+    function waitFor(ms, signal) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, ms);
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(new DOMException('Aborted', 'AbortError'));
+          }, { once: true });
+        }
+      });
+    }
+
+    function setPhase(label, duration, overlay = 'transparent', bubbles = 'none', inverted = false) {
+      state.phase = label;
+      state.label = label;
+      state.phaseDuration = duration;
+      state.phaseStart = Date.now();
+      state.overlayColor = overlay;
+      state.bubbles = bubbles;
+      state.inverted = inverted;
+      elements.dockStatus.textContent = label;
+    }
+
+    async function runIdleGap(signal) {
+      const duration = app.furyMode ? 15000 : (30000 + Math.random() * 45000);
+      setPhase('Idle Gap', duration, 'transparent', 'none');
+      fetchNextTrivia();
+      await waitFor(duration, signal);
+    }
+
+    async function runPuffSequence(signal) {
+      setPhase('Puff: Ready', 10000, 'rgba(255,255,255,0.05)');
+      await waitFor(10000, signal);
+
+      setPhase('Puff: Light', 25000, 'rgba(255,80,20,0.35)');
+      addCancelDuringPhase(signal);
+      await waitFor(25000, signal);
+      closeModal();
+
+      setPhase('Puff: Smoke', 12000, 'rgba(120,120,120,0.4)');
+      await waitFor(12000, signal);
+
+      for (let i = 0; i < 5; i++) {
+        setPhase(`Inhale ${i+1}/5`, 5000, 'rgba(40,200,120,0.35)', 'up');
+        await waitFor(5000, signal);
+        setPhase(`Hold ${i+1}/5`, 4000, 'rgba(150,150,150,0.35)', 'none');
+        await waitFor(4000, signal);
+        setPhase(`Exhale ${i+1}/5`, 5000, 'rgba(40,120,240,0.35)', 'down');
+        await waitFor(5000, signal);
+      }
+
+      await showValidation('Did you finish the Puff sequence?', signal, () => app.score += 5);
+    }
+
+    async function runSniffSequence(signal) {
+      setPhase('Sniff: Ready', 10000, 'rgba(255,255,255,0.05)');
+      await waitFor(10000, signal);
+      setPhase('Sniff: Go', 8000, 'rgba(255,255,255,0.35)', 'none', true);
+      elements.tint.classList.add('blink');
+      await waitFor(8000, signal);
+      elements.tint.classList.remove('blink');
+      await showValidation('Rapid sniff complete?', signal, () => app.score += 3);
+    }
+
+    async function runYouChoose(signal) {
+      setPhase('You Choose', 0, 'rgba(0,0,0,0.3)');
+      state.awaitingInput = true;
+      return new Promise((resolve, reject) => {
+        const cleanup = () => { state.awaitingInput = false; };
+        const choices = [
+          { label: 'Do Puff', phase: { type: PhaseTypes.PUFF_SEQUENCE, label: 'Puff Sequence'}},
+          { label: 'Do Trivia', phase: { type: PhaseTypes.TRIVIA, label: 'Trivia'}},
+          { label: 'Chill', phase: { type: PhaseTypes.IDLE_GAP, label: 'Idle'}},
+          ...app.actions.map(text => ({ label: text, phase: { type: PhaseTypes.CUSTOM_ACTION, label: text }}))
+        ];
+        showModal(renderChoiceModal(choices), signal, () => {
+          cleanup();
+          resolve();
+        }, reject);
+      });
+    }
+
+    async function runTrivia(signal) {
+      const question = state.nextQuestionCache || await fetchNextTrivia();
+      state.nextQuestionCache = null;
+      if (!question) return;
+      setPhase('Trivia', 0, 'rgba(20,180,255,0.25)');
+      await new Promise((resolve, reject) => {
+        const content = document.createElement('div');
+        const title = document.createElement('h3');
+        title.textContent = 'Trivia Time';
+        const prompt = document.createElement('p');
+        prompt.innerHTML = question.question;
+        content.append(title, prompt);
+        const answers = shuffle([...question.incorrect_answers, question.correct_answer]);
+        answers.forEach(ans => {
+          const btn = document.createElement('button');
+          btn.className = 'primary-btn';
+          btn.style.display = 'block';
+          btn.style.width = '100%';
+          btn.style.margin = '6px 0';
+          btn.textContent = ans;
+          btn.onclick = () => {
+            if (ans === question.correct_answer) {
+              app.score += 2;
+              elements.score.textContent = `Score: ${app.score}`;
+            }
+            closeModal();
+            resolve();
+          };
+          content.appendChild(btn);
+        });
+        showModal(content, signal, resolve, reject);
+      });
+    }
+
+    async function runCustomAction(label, signal) {
+      setPhase(label, 0, 'rgba(0,0,0,0.2)');
+      await showValidation(`${label}: Did you do it?`, signal, () => app.score += 2);
+    }
+
+    function addCancelDuringPhase(signal) {
+      const btn = document.createElement('button');
+      btn.textContent = 'Cancel Phase';
+      btn.className = 'ghost-btn';
+      btn.style.marginTop = '8px';
+      btn.onclick = () => {
+        app.controller.abort();
+        app.controller = new AbortController();
+        closeModal();
+        processQueue(app.controller.signal);
+      };
+      elements.modal.innerHTML = '';
+      elements.modal.appendChild(btn);
+      elements.modal.classList.add('active');
+      elements.modalBackdrop.classList.add('active');
+    }
+
+    function showValidation(text, signal, onYes) {
+      return new Promise((resolve, reject) => {
+        const content = document.createElement('div');
+        const p = document.createElement('p');
+        p.textContent = text;
+        const yes = document.createElement('button');
+        yes.className = 'primary-btn';
+        yes.textContent = 'Yes';
+        yes.onclick = () => { onYes(); elements.score.textContent = `Score: ${app.score}`; closeModal(); resolve(); };
+        const no = document.createElement('button');
+        no.className = 'ghost-btn';
+        no.style.marginLeft = '8px';
+        no.textContent = 'No';
+        no.onclick = () => { closeModal(); resolve(); };
+        content.append(p, yes, no);
+        showModal(content, signal, resolve, reject);
+      });
+    }
+
+    function renderChoiceModal(choices) {
+      const wrapper = document.createElement('div');
+      const p = document.createElement('p');
+      p.textContent = 'Pick what happens next:';
+      wrapper.appendChild(p);
+      choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'primary-btn';
+        btn.style.display = 'block';
+        btn.style.width = '100%';
+        btn.style.margin = '6px 0';
+        btn.textContent = choice.label;
+        btn.onclick = () => {
+          app.queue.unshift(choice.phase);
+          updateQueueDrawer();
+          closeModal();
+        };
+        wrapper.appendChild(btn);
+      });
+      return wrapper;
+    }
+
+    function showModal(content, signal, resolve, reject) {
+      elements.modal.innerHTML = '';
+      elements.modal.appendChild(content);
+      elements.modal.classList.add('active');
+      elements.modalBackdrop.classList.add('active');
+      elements.modalLayer.style.pointerEvents = 'all';
+      const onAbort = () => { closeModal(); reject(new DOMException('Aborted','AbortError')); };
+      if (signal) signal.addEventListener('abort', onAbort, { once: true });
+      elements.modalBackdrop.onclick = () => { closeModal(); resolve(); };
+    }
+
+    function closeModal() {
+      elements.modal.classList.remove('active');
+      elements.modalBackdrop.classList.remove('active');
+      elements.modalLayer.style.pointerEvents = 'none';
+    }
+
+    function updateQueueDrawer() {
+      elements.queueList.innerHTML = '';
+      app.queue.slice(0, 10).forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item.label || item.type;
+        elements.queueList.appendChild(li);
+      });
+    }
+
+    function formatTime(ms) {
+      const total = Math.max(0, Math.ceil(ms / 1000));
+      const m = String(Math.floor(total / 60)).padStart(2, '0');
+      const s = String(total % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function runRenderLoop() {
+      function draw() {
+        const now = Date.now();
+        const elapsed = now - state.phaseStart;
+        const remaining = Math.max(0, state.phaseDuration - elapsed);
+        state.progress = state.phaseDuration ? Math.min(1, elapsed / state.phaseDuration) : 0;
+        elements.phaseTimer.textContent = state.phaseDuration ? formatTime(remaining) : 'Waiting';
+        elements.phaseLabel.textContent = state.label;
+        elements.phaseProgress.style.width = `${state.progress * 100}%`;
+        elements.tint.style.background = state.overlayColor;
+        elements.tint.classList.toggle('invert', state.inverted);
+        renderBubbles();
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    }
+
+    function renderBubbles() {
+      elements.bubbleField.innerHTML = '';
+      if (state.bubbles === 'none') return;
+      for (let i = 0; i < 10; i++) {
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        if (state.bubbles === 'down') b.classList.add('down');
+        b.style.left = `${Math.random() * 100}%`;
+        b.style.animationDelay = `${Math.random() * 2}s`;
+        b.style.animationDuration = `${6 + Math.random() * 3}s`;
+        elements.bubbleField.appendChild(b);
+      }
+    }
+
+    async function fetchTriviaToken() {
+      try {
+        const res = await fetch('https://opentdb.com/api_token.php?command=request');
+        const data = await res.json();
+        if (data && data.token) state.triviaToken = data.token;
+      } catch (err) {
+        console.warn('Trivia token fallback', err);
+      }
+    }
+
+    async function fetchNextTrivia() {
+      if (state.nextQuestionCache) return state.nextQuestionCache;
+      try {
+        const url = new URL('https://opentdb.com/api.php');
+        url.searchParams.set('amount', '1');
+        url.searchParams.set('type', 'multiple');
+        if (state.triviaToken) url.searchParams.set('token', state.triviaToken);
+        const res = await fetch(url.toString());
+        const data = await res.json();
+        if (data && data.results && data.results[0]) {
+          state.nextQuestionCache = data.results[0];
+          return state.nextQuestionCache;
+        }
+      } catch (err) {
+        console.warn('Trivia fetch failed, using local', err);
+      }
+      state.nextQuestionCache = localTrivia[Math.floor(Math.random() * localTrivia.length)];
+      return state.nextQuestionCache;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function handleFolder(e) {
+      const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('video/')).sort((a,b)=>a.name.localeCompare(b.name));
+      app.videos = files;
+      app.blobMap.clear();
+      if (files.length === 0) return;
+      primeWindow(0);
+      playVideoAt(0);
+    }
+
+    const windowSize = 5;
+
+    function primeWindow(startIndex) {
+      for (let i = startIndex; i < Math.min(app.videos.length, startIndex + windowSize); i++) {
+        if (!app.blobMap.has(i)) {
+          app.blobMap.set(i, URL.createObjectURL(app.videos[i]));
+        }
+      }
+    }
+
+    function cleanupWindow(index) {
+      const oldIndex = index - windowSize;
+      if (app.blobMap.has(oldIndex)) {
+        URL.revokeObjectURL(app.blobMap.get(oldIndex));
+        app.blobMap.delete(oldIndex);
+      }
+      const nextIndex = index + windowSize;
+      if (app.videos[nextIndex] && !app.blobMap.has(nextIndex)) {
+        app.blobMap.set(nextIndex, URL.createObjectURL(app.videos[nextIndex]));
+      }
+    }
+
+    function playVideoAt(index) {
+      if (!app.videos[index]) return;
+      const blobUrl = app.blobMap.get(index) || URL.createObjectURL(app.videos[index]);
+      app.blobMap.set(index, blobUrl);
+      state.videoIndex = index;
+      elements.video.src = blobUrl;
+      elements.video.play().catch(()=>{});
+    }
+
+    elements.video.addEventListener('ended', () => {
+      const nextIndex = (state.videoIndex + 1) % Math.max(app.videos.length, 1);
+      cleanupWindow(nextIndex);
+      primeWindow(nextIndex);
+      playVideoAt(nextIndex);
+    });
+
+    function openActionEditor() {
+      const content = document.createElement('div');
+      const title = document.createElement('h3');
+      title.textContent = 'Action Editor';
+      const list = document.createElement('ul');
+      list.style.listStyle = 'none';
+      list.style.padding = '0';
+      app.actions.forEach((act, idx) => {
+        const li = document.createElement('li');
+        li.textContent = act;
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.className = 'ghost-btn';
+        del.onclick = () => { app.actions.splice(idx,1); saveActions(); openActionEditor(); };
+        li.appendChild(del);
+        list.appendChild(li);
+      });
+      const input = document.createElement('input');
+      input.placeholder = 'New action label';
+      input.style.width = '100%';
+      input.style.marginTop = '10px';
+      const add = document.createElement('button');
+      add.textContent = 'Add';
+      add.className = 'primary-btn';
+      add.style.marginTop = '6px';
+      add.onclick = () => {
+        if (input.value.trim()) {
+          app.actions.push(input.value.trim());
+          saveActions();
+          openActionEditor();
+        }
+      };
+      content.append(title, list, input, add);
+      showModal(content, app.controller.signal, () => {}, () => {});
+    }
+
+    function saveActions() {
+      localStorage.setItem('sp_timer_actions', JSON.stringify(app.actions));
+    }
+
+    setTheme('cyber');
+  </script>
+</body>
+</html>
