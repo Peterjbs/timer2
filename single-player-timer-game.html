@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cyber">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single Player Timer Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Courier+Prime:wght@400;700&family=Playfair+Display:wght@400;700&family=Quicksand:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #06060c;
+      --fg: #e0f4ff;
+      --accent: #0ff;
+      --accent2: #ff2ead;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.25);
+      --shadow: 0 0 20px rgba(0,255,255,0.4);
+      --font: 'Orbitron', sans-serif;
+      --glow: 0 0 10px var(--accent);
+      --soft: rgba(0,0,0,0.35);
+    }
+    html[data-theme="noir"] {
+      --bg: #0b0b0b;
+      --fg: #f8f8f8;
+      --accent: #ffffff;
+      --accent2: #a0a0a0;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.35);
+      --shadow: 0 0 14px rgba(255,255,255,0.35);
+      --font: 'Playfair Display', serif;
+      --glow: 0 0 8px rgba(255,255,255,0.35);
+      --soft: rgba(0,0,0,0.55);
+    }
+    html[data-theme="vintage"] {
+      --bg: #f2e2c4;
+      --fg: #4b3326;
+      --accent: #b07b2a;
+      --accent2: #7f4f24;
+      --card: rgba(75,51,38,0.1);
+      --border: rgba(75,51,38,0.35);
+      --shadow: 0 0 14px rgba(176,123,42,0.45);
+      --font: 'Courier Prime', monospace;
+      --glow: none;
+      --soft: rgba(255,255,255,0.65);
+    }
+    html[data-theme="zen"] {
+      --bg: #0f1a1a;
+      --fg: #e9f5f0;
+      --accent: #61bea2;
+      --accent2: #9fd3c7;
+      --card: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.25);
+      --shadow: 0 0 18px rgba(97,190,162,0.45);
+      --font: 'Quicksand', sans-serif;
+      --glow: 0 0 6px rgba(97,190,162,0.4);
+      --soft: rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      height: 100vh;
+      overflow: hidden;
+    }
+    #video-shell {
+      position: relative;
+      overflow: hidden;
+      height: 100vh;
+    }
+    video.bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+      transition: opacity 0.4s ease;
+    }
+    video.bg.inactive { opacity: 0; }
+    #overlay-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #overlay-layer .overlay-fill {
+      position: absolute;
+      inset: 0;
+      transition: background 0.35s ease;
+      mix-blend-mode: screen;
+      opacity: 0.65;
+    }
+    #overlay-layer .grain {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 3px 3px;
+      opacity: 0.15;
+      mix-blend-mode: soft-light;
+      animation: grain 12s steps(8,end) infinite;
+    }
+    @keyframes grain { from { transform: translate3d(0,0,0);} to { transform: translate3d(-10px,6px,0);} }
+    .bubbles { position: absolute; inset: 0; overflow: hidden; }
+    .bubble { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); opacity: 0.4; animation: floatUp 10s linear infinite; }
+    .bubble.down { animation-name: floatDown; }
+    @keyframes floatUp { from { transform: translateY(100vh);} to { transform: translateY(-30vh);} }
+    @keyframes floatDown { from { transform: translateY(-30vh);} to { transform: translateY(100vh);} }
+    #info-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      padding: 14px 16px 18px;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.55) 100%);
+      backdrop-filter: blur(12px);
+    }
+    .card { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 12px 14px; box-shadow: none; backdrop-filter: blur(10px); }
+    .primary-btn { background: linear-gradient(90deg, var(--accent), var(--accent2)); color: #0b0b0b; padding: 10px 14px; border: none; border-radius: 10px; box-shadow: var(--shadow); cursor: pointer; letter-spacing: 1px; }
+    .ghost-btn { background: transparent; color: var(--fg); border: 1px solid var(--border); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+    .hidden { display: none !important; }
+    #hud { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #timer { font-size: 32px; text-shadow: var(--glow); }
+    .progress-wrap { width: 100%; background: rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden; height: 10px; margin-top: 6px; }
+    .progress { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.12s linear; }
+    #queue-drawer { position: fixed; top: 0; right: -260px; width: 260px; height: 100%; background: var(--card); border-left: 1px solid var(--border); z-index: 20; transition: right 0.4s ease; padding: 14px; box-shadow: var(--shadow); backdrop-filter: blur(6px); }
+    #queue-drawer.open { right: 0; }
+    #queue-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    #queue-list li { background: rgba(0,0,0,0.18); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; }
+    #start-screen { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--bg); transition: transform 0.6s ease; }
+    #start-screen.hidden { transform: translateY(-100%); }
+    #modal-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.3s ease; }
+    .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.95); background: rgba(0,0,0,0.7); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 20px; border-radius: 12px; width: min(420px, 90vw); opacity: 0; transition: all 0.3s ease; backdrop-filter: blur(12px); }
+    .modal.active, .modal-backdrop.active { opacity: 1; pointer-events: all; }
+    .modal.active { transform: translate(-50%,-50%) scale(1); }
+    .tag { display: inline-block; background: rgba(0,0,0,0.25); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 12px; }
+    .blink-safe { animation: blinkSafe 0.7s steps(1, start) infinite; }
+    @keyframes blinkSafe { 50% { filter: invert(1) brightness(1.25); } }
+    @media (max-width: 820px) { #info-panel { grid-template-columns: 1fr; gap: 8px; } }
+  </style>
+</head>
+<body>
+  <div id="video-shell">
+    <video id="video-a" class="bg" autoplay muted playsinline></video>
+    <video id="video-b" class="bg inactive" autoplay muted playsinline></video>
+    <div id="overlay-layer">
+      <div class="overlay-fill" id="tint"></div>
+      <div class="grain" id="grain"></div>
+      <div class="bubbles" id="bubble-field"></div>
+      <div class="card" id="status-card">
+        <div id="phase-label">Waiting</div>
+        <div id="timer">00:00</div>
+        <div class="progress-wrap"><div class="progress" id="phase-progress"></div></div>
+        <div id="score">Score: 0</div>
+      </div>
+    </div>
+  </div>
+  <div id="info-panel">
+    <div class="card">
+      <div id="phase-text">Load clips and press start to begin.</div>
+      <div class="progress-wrap"><div class="progress" id="info-progress"></div></div>
+    </div>
+    <div class="card" id="hud">
+      <button class="primary-btn" id="start-btn">Start</button>
+      <button class="ghost-btn" id="pause-btn">Pause</button>
+      <button class="ghost-btn" id="stop-btn">Stop</button>
+      <button class="ghost-btn" id="mute-btn">Mute</button>
+      <button class="ghost-btn" id="queue-btn">Queue</button>
+      <button class="ghost-btn" id="fury-btn">Fury</button>
+      <button class="ghost-btn" id="choose-btn">You Choose</button>
+      <label class="tag">Folder <input type="file" id="folder-input" webkitdirectory multiple></label>
+      <select id="theme-select" class="ghost-btn">
+        <option value="cyber">Cyber</option>
+        <option value="noir">Noir</option>
+        <option value="vintage">Vintage</option>
+        <option value="zen">Zen</option>
+      </select>
+      <label class="tag"><input type="checkbox" id="motion-safe"> Motion Safe</label>
+      <span id="hud-state" class="tag">INIT</span>
+    </div>
+  </div>
+
+  <div id="queue-drawer">
+    <h3>Upcoming</h3>
+    <ul id="queue-list"></ul>
+  </div>
+
+  <div id="start-screen">
+    <div class="card" style="max-width:520px;">
+      <h1>Single Player Timer Game</h1>
+      <p>Precise timer + video experience with breathing, trivia, and choices. Load a folder of clips to start.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="primary-btn" id="start-overlay-btn">Start</button>
+        <button class="ghost-btn" id="open-actions">Action Editor</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-layer">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script>
+    // Global containers
+    const app = { state: 'INIT', fury: false, actions: JSON.parse(localStorage.getItem('sp_timer_actions') || '[]'), score: 0 };
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const elements = {
+      videoA: document.getElementById('video-a'),
+      videoB: document.getElementById('video-b'),
+      tint: document.getElementById('tint'),
+      grain: document.getElementById('grain'),
+      bubbles: document.getElementById('bubble-field'),
+      phaseLabel: document.getElementById('phase-label'),
+      timer: document.getElementById('timer'),
+      statusCard: document.getElementById('status-card'),
+      phaseProgress: document.getElementById('phase-progress'),
+      infoProgress: document.getElementById('info-progress'),
+      phaseText: document.getElementById('phase-text'),
+      score: document.getElementById('score'),
+      startBtn: document.getElementById('start-btn'),
+      pauseBtn: document.getElementById('pause-btn'),
+      stopBtn: document.getElementById('stop-btn'),
+      muteBtn: document.getElementById('mute-btn'),
+      queueBtn: document.getElementById('queue-btn'),
+      furyBtn: document.getElementById('fury-btn'),
+      chooseBtn: document.getElementById('choose-btn'),
+      themeSelect: document.getElementById('theme-select'),
+      motionSafe: document.getElementById('motion-safe'),
+      hudState: document.getElementById('hud-state'),
+      queueDrawer: document.getElementById('queue-drawer'),
+      queueList: document.getElementById('queue-list'),
+      startScreen: document.getElementById('start-screen'),
+      startOverlayBtn: document.getElementById('start-overlay-btn'),
+      folderInput: document.getElementById('folder-input'),
+      modal: document.getElementById('modal'),
+      modalBackdrop: document.getElementById('modal-backdrop'),
+      modalLayer: document.getElementById('modal-layer'),
+      actionsBtn: document.getElementById('open-actions')
+    };
+
+    // Theme manager
+    const themeManager = {
+      setTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+      }
+    };
+
+    // Media manager with double-buffer video
+    const mediaManager = (() => {
+      let files = [];
+      let active = 0;
+      let blobUrlA = null;
+      let blobUrlB = null;
+      let currentIndex = 0;
+      const videos = [elements.videoA, elements.videoB];
+
+      function setFiles(list) {
+        files = list.filter(f => f.type.startsWith('video/')).sort((a,b)=>a.name.localeCompare(b.name));
+        revoke(blobUrlA); revoke(blobUrlB);
+        blobUrlA = blobUrlB = null;
+        currentIndex = 0;
+        if (files.length) {
+          play(0, true);
+        }
+      }
+      function revoke(url) { if (url) URL.revokeObjectURL(url); }
+      function prime(index) {
+        if (!files[index]) return null;
+        return URL.createObjectURL(files[index]);
+      }
+      function play(index, force=false) {
+        if (!files[index]) return;
+        const nextIndex = (index + 1) % Math.max(files.length, 1);
+        const currentVideo = videos[active];
+        const standby = videos[1 - active];
+        const url = active === 0 ? (blobUrlA = blobUrlA || prime(index)) : (blobUrlB = blobUrlB || prime(index));
+        if (force || currentVideo.src !== url) {
+          currentVideo.src = url;
+          currentVideo.load();
+        }
+        currentVideo.muted = stateMachine.muted;
+        currentVideo.play().catch(()=>{});
+        // Preload standby
+        const standbyUrl = 1 - active === 0 ? (blobUrlA = blobUrlA || prime(nextIndex)) : (blobUrlB = blobUrlB || prime(nextIndex));
+        standby.src = standbyUrl;
+        standby.muted = stateMachine.muted;
+        standby.load();
+        standby.addEventListener('playing', () => {}, { once: true });
+        currentIndex = index;
+      }
+      function swapToNext() {
+        if (!files.length) return;
+        const nextIndex = (currentIndex + 1) % files.length;
+        active = 1 - active;
+        videos[active].classList.remove('inactive');
+        videos[1 - active].classList.add('inactive');
+        const oldUrl = active === 0 ? blobUrlB : blobUrlA;
+        revoke(oldUrl);
+        if (active === 0) blobUrlB = null; else blobUrlA = null;
+        play(nextIndex);
+      }
+      function clear() {
+        revoke(blobUrlA); revoke(blobUrlB);
+        blobUrlA = blobUrlB = null;
+        videos.forEach(v => { v.removeAttribute('src'); v.load(); });
+      }
+      function ensurePlaybackReady() {
+        if (!files.length) return false;
+        // Make sure an active source exists and is attached to the visible buffer
+        if (!videos[active].src) {
+          play(currentIndex, true);
+        }
+        [videos[active], videos[1-active]].forEach(v => {
+          if (v.src) v.play().catch(()=>{});
+        });
+        return true;
+      }
+      return { setFiles, swapToNext, clear, ensurePlaybackReady, get hasMedia(){ return files.length>0; } };
+    })();
+
+    // Queue Manager
+    const queueManager = (() => {
+      const queue = [];
+      const weights = [
+        { type: 'IDLE_GAP', weight: 2 },
+        { type: 'PUFF_SEQUENCE', weight: 1 },
+        { type: 'SNIFF_SEQUENCE', weight: 1 },
+        { type: 'TRIVIA', weight: 1 },
+      ];
+      function pickWeighted() {
+        const total = weights.reduce((s,w)=>s+w.weight,0);
+        let r = Math.random()*total;
+        for (const w of weights) { if ((r-=w.weight)<=0) return w.type; }
+        return 'IDLE_GAP';
+      }
+      function ensure(min=5) {
+        while (queue.length < min) {
+          const type = pickWeighted();
+          queue.push({ type, label: type.replace('_',' ') });
+        }
+      }
+      function unshiftPhase(phase) { queue.unshift(phase); }
+      function next() { ensure(); return queue.shift(); }
+      function peek(count=8) { ensure(count); return queue.slice(0,count); }
+      function clear(){ queue.length=0; }
+      return { ensure, next, peek, unshiftPhase, clear };
+    })();
+
+    // Trivia service
+    const triviaService = (() => {
+      let token = sessionStorage.getItem('trivia_token');
+      let buffer = [];
+      const usedIds = [];
+      const localTrivia = [
+        {question:'What gas do humans need to breathe to survive?', correct_answer:'Oxygen', incorrect_answers:['Nitrogen','Hydrogen','Helium']},
+        {question:'How many minutes are in two hours?', correct_answer:'120', incorrect_answers:['90','110','140']},
+        {question:'Which planet is known as the Red Planet?', correct_answer:'Mars', incorrect_answers:['Jupiter','Venus','Saturn']},
+      ];
+      async function fetchToken() {
+        try {
+          const res = await fetch('https://opentdb.com/api_token.php?command=request');
+          const data = await res.json();
+          if (data && data.token) {
+            token = data.token; sessionStorage.setItem('trivia_token', token);
+          }
+        } catch (err) { console.warn('Token fetch failed', err); }
+      }
+      async function refill() {
+        if (buffer.length > 5) return;
+        try {
+          const url = new URL('https://opentdb.com/api.php');
+          url.searchParams.set('amount','10');
+          url.searchParams.set('type','multiple');
+          if (token) url.searchParams.set('token', token);
+          const res = await fetch(url.toString());
+          const data = await res.json();
+          if (data.response_code === 3 || data.response_code === 4) await fetchToken();
+          if (Array.isArray(data.results)) {
+            buffer.push(...data.results.filter(q=>!usedIds.includes(q.question)));
+            while (usedIds.length>50) usedIds.shift();
+          }
+        } catch (err) {
+          console.warn('Trivia fetch failed', err);
+        }
+        if (!buffer.length) buffer.push(...localTrivia);
+      }
+      async function next() {
+        await refill();
+        const q = buffer.shift() || localTrivia[Math.floor(Math.random()*localTrivia.length)];
+        usedIds.push(q.question);
+        return q;
+      }
+      return { next, refill, fetchToken };
+    })();
+
+    // Timer scheduler with delta accumulator
+    const timerScheduler = (() => {
+      let last = 0;
+      let running = false;
+      let paused = false;
+      let waitJob = null;
+      function tick(ts) {
+        if (!running) return;
+        if (!last) last = ts;
+        const delta = paused ? 0 : ts - last;
+        last = ts;
+        if (waitJob && !paused) {
+          waitJob.remaining -= delta;
+          stateMachine.updateProgress(waitJob);
+          if (waitJob.remaining <= 0) { waitJob.resolve(); waitJob = null; }
+        }
+        requestAnimationFrame(tick);
+      }
+      function start() { running = true; requestAnimationFrame(tick); }
+      function stop() { running = false; waitJob = null; last = 0; }
+      function setPaused(flag) { paused = flag; }
+      function wait(ms, signal) {
+        return new Promise((resolve, reject) => {
+          waitJob = { total: ms, remaining: ms, resolve: () => { resolve(); }, reject };
+          if (signal) signal.addEventListener('abort', () => { waitJob=null; reject(new DOMException('Aborted','AbortError')); }, { once: true });
+        });
+      }
+      return { start, stop, wait, setPaused, get waiting(){ return waitJob; } };
+    })();
+
+    // State machine
+    const stateMachine = {
+      current: 'INIT',
+      phase: null,
+      controller: new AbortController(),
+      muted: true,
+      setState(state) { this.current = state; elements.hudState.textContent = state; },
+      async start() {
+        this.controller.abort();
+        this.controller = new AbortController();
+        if (!mediaManager.hasMedia) {
+          elements.phaseText.textContent = 'Load a folder of videos before starting.';
+          this.setState('READY');
+          return false;
+        }
+        if (!mediaManager.ensurePlaybackReady()) {
+          elements.phaseText.textContent = 'Video failed to load. Try selecting the folder again.';
+          this.setState('ERROR');
+          return false;
+        }
+        this.setState('RUNNING');
+        app.score = 0; updateScore();
+        queueManager.clear(); queueManager.ensure();
+        timerScheduler.start();
+        mediaManager.ensurePlaybackReady();
+        processQueue(this.controller.signal);
+        return true;
+      },
+      pause() { this.setState('PAUSED'); timerScheduler.setPaused(true); },
+      resume() { timerScheduler.setPaused(false); this.setState('RUNNING'); mediaManager.ensurePlaybackReady(); },
+      stop() {
+        this.controller.abort();
+        timerScheduler.stop();
+        mediaManager.clear();
+        queueManager.clear();
+        this.setState('READY');
+      },
+      setPhase(phase) { this.phase = phase; },
+      updateProgress(waitJob) {
+        const pct = Math.max(0, Math.min(1, 1 - (waitJob.remaining / waitJob.total)));
+        renderEngine.setProgress(pct);
+      }
+    };
+
+    // Render engine
+    const renderEngine = (() => {
+      let lastStart = Date.now();
+      let duration = 0;
+      function draw() {
+        const now = Date.now();
+        const elapsed = Math.max(0, now - lastStart);
+        const remaining = Math.max(0, Math.round((duration - elapsed)/1000));
+        elements.timer.textContent = formatTime(remaining);
+        requestAnimationFrame(draw);
+      }
+      function setPhaseDisplay(label, text, overlay, bubbles) {
+        elements.phaseLabel.textContent = label;
+        elements.phaseText.textContent = text;
+        elements.tint.style.background = overlay;
+        elements.bubbles.innerHTML = '';
+        if (bubbles !== 'none') spawnBubbles(bubbles === 'down');
+      }
+      function setDuration(ms) { lastStart = Date.now(); duration = ms; }
+      function setProgress(p) {
+        elements.phaseProgress.style.width = `${(p*100).toFixed(1)}%`;
+        elements.infoProgress.style.width = `${(p*100).toFixed(1)}%`;
+      }
+      function spawnBubbles(down=false) {
+        for (let i=0;i<18;i++) {
+          const b = document.createElement('div');
+          b.className = `bubble ${down?'down':''}`;
+          b.style.left = `${Math.random()*100}%`;
+          b.style.animationDelay = `${Math.random()*4}s`;
+          b.style.opacity = 0.2 + Math.random()*0.4;
+          elements.bubbles.appendChild(b);
+        }
+      }
+      requestAnimationFrame(draw);
+      return { setPhaseDisplay, setDuration, setProgress };
+    })();
+
+    function formatTime(sec) {
+      const s = Math.max(0, sec);
+      const m = Math.floor(s/60).toString().padStart(2,'0');
+      const r = Math.floor(s%60).toString().padStart(2,'0');
+      return `${m}:${r}`;
+    }
+
+    // Input handler
+    const inputHandler = {
+      showModal(content, signal) {
+        elements.modal.innerHTML = '';
+        elements.modal.appendChild(content);
+        elements.modal.classList.add('active');
+        elements.modalBackdrop.classList.add('active');
+        elements.modalLayer.style.pointerEvents = 'auto';
+        if (signal) signal.addEventListener('abort', () => this.close(), { once: true });
+      },
+      close() {
+        elements.modal.classList.remove('active');
+        elements.modalBackdrop.classList.remove('active');
+        elements.modalLayer.style.pointerEvents = 'none';
+      }
+    };
+
+    // Phase handlers
+    async function processQueue(signal) {
+      if (signal.aborted || stateMachine.current !== 'RUNNING') return;
+      const phase = queueManager.next();
+      if (!phase) return;
+      try {
+        switch (phase.type) {
+          case 'IDLE_GAP': await runIdle(signal); break;
+          case 'PUFF_SEQUENCE': await runPuff(signal); break;
+          case 'SNIFF_SEQUENCE': await runSniff(signal); break;
+          case 'TRIVIA': await runTrivia(signal); break;
+          case 'CUSTOM_ACTION': await runCustom(phase.label, signal); break;
+          case 'YOU_CHOOSE': await runChoice(signal); break;
+          default: break;
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error(err);
+      }
+      if (!signal.aborted) processQueue(signal);
+    }
+
+    async function runIdle(signal) {
+      const duration = app.fury ? 15000 : (30000 + Math.random()*45000);
+      stateMachine.setPhase({ type:'IDLE_GAP', duration });
+      renderEngine.setPhaseDisplay('Idle Gap', 'Next event incoming. Breathe easy.', 'transparent', 'none');
+      renderEngine.setDuration(duration);
+      triviaService.refill();
+      await timerScheduler.wait(duration, signal);
+    }
+
+    async function runPuff(signal) {
+      await subPhase('Ready', 10000, 'rgba(255,255,255,0.05)', 'none', signal);
+      await subPhase('Light', 25000, 'rgba(255,140,60,0.35)', 'none', signal, true);
+      await subPhase('Smoke', 12000, 'rgba(140,140,140,0.35)', 'none', signal);
+      for (let i=0;i<5;i++) {
+        await subPhase(`Inhale ${i+1}/5`, 5000, 'rgba(40,200,120,0.35)', 'up', signal);
+        await subPhase(`Hold ${i+1}/5`, 4000, 'rgba(150,150,150,0.25)', 'none', signal);
+        await subPhase(`Exhale ${i+1}/5`, 5000, 'rgba(50,140,240,0.35)', 'down', signal);
+      }
+      await validation('Did you complete the Puff sequence?', () => app.score += 5, signal);
+    }
+
+    async function runSniff(signal) {
+      await subPhase('Sniff Ready', 10000, 'rgba(255,255,255,0.05)', 'none', signal);
+      renderEngine.setPhaseDisplay('Sniff', 'Rapid sniff. Keep it safe.', 'rgba(255,255,255,0.25)', 'none');
+      const duration = 8000;
+      renderEngine.setDuration(duration);
+      if (!prefersReducedMotion && !elements.motionSafe.checked) elements.tint.classList.add('blink-safe');
+      await timerScheduler.wait(duration, signal);
+      elements.tint.classList.remove('blink-safe');
+      await validation('Rapid sniff complete?', () => app.score += 3, signal);
+    }
+
+    async function runTrivia(signal) {
+      const question = await triviaService.next();
+      const answers = shuffle([...question.incorrect_answers, question.correct_answer]);
+      const content = document.createElement('div');
+      content.innerHTML = `<h3>Trivia</h3><p>${question.question}</p>`;
+      answers.forEach(ans => {
+        const btn = document.createElement('button');
+        btn.className = 'primary-btn';
+        btn.style.display = 'block';
+        btn.style.width = '100%';
+        btn.style.margin = '6px 0';
+        btn.textContent = ans;
+        btn.onclick = () => {
+          if (ans === question.correct_answer) app.score += 2; else app.score -= 1;
+          updateScore();
+          inputHandler.close();
+          resolver();
+        };
+        content.appendChild(btn);
+      });
+      renderEngine.setPhaseDisplay('Trivia', 'Answer before time is up.', 'rgba(20,180,255,0.25)', 'none');
+      const duration = 20000;
+      renderEngine.setDuration(duration);
+      let resolver;
+      const p = new Promise((resolve, reject) => { resolver = resolve; });
+      inputHandler.showModal(content, signal);
+      timerScheduler.wait(duration, signal).then(() => { inputHandler.close(); resolver(); }).catch(()=>{});
+      await p;
+    }
+
+    async function runCustom(label, signal) {
+      await subPhase(label, 10000, 'rgba(0,0,0,0.25)', 'none', signal);
+      await validation(`Did you finish "${label}"?`, () => app.score += 1, signal);
+    }
+
+    async function runChoice(signal) {
+      const choices = [
+        { label:'Do Puff', phase:{ type:'PUFF_SEQUENCE', label:'Puff Sequence' } },
+        { label:'Do Trivia', phase:{ type:'TRIVIA', label:'Trivia' } },
+        { label:'Chill', phase:{ type:'IDLE_GAP', label:'Idle Gap' } },
+        ...app.actions.map(text => ({ label:text, phase:{ type:'CUSTOM_ACTION', label:text } }))
+      ];
+      const content = document.createElement('div');
+      content.innerHTML = '<h3>You Choose</h3><p>Pick the next activity.</p>';
+      choices.slice(0,4).forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'primary-btn';
+        btn.style.display = 'block';
+        btn.style.width = '100%';
+        btn.style.margin = '6px 0';
+        btn.textContent = choice.label;
+        btn.onclick = () => { queueManager.unshiftPhase(choice.phase); inputHandler.close(); resolver(); };
+        content.appendChild(btn);
+      });
+      renderEngine.setPhaseDisplay('You Choose', 'Select what happens next.', 'rgba(0,0,0,0.3)', 'none');
+      let resolver; const p = new Promise(res => resolver = res);
+      inputHandler.showModal(content, signal);
+      await p;
+    }
+
+    async function subPhase(label, duration, overlay, bubbles, signal, allowCancel=false) {
+      renderEngine.setPhaseDisplay(label, label, overlay, bubbles);
+      renderEngine.setDuration(duration);
+      await timerScheduler.wait(duration, signal);
+    }
+
+    async function validation(prompt, onYes, signal) {
+      const content = document.createElement('div');
+      content.innerHTML = `<p>${prompt}</p>`;
+      const yes = document.createElement('button'); yes.textContent = 'Yes'; yes.className = 'primary-btn';
+      const no = document.createElement('button'); no.textContent = 'Skip'; no.className = 'ghost-btn'; no.style.marginLeft = '8px';
+      let resolver;
+      const p = new Promise(res => resolver = res);
+      yes.onclick = () => { onYes(); updateScore(); inputHandler.close(); resolver(); };
+      no.onclick = () => { inputHandler.close(); resolver(); };
+      content.appendChild(document.createElement('div')).appendChild(yes);
+      content.appendChild(no);
+      inputHandler.showModal(content, signal);
+      await p;
+    }
+
+    function shuffle(arr) { for (let i = arr.length -1; i>0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+    function updateScore() { elements.score.textContent = `Score: ${app.score}`; }
+
+    // Actions modal
+    function openActionEditor() {
+      const content = document.createElement('div');
+      content.innerHTML = '<h3>Action Editor</h3>';
+      const list = document.createElement('ul'); list.style.listStyle='none'; list.style.padding='0';
+      app.actions.forEach((act, idx) => {
+        const li = document.createElement('li');
+        li.style.display = 'flex'; li.style.justifyContent='space-between'; li.style.alignItems='center'; li.style.margin='6px 0';
+        li.textContent = act;
+        const del = document.createElement('button'); del.textContent='Delete'; del.className='ghost-btn';
+        del.onclick = () => { app.actions.splice(idx,1); saveActions(); openActionEditor(); };
+        li.appendChild(del); list.appendChild(li);
+      });
+      const input = document.createElement('input'); input.placeholder='New action label'; input.style.width='100%'; input.style.marginTop='8px';
+      const add = document.createElement('button'); add.textContent='Add'; add.className='primary-btn'; add.style.marginTop='6px';
+      add.onclick = () => { if (input.value.trim()) { app.actions.push(input.value.trim()); saveActions(); openActionEditor(); } };
+      content.append(list, input, add);
+      inputHandler.showModal(content, stateMachine.controller.signal);
+    }
+    function saveActions(){ localStorage.setItem('sp_timer_actions', JSON.stringify(app.actions)); }
+
+    // Event bindings
+    elements.startBtn.addEventListener('click', handleStart);
+    elements.startOverlayBtn.addEventListener('click', handleStart);
+    function handleStart() {
+      stateMachine.start().then(success => {
+        if (success) {
+          elements.startScreen.classList.add('hidden');
+        }
+      });
+    }
+    elements.pauseBtn.addEventListener('click', () => {
+      if (stateMachine.current === 'RUNNING') { stateMachine.pause(); elements.pauseBtn.textContent='Resume'; }
+      else { stateMachine.resume(); elements.pauseBtn.textContent='Pause'; }
+    });
+    elements.stopBtn.addEventListener('click', () => { stateMachine.stop(); elements.startScreen.classList.remove('hidden'); });
+    elements.muteBtn.addEventListener('click', () => {
+      stateMachine.muted = !stateMachine.muted;
+      elements.videoA.muted = elements.videoB.muted = stateMachine.muted;
+      elements.muteBtn.textContent = stateMachine.muted ? 'Mute' : 'Sound On';
+    });
+    elements.queueBtn.addEventListener('click', () => elements.queueDrawer.classList.toggle('open'));
+    elements.furyBtn.addEventListener('click', () => { app.fury = !app.fury; elements.furyBtn.textContent = app.fury ? 'Fury On' : 'Fury'; });
+    elements.chooseBtn.addEventListener('click', () => { queueManager.unshiftPhase({ type:'YOU_CHOOSE', label:'You Choose' }); updateQueue(); });
+    elements.themeSelect.addEventListener('change', e => themeManager.setTheme(e.target.value));
+    elements.actionsBtn.addEventListener('click', openActionEditor);
+    elements.folderInput.addEventListener('change', e => {
+      const files = Array.from(e.target.files || []);
+      mediaManager.setFiles(files);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stateMachine.pause(); else stateMachine.resume();
+    });
+    elements.motionSafe.checked = prefersReducedMotion;
+    if (prefersReducedMotion) elements.grain?.classList?.add('hidden');
+
+    elements.videoA.addEventListener('ended', () => mediaManager.swapToNext());
+    elements.videoB.addEventListener('ended', () => mediaManager.swapToNext());
+
+    function updateQueue() {
+      const items = queueManager.peek();
+      elements.queueList.innerHTML = '';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item.label;
+        elements.queueList.appendChild(li);
+      });
+    }
+    setInterval(updateQueue, 2000);
+
+    triviaService.fetchToken();
+    themeManager.setTheme('cyber');
+  </script>
+</body>
+</html>
