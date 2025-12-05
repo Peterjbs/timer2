@@ -1129,7 +1129,8 @@
         } else {
           // Attempt to start new cluster
           const { group, color: col } = breathPickColor();
-          let clId = engineClusters[engineClusters.length - 1].id + 1;
+          // Use engine.nextClusterId for safe, consistent ID assignment
+          let clId = engine.nextClusterId++;
           let newCluster = {
             id: clId,
             vx: breathRandRange(-8, 8),
@@ -1236,7 +1237,15 @@
 
     /**
      * Factory initializer for BreathEngine with all required properties.
-     * Ensures engine has shapes, clusters, nextShapeId, nextClusterId, 
+     * 
+     * NOTE: This is a minimal factory that provides essential shape/cluster properties
+     * and IDs needed for defensive guards in spawnBreathShape and createInitialCluster.
+     * For full engine state with animation loop properties, use createBreathEngineState().
+     * 
+     * This factory is useful when you need to ensure an engine object has the minimum
+     * properties to safely call shape spawning functions without errors.
+     * 
+     * Ensures engine has: shapes, clusters, nextShapeId, nextClusterId, 
      * depletesLeft, lastTubeEntryMs, lastTubeExitMs, and prebreathSpawnAccumulator.
      */
     function createBreathEngine() {
