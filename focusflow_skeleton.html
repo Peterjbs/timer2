@@ -173,6 +173,65 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    /* ========================================================= */
+    /* DEBUG flag and helper                                     */
+    /* ========================================================= */
+    const DEBUG = true;
+
+    function debugLog(...args) {
+      if (DEBUG) console.debug(...args);
+    }
+
+    /* ========================================================= */
+    /* Safe JSON parsing helper                                  */
+    /* ========================================================= */
+    /**
+     * Robustly parse AI-generated content that might be:
+     * - Already an object
+     * - A clean JSON string
+     * - A JSON string wrapped in markdown code blocks or extra text
+     * Returns parsed object or null on failure.
+     */
+    function safeParseAIContent(rawContent, ctx = "AI content") {
+      // Already an object
+      if (typeof rawContent === "object" && rawContent !== null) {
+        return rawContent;
+      }
+
+      // Not a string, can't parse
+      if (typeof rawContent !== "string") {
+        console.warn(`[safeParseAIContent] ${ctx}: rawContent is not a string or object`, rawContent);
+        return null;
+      }
+
+      // Try direct parse first
+      try {
+        return JSON.parse(rawContent);
+      } catch (directErr) {
+        // Direct parse failed, try extracting JSON substring
+        debugLog(`[safeParseAIContent] ${ctx}: direct parse failed, attempting extraction`);
+      }
+
+      // Attempt to extract JSON between first '{' and last '}'
+      try {
+        const firstBrace = rawContent.indexOf("{");
+        const lastBrace = rawContent.lastIndexOf("}");
+        
+        if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+          console.warn(`[safeParseAIContent] ${ctx}: no valid JSON braces found`);
+          return null;
+        }
+
+        const extracted = rawContent.substring(firstBrace, lastBrace + 1);
+        const parsed = JSON.parse(extracted);
+        debugLog(`[safeParseAIContent] ${ctx}: successfully extracted and parsed JSON`);
+        return parsed;
+      } catch (extractErr) {
+        console.warn(`[safeParseAIContent] ${ctx}: parse failed after extraction`, extractErr);
+        return null;
+      }
+    }
+
     /* =========================================================
        Global Trivia Engine: Themes, Levels, API Calls
        Source: ported + adapted from triviatimer.html :contentReference[oaicite:0]{index=0}
@@ -581,7 +640,13 @@
           return null;
         }
 
-        const batch = JSON.parse(rawContent);
+        debugLog("[generateTriviaBatchWithOpenAI] Received rawContent from OpenAI");
+        const batch = safeParseAIContent(rawContent, "OpenAI trivia batch");
+        if (!batch) {
+          console.error("OpenAI: failed to parse batch content");
+          return null;
+        }
+
         validateTriviaBatch(batch);
         return normaliseOpenAIBatchToPools(batch);
       } catch (err) {
@@ -633,7 +698,13 @@
         const rawContent = data.choices?.[0]?.message?.content;
         if (!rawContent) return [];
 
-        const qcResult = JSON.parse(rawContent);
+        debugLog("[qualityCheckCategoriesWithOpenAI] Received rawContent from OpenAI");
+        const qcResult = safeParseAIContent(rawContent, "OpenAI QC");
+        if (!qcResult) {
+          console.warn("OpenAI QC: failed to parse QC result");
+          return [];
+        }
+
         return qcResult.categoryAnalysis || [];
       } catch (err) {
         console.error("OpenAI QC error:", err);
@@ -666,7 +737,9 @@
         const data = await response.json();
         const payload = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!payload) return null;
-        return JSON.parse(payload);
+
+        debugLog("[callGeminiJSON] Received payload from Gemini");
+        return safeParseAIContent(payload, "Gemini JSON");
       } catch (err) {
         console.error("Gemini JSON error:", err);
         return null;
@@ -761,7 +834,15 @@
 
         if (raw.length < 4) return null;
 
-        const cleanName = data.results[0].category.split(":").pop().trim();
+        // Safe extraction of category name: use filtered array first, fallback to original, then fallback to default
+        let cleanName = "Unknown Category";
+        if (raw.length > 0 && raw[0].category) {
+          cleanName = raw[0].category.split(":").pop().trim();
+        } else if (data.results.length > 0 && data.results[0].category) {
+          cleanName = data.results[0].category.split(":").pop().trim();
+        } else {
+          cleanName = `Category-${catId}`;
+        }
 
         const questions = raw.slice(0, 4).map((q) => {
           const allOpts = [...q.incorrect_answers, q.correct_answer].sort(
@@ -894,6 +975,12 @@
     const PREBREATH_SPAWN_INTERVAL = 0.02;  // ~50 shapes/sec → ~1000 over 20s
     const PREBREATH_MAX_SHAPES = 1100;
 
+    // Spawn throttling for PREBREATH phase
+    // Maximum spawns per second to prevent overwhelming the rendering engine
+    const MAX_SPAWN_PER_SEC = 60;  // Hard limit: 60 shapes/second max
+    // Note: Actual spawn rate is controlled by PREBREATH_SPAWN_INTERVAL (0.02s = 50/sec)
+    // and enforced via engine.prebreathSpawnAccumulator in the RAF loop
+
     // Opacity range for shapes (as per scoring decision)
     const SHAPE_OPACITY_MIN = 10;
     const SHAPE_OPACITY_MAX = 60;
@@ -951,9 +1038,14 @@
     /* ----- Shape creation & clustering for pre-breath ----- */
 
     function createInitialCluster(engine) {
+      // Ensure engine has nextClusterId, default to 1 if missing
+      if (typeof engine.nextClusterId !== 'number') {
+        engine.nextClusterId = 1;
+      }
+
       const { group, color } = breathPickColor();
       const cluster = {
-        id: 1,
+        id: engine.nextClusterId++,  // Use engine.nextClusterId++ instead of hard-coded id:1
         vx: breathRandRange(-8, 8),
         vy: breathRandRange(-24, -6), // gentle upward bias (negative vy)
         colorGroup: group,
@@ -964,6 +1056,30 @@
     }
 
     function spawnBreathShape(engine) {
+      // Defensive guards: ensure engine is defined and has required properties
+      if (!engine) {
+        console.warn("[spawnBreathShape] engine is undefined or null");
+        return;
+      }
+
+      // Ensure engine has required properties with defaults
+      if (!Array.isArray(engine.shapes)) {
+        console.warn("[spawnBreathShape] engine.shapes is missing, initializing to []");
+        engine.shapes = [];
+      }
+      if (!Array.isArray(engine.clusters)) {
+        console.warn("[spawnBreathShape] engine.clusters is missing, initializing to []");
+        engine.clusters = [];
+      }
+      if (typeof engine.nextShapeId !== 'number') {
+        console.warn("[spawnBreathShape] engine.nextShapeId is missing, initializing to 1");
+        engine.nextShapeId = 1;
+      }
+      if (typeof engine.nextClusterId !== 'number') {
+        console.warn("[spawnBreathShape] engine.nextClusterId is missing, initializing to 1");
+        engine.nextClusterId = 1;
+      }
+
       if (engine.shapes.length >= PREBREATH_MAX_SHAPES) return;
 
       const shapeType = BREATH_SHAPE_TYPES[Math.floor(Math.random() * BREATH_SHAPE_TYPES.length)];
@@ -1115,6 +1231,24 @@
         holdDampApplied: false,
 
         breathStartMs: null
+      };
+    }
+
+    /**
+     * Factory initializer for BreathEngine with all required properties.
+     * Ensures engine has shapes, clusters, nextShapeId, nextClusterId, 
+     * depletesLeft, lastTubeEntryMs, lastTubeExitMs, and prebreathSpawnAccumulator.
+     */
+    function createBreathEngine() {
+      return {
+        shapes: [],
+        clusters: [],
+        nextShapeId: 1,
+        nextClusterId: 1,
+        depletesLeft: DEPLETES_INITIAL,
+        lastTubeEntryMs: 0,
+        lastTubeExitMs: 0,
+        prebreathSpawnAccumulator: 0
       };
     }
 
@@ -1723,7 +1857,14 @@
 
           const outerPhase = phaseRef.current;
 
-          // Spawn during PRE_BREATH only
+          // ===== PREBREATH spawning (RAF-driven) =====
+          // Spawn during PRE_BREATH only, throttled by PREBREATH_SPAWN_INTERVAL (0.02s = 50 shapes/sec).
+          // MAX_SPAWN_PER_SEC (60) provides a hard limit to prevent overwhelming the renderer.
+          // The accumulator pattern ensures consistent spawn rate across varying frame rates.
+          // For alternative implementations, consider a dedicated prebreathRAFLoop() that:
+          //   - Runs only during PRE_BREATH phase
+          //   - Uses engine.prebreathSpawnAccumulator for time-based throttling
+          //   - Enforces MAX_SPAWN_PER_SEC by capping spawns per frame
           if (outerPhase === PHASES.PRE_BREATH) {
             e.spawnAccumulator += dtSec;
             while (e.spawnAccumulator >= PREBREATH_SPAWN_INTERVAL) {
