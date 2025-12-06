@@ -1687,20 +1687,13 @@
     function drawBreathShapes(ctx, engine) {
       ctx.clearRect(0, 0, BREATH_CANVAS_WIDTH, BREATH_CANVAS_HEIGHT);
 
-      // Slight background gradient
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, BREATH_CANVAS_HEIGHT);
-      bgGrad.addColorStop(0, "rgba(15,23,42,0.95)");
-      bgGrad.addColorStop(1, "rgba(6, 15, 26, 0.98)");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, BREATH_CANVAS_WIDTH, BREATH_CANVAS_HEIGHT);
-
       // Tube mouth highlight zone (subtle)
       ctx.save();
       const tubeGrad = ctx.createLinearGradient(
         TUBE_MOUTH_X_MIN, TUBE_MOUTH_Y_MIN,
         TUBE_MOUTH_X_MAX + 40, TUBE_MOUTH_Y_MAX
       );
-      tubeGrad.addColorStop(0, "rgba(45,212,191,0.5)");
+      tubeGrad.addColorStop(0, "rgba(45,212,191,0.3)");
       tubeGrad.addColorStop(1, "rgba(15,23,42,0)");
       ctx.fillStyle = tubeGrad;
       ctx.fillRect(
@@ -2320,105 +2313,7 @@
 
           {/* ================= MAIN AREA ================= */}
           <div className="flex-1 flex overflow-hidden">
-            {/* ----- Left Side Panel (256px) + S-shaped tube ----- */}
-            <div className="w-[256px] h-full flex flex-col bg-gradient-to-b from-slate-950 to-slate-900 border-r border-white/10 relative overflow-hidden">
-              {/* S-shaped tube graphic */}
-              <svg
-                className="breath-tube-svg breath-tube-glow"
-                viewBox="0 0 256 900"
-                preserveAspectRatio="xMidYMid slice"
-              >
-                <defs>
-                  <linearGradient id="breath-tube-grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6EE7B7" stopOpacity="0.8" />
-                    <stop offset="50%" stopColor="#22C55E" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="#0F766E" stopOpacity="0.7" />
-                  </linearGradient>
-                </defs>
-                {/* backplate glow */}
-                <path
-                  d="M220 900
-         C 80 780, 80 540, 220 420
-         C 80 300, 80 160, 220 40"
-                  fill="none"
-                  stroke="rgba(15,118,110,0.35)"
-                  strokeWidth="60"
-                  strokeLinecap="round"
-                />
-                {/* main tube */}
-                <path
-                  d="M220 900
-         C 80 780, 80 540, 220 420
-         C 80 300, 80 160, 220 40"
-                  fill="none"
-                  stroke="url(#breath-tube-grad)"
-                  strokeWidth="34"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              {/* Top tile: main phase/timer panel */}
-              <div className="flex-1 p-2 flex items-center justify-center">
-                <div className="glass-panel rounded-xl w-full h-full flex flex-col items-center justify-center px-3">
-                  <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 font-bold mb-1">
-                    Phase
-                  </div>
-                  <div className="text-base font-semibold mb-2 text-slate-50 text-center">
-                    {phaseLabel || "—"}
-                  </div>
-                  {sideTimerLabel && (
-                    <>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">
-                        Time Left
-                      </div>
-                      <div className={`mt-1 text-5xl font-black ${phaseTimer <= 5 && phaseTimer > 0 ? "text-red-400" : "text-slate-50"}`}>
-                        {sideTimerLabel}
-                      </div>
-                    </>
-                  )}
-                  {!sideTimerLabel && (
-                    <div className="text-[11px] text-slate-500 mt-2 text-center">
-                      Timed phase not active.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Middle tile: context */}
-              <div className="p-2">
-                <div className="glass-panel rounded-xl w-full h-24 flex flex-col items-center justify-center px-3">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-1">
-                    Context
-                  </div>
-                  <div className="text-[11px] text-slate-200 text-center leading-snug">
-                    {phase === PHASES.SETUP && "Configure your keys and load videos below."}
-                    {phase === PHASES.LIGHT && "Video is playing with a light/red overlay (visual warmup)."}
-                    {phase === PHASES.PRE_BREATH && "Clouds will spawn here in the Breath panel (next chunk)."}
-                    {phase === PHASES.WAIT_BREATH_START && "Press Start Breath in the main panel when ready."}
-                    {phase === PHASES.BREATH && "BreathEngine controls shape motion and scoring."}
-                    {(phase === PHASES.TRIVIA || phase === PHASES.TRIVIA_CATEGORY_SELECT) &&
-                      "TriviaEngine will manage categories, questions, and scoring."}
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom tile: global score */}
-              <div className="p-2 pb-3">
-                <div className="rounded-xl w-full h-20 bg-emerald-500/15 border border-emerald-300/40 flex flex-col items-center justify-center">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-200 font-bold">
-                    Score
-                  </div>
-                  <div className="mt-1 text-2xl font-black text-emerald-300">
-                    {score.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] text-emerald-200/70 mt-0.5">
-                    (Breath + Trivia – wired later)
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ----- Main Play Area (to the right of side panel) ----- */}
+            {/* ----- Main Play Area with integrated HUD in grid ----- */}
             <div className="flex-1 h-full relative overflow-hidden bg-black">
               {/* Background video */}
               {playlist.length > 0 ? (
@@ -2444,21 +2339,108 @@
                 <div className="absolute inset-0 bg-red-900/40 mix-blend-screen pointer-events-none" />
               )}
 
-              {/* Main 4×6 grid where both Breath and Trivia live */}
+              {/* Fixed-size breath canvas overlay for BreathEngine */}
+              {(phase === PHASES.PRE_BREATH ||
+                phase === PHASES.WAIT_BREATH_START ||
+                phase === PHASES.BREATH) && (
+                <div 
+                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{
+                    width: '1000px',
+                    height: '600px',
+                    maxWidth: '90vw',
+                    maxHeight: '70vh'
+                  }}
+                >
+                  <canvas
+                    id="breath-canvas-overlay"
+                    className="w-full h-full opacity-30"
+                    width={1000}
+                    height={600}
+                  />
+                </div>
+              )}
+
+              {/* Main 5×6 grid: col 1 for HUD, cols 2-5 for content */}
               <div className="absolute inset-0 p-4">
-                <div className="w-full h-full grid grid-cols-4 grid-rows-6 gap-3">
-                  {/* ================= BREATH PANEL =================
+                <div className="w-full h-full grid grid-cols-5 grid-rows-6 gap-3">
+                  {/* ================= HUD TILES IN LEFT COLUMN (col-start-1) ================= */}
+                  
+                  {/* HUD Tile 1: Timer */}
+                  <div className="col-start-1 row-start-1 row-span-2">
+                    <div className="glass-panel rounded-xl w-full h-full flex flex-col items-center justify-center px-3">
+                      <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 font-bold mb-1">
+                        Timer
+                      </div>
+                      <div className="text-base font-semibold mb-2 text-slate-50 text-center">
+                        {phaseLabel || "—"}
+                      </div>
+                      {sideTimerLabel && (
+                        <>
+                          <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">
+                            Time Left
+                          </div>
+                          <div className={`mt-1 text-4xl font-black ${phaseTimer <= 5 && phaseTimer > 0 ? "text-red-400" : "text-slate-50"}`}>
+                            {sideTimerLabel}
+                          </div>
+                        </>
+                      )}
+                      {!sideTimerLabel && (
+                        <div className="text-[11px] text-slate-500 mt-2 text-center">
+                          Not active
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* HUD Tile 2: THEME (placeholder for future theme info) */}
+                  <div className="col-start-1 row-start-3 row-span-2">
+                    <div className="glass-panel rounded-xl w-full h-full flex flex-col items-center justify-center px-3">
+                      <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-1">
+                        Theme
+                      </div>
+                      <div className="text-sm text-slate-200 text-center leading-snug">
+                        Focus Flow
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* HUD Tile 3: LEVEL (placeholder for difficulty/round) */}
+                  <div className="col-start-1 row-start-5">
+                    <div className="glass-panel rounded-xl w-full h-full flex flex-col items-center justify-center px-3">
+                      <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-1">
+                        Level
+                      </div>
+                      <div className="text-lg font-semibold text-slate-50">
+                        {roundIndex}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* HUD Tile 4: SCORE */}
+                  <div className="col-start-1 row-start-6">
+                    <div className="rounded-xl w-full h-full bg-emerald-500/15 border border-emerald-300/40 flex flex-col items-center justify-center px-2">
+                      <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-200 font-bold">
+                        Score
+                      </div>
+                      <div className="mt-1 text-xl font-black text-emerald-300">
+                        {score.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ================= BREATH PANEL (cols 2-5) =================
                       Occupies the 1000×600 simulation region (conceptually),
-                      mapped into the 4×6 grid. Only visible in breath-related
+                      mapped into the grid columns 2-5. Only visible in breath-related
                       phases.
                   */}
                   {(phase === PHASES.PRE_BREATH ||
                     phase === PHASES.WAIT_BREATH_START ||
                     phase === PHASES.BREATH) && (
-                    <div className="col-span-4 row-span-6 flex items-center justify-center">
+                    <div className="col-start-2 col-span-4 row-span-6 flex items-center justify-center">
                       <div
                         id="breath-panel"
-                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/40 rounded-3xl bg-gradient-to-b from-emerald-950/90 to-slate-950/95 flex items-center justify-center relative overflow-hidden"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/40 rounded-3xl flex items-center justify-center relative overflow-hidden"
                       >
                         {/* BreathEngine fully mounted here */}
                         <BreathEnginePanel
@@ -2480,17 +2462,17 @@
                     </div>
                   )}
 
-                  {/* ================= TRIVIA PANEL =================
+                  {/* ================= TRIVIA PANEL (cols 2-5) =================
                       This same area is reused for trivia answer tiles and
                       category selection. We'll fill this in the trivia chunk.
                   */}
                   {(phase === PHASES.TRIVIA_CATEGORY_SELECT ||
                     phase === PHASES.TRIVIA ||
                     phase === PHASES.MULTI_SELECT) && (
-                    <div className="col-span-4 row-span-6 flex items-center justify-center">
+                    <div className="col-start-2 col-span-4 row-span-6 flex items-center justify-center">
                       <div
                         id="trivia-panel"
-                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl bg-gradient-to-b from-sky-950/90 to-slate-950/95 relative overflow-hidden"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl relative overflow-hidden"
                       >
                         {/* [HTML_CHUNK_TRIVIA_CONTENT]
                             Later: category tiles, answer tiles, multi-select grid. */}
@@ -2500,7 +2482,7 @@
 
                   {/* Setup & idle visuals when neither breath nor trivia are active */}
                   {phase === PHASES.SETUP && (
-                    <div className="col-span-4 row-span-6 flex items-center justify-center">
+                    <div className="col-start-2 col-span-4 row-span-6 flex items-center justify-center">
                       <div className="text-slate-300 text-sm text-center max-w-md">
                         Load your video(s) and API keys below, then press{" "}
                         <span className="font-semibold">Start Session</span>.
