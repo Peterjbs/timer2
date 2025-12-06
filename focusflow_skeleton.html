@@ -1687,20 +1687,13 @@
     function drawBreathShapes(ctx, engine) {
       ctx.clearRect(0, 0, BREATH_CANVAS_WIDTH, BREATH_CANVAS_HEIGHT);
 
-      // Slight background gradient
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, BREATH_CANVAS_HEIGHT);
-      bgGrad.addColorStop(0, "rgba(15,23,42,0.95)");
-      bgGrad.addColorStop(1, "rgba(6, 15, 26, 0.98)");
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, BREATH_CANVAS_WIDTH, BREATH_CANVAS_HEIGHT);
-
       // Tube mouth highlight zone (subtle)
       ctx.save();
       const tubeGrad = ctx.createLinearGradient(
         TUBE_MOUTH_X_MIN, TUBE_MOUTH_Y_MIN,
         TUBE_MOUTH_X_MAX + 40, TUBE_MOUTH_Y_MAX
       );
-      tubeGrad.addColorStop(0, "rgba(45,212,191,0.5)");
+      tubeGrad.addColorStop(0, "rgba(45,212,191,0.3)");
       tubeGrad.addColorStop(1, "rgba(15,23,42,0)");
       ctx.fillStyle = tubeGrad;
       ctx.fillRect(
@@ -2447,7 +2440,7 @@
                     <div className="col-start-2 col-span-4 row-span-6 flex items-center justify-center">
                       <div
                         id="breath-panel"
-                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/40 rounded-3xl bg-gradient-to-b from-emerald-950/90 to-slate-950/95 flex items-center justify-center relative overflow-hidden"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/40 rounded-3xl flex items-center justify-center relative overflow-hidden"
                       >
                         {/* BreathEngine fully mounted here */}
                         <BreathEnginePanel
@@ -2479,7 +2472,7 @@
                     <div className="col-start-2 col-span-4 row-span-6 flex items-center justify-center">
                       <div
                         id="trivia-panel"
-                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl bg-gradient-to-b from-sky-950/90 to-slate-950/95 relative overflow-hidden"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl relative overflow-hidden"
                       >
                         {/* [HTML_CHUNK_TRIVIA_CONTENT]
                             Later: category tiles, answer tiles, multi-select grid. */}
