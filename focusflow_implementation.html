@@ -3234,12 +3234,8 @@
           <div className="h-[10vh] flex items-center justify-between px-4 bg-gradient-to-b from-black to-slate-900/90 border-b border-white/10">
             {/* Left: Slot-machine region above side panel (fixed 256px) */}
             <div className="w-[256px] flex items-center justify-center">
-              {/* [HTML_CHUNK_SLOT_MACHINE]
-                  Later: slot machine reels go here (vertical scrolling emoji panels).
-                  For now, just an empty box with subtle border. */}
-              <div className="w-full max-w-[220px] h-12 rounded-xl border border-slate-700/80 bg-slate-950/70 flex items-center justify-center text-xs text-slate-500">
-                Slot lifelines (to be implemented)
-              </div>
+              {/* Slot machine with autospin */}
+              <SlotMachine onLifelineEarned={handleLifelineEarned} />
             </div>
 
             {/* Center: phase label / instruction text */}
@@ -3307,63 +3303,95 @@
                 />
               </svg>
 
-              {/* Top tile: main phase/timer panel */}
-              <div className="flex-1 p-2 flex items-center justify-center">
+              {/* Top tile: main phase/timer panel (DOUBLE HEIGHT - MUCH BIGGER) */}
+              <div className="flex-[2] p-2 flex items-center justify-center">
                 <div className="glass-panel rounded-xl w-full h-full flex flex-col items-center justify-center px-3">
-                  <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 font-bold mb-1">
-                    Phase
-                  </div>
-                  <div className="text-base font-semibold mb-2 text-slate-50 text-center">
-                    {phaseLabel || "—"}
-                  </div>
+                  {/* Remove label, just show timer when active */}
                   {sideTimerLabel && (
                     <>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">
-                        Time Left
-                      </div>
-                      <div className={`mt-1 text-5xl font-black ${phaseTimer <= 5 && phaseTimer > 0 ? "text-red-400" : "text-slate-50"}`}>
+                      <div className={`text-9xl font-black ${phaseTimer <= 5 && phaseTimer > 0 ? "text-red-400" : "text-slate-50"}`}>
                         {sideTimerLabel}
+                      </div>
+                      <div className="text-sm text-slate-400 mt-2">
+                        {phase === PHASES.LIGHT ? "Get Ready" : phase === PHASES.PRE_BREATH ? "Generating Clouds" : ""}
                       </div>
                     </>
                   )}
-                  {!sideTimerLabel && (
-                    <div className="text-[11px] text-slate-500 mt-2 text-center">
-                      Timed phase not active.
+                  {triviaTimer > 0 && phase === PHASES.TRIVIA && (
+                    <>
+                      <div className={`text-9xl font-black ${triviaTimer <= 5 ? "text-red-400" : "text-emerald-400"}`}>
+                        {triviaTimer}
+                      </div>
+                      <div className="text-sm text-slate-400 mt-2">seconds</div>
+                    </>
+                  )}
+                  {!sideTimerLabel && triviaTimer === 0 && (
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-slate-300 mb-2">
+                        {phaseLabel || "—"}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {phase === PHASES.SETUP && "Ready to start"}
+                        {phase === PHASES.WAIT_BREATH_START && "Ready for breath"}
+                        {phase === PHASES.BREATH && "Breathe"}
+                        {phase === PHASES.TRIVIA_CATEGORY_SELECT && "Select category"}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Middle tile: context */}
+              {/* Middle tile: lifelines inventory */}
               <div className="p-2">
                 <div className="glass-panel rounded-xl w-full h-24 flex flex-col items-center justify-center px-3">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-1">
-                    Context
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-2">
+                    Lifelines
                   </div>
-                  <div className="text-[11px] text-slate-200 text-center leading-snug">
-                    {phase === PHASES.SETUP && "Configure your keys and load videos below."}
-                    {phase === PHASES.LIGHT && "Video is playing with a light/red overlay (visual warmup)."}
-                    {phase === PHASES.PRE_BREATH && "Clouds will spawn here in the Breath panel (next chunk)."}
-                    {phase === PHASES.WAIT_BREATH_START && "Press Start Breath in the main panel when ready."}
-                    {phase === PHASES.BREATH && "BreathEngine controls shape motion and scoring."}
-                    {(phase === PHASES.TRIVIA || phase === PHASES.TRIVIA_CATEGORY_SELECT) &&
-                      "TriviaEngine will manage categories, questions, and scoring."}
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    {lifelines['50-50'] > 0 && (
+                      <div className="lifeline-badge bg-blue-500/20">
+                        <span>✂️</span>
+                        <span>×{lifelines['50-50']}</span>
+                      </div>
+                    )}
+                    {lifelines.skip > 0 && (
+                      <div className="lifeline-badge bg-yellow-500/20">
+                        <span>⏭️</span>
+                        <span>×{lifelines.skip}</span>
+                      </div>
+                    )}
+                    {lifelines.hint > 0 && (
+                      <div className="lifeline-badge bg-purple-500/20">
+                        <span>💡</span>
+                        <span>×{lifelines.hint}</span>
+                      </div>
+                    )}
+                    {lifelines['50-50'] === 0 && lifelines.skip === 0 && lifelines.hint === 0 && (
+                      <div className="text-[10px] text-slate-500">
+                        Earn via slot machine
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Bottom tile: global score */}
+              {/* Bottom tile: global score + debug toggle */}
               <div className="p-2 pb-3">
-                <div className="rounded-xl w-full h-20 bg-emerald-500/15 border border-emerald-300/40 flex flex-col items-center justify-center">
+                <div className="rounded-xl w-full h-20 bg-emerald-500/15 border border-emerald-300/40 flex flex-col items-center justify-center relative">
                   <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-200 font-bold">
                     Score
                   </div>
                   <div className="mt-1 text-2xl font-black text-emerald-300">
                     {score.toLocaleString()}
                   </div>
-                  <div className="text-[10px] text-emerald-200/70 mt-0.5">
-                    (Breath + Trivia – wired later)
-                  </div>
+                  {DEBUG && (
+                    <button
+                      onClick={() => setShowDebug(!showDebug)}
+                      className="absolute top-1 right-1 text-xs px-2 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300"
+                    >
+                      {showDebug ? '🐛 Hide' : '🐛 Show'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -3386,12 +3414,18 @@
                 </div>
               )}
 
-              {/* Dark overlay to keep UI readable */}
-              <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+              {/* Dark overlay to keep UI readable (lighter to show more video) */}
+              <div className="absolute inset-0 bg-black/20 pointer-events-none" />
 
-              {/* Red / fiery overlay during light phases (visual only, logic is above) */}
+              {/* Phase-colored backgrounds with low opacity */}
               {(phase === PHASES.LIGHT || phase === PHASES.TRIVIA_LIGHT) && (
-                <div className="absolute inset-0 bg-red-900/40 mix-blend-screen pointer-events-none" />
+                <div className="absolute inset-0 phase-bg-light pointer-events-none" />
+              )}
+              {(phase === PHASES.PRE_BREATH || phase === PHASES.WAIT_BREATH_START || phase === PHASES.BREATH) && (
+                <div className="absolute inset-0 phase-bg-breath pointer-events-none" />
+              )}
+              {(phase === PHASES.TRIVIA_CATEGORY_SELECT || phase === PHASES.TRIVIA || phase === PHASES.MULTI_SELECT) && (
+                <div className="absolute inset-0 phase-bg-trivia pointer-events-none" />
               )}
 
               {/* Main 4×6 grid where both Breath and Trivia live */}
@@ -3408,7 +3442,7 @@
                     <div className="col-span-4 row-span-6 flex items-center justify-center">
                       <div
                         id="breath-panel"
-                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/40 rounded-3xl bg-gradient-to-b from-emerald-950/90 to-slate-950/95 flex items-center justify-center relative overflow-hidden"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/20 rounded-3xl transparent-panel flex items-center justify-center relative overflow-hidden"
                       >
                         {/* BreathEngine fully mounted here */}
                         <BreathEnginePanel
@@ -3417,13 +3451,7 @@
                             // Outer phase transition into BREATH
                             setPhase(PHASES.BREATH);
                           }}
-                          onFinishBreath={(stats) => {
-                            console.log("Breath finished:", stats);
-                            // Clear clouds already handled inside BreathEnginePanel.
-                            // Increment round counter and proceed to trivia phase (to be implemented later).
-                            setRoundIndex((r) => r + 1);
-                            setPhase(PHASES.TRIVIA_CATEGORY_SELECT);
-                          }}
+                          onFinishBreath={handleBreathFinish}
                           addScore={(points) => setScore((s) => s + points)}
                         />
                       </div>
@@ -3440,10 +3468,20 @@
                     <div className="col-span-4 row-span-6 flex items-center justify-center">
                       <div
                         id="trivia-panel"
-                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl bg-gradient-to-b from-sky-950/90 to-slate-950/95 relative overflow-hidden"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl transparent-panel relative overflow-hidden"
                       >
-                        {/* [HTML_CHUNK_TRIVIA_CONTENT]
-                            Later: category tiles, answer tiles, multi-select grid. */}
+                        {/* TriviaPanel Component with full functionality */}
+                        <TriviaPanel
+                          phase={phase}
+                          level={triviaLevel}
+                          categories={triviaCategories}
+                          currentQuestion={currentQuestion}
+                          onCategorySelect={handleCategorySelect}
+                          onAnswerSelect={handleAnswerSelect}
+                          lifelines={lifelines}
+                          onUseLifeline={handleUseLifeline}
+                          triviaTimer={triviaTimer}
+                        />
                       </div>
                     </div>
                   )}
@@ -3546,6 +3584,9 @@
               )}
             </div>
           </div>
+          
+          {/* Debug Panel */}
+          <DebugPanel />
         </div>
       );
     };
