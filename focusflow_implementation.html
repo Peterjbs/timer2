@@ -1,0 +1,3558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Focus Flow – Complete Implementation
+
+  <!-- React + ReactDOM + Babel for JSX in one file -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind for layout & utility classes -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+
+    :root {
+      /* Timing decisions */
+      --first-light-seconds: 20;   /* initial get-ready light phase */
+      --prebreath-seconds: 20;     /* pre-breath (cloud generation) phase */
+      
+      /* Clouds & Rainbows color scheme */
+      --cloud-white: rgba(255, 255, 255, 0.95);
+      --cloud-soft: rgba(240, 248, 255, 0.85);
+      --sky-blue: rgba(135, 206, 250, 0.7);
+      --rainbow-red: rgba(255, 107, 107, 0.6);
+      --rainbow-orange: rgba(255, 184, 108, 0.6);
+      --rainbow-yellow: rgba(255, 234, 167, 0.6);
+      --rainbow-green: rgba(163, 230, 53, 0.6);
+      --rainbow-cyan: rgba(103, 232, 249, 0.6);
+      --rainbow-blue: rgba(96, 165, 250, 0.6);
+      --rainbow-purple: rgba(196, 181, 253, 0.6);
+      --rainbow-pink: rgba(249, 168, 212, 0.6);
+    }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #000;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* Make panels more transparent to show video background */
+    .glass-panel {
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: radial-gradient(circle at top left,
+        rgba(255,255,255,0.03),
+        rgba(15,23,42,0.25));
+    }
+    
+    /* Transparent gameplay panels */
+    .transparent-panel {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: transparent;
+    }
+
+    .text-shadow-soft {
+      text-shadow: 0 1px 3px rgba(0,0,0,0.75);
+    }
+
+    /* =========================================================
+       [STYLE_CHUNK_1_BREATH_ENGINE]
+       Add ALL BreathEngine-specific styles here later:
+       - Cloud shapes & blur
+       - Tube art (S-curve)
+       - Inhale/Hold/Exhale visual cues
+       - Score popups during breath
+       ========================================================= */
+    /* ===== BreathEngine visual styles ===== */
+
+    .breath-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Score popups for absorbed shapes in breath panel */
+    .breath-score-popup {
+      position: absolute;
+      font-weight: 900;
+      font-size: 2.4rem;
+      color: #4ade80;
+      text-shadow: 0 0 12px rgba(0,0,0,0.9);
+      pointer-events: none;
+      z-index: 50;
+      animation: breathFloatUp 1.4s ease-out forwards;
+    }
+
+    @keyframes breathFloatUp {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-50px) scale(1.4);
+      }
+    }
+
+    /* Current breath sub-phase label (Inhale / Hold / Exhale) inside breath panel */
+    .breath-phase-label {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(45,212,191,0.4);
+      color: rgba(204,251,241,0.92);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Breath cycle counter chip */
+    .breath-cycle-chip {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(148,163,184,0.6);
+      color: rgba(148,163,184,0.95);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Finish Breath button inside panel */
+    .breath-finish-btn {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(to right, #22c55e, #a3e635);
+      color: #052e16;
+      border: none;
+      box-shadow: 0 8px 20px rgba(22,163,74,0.5);
+      cursor: pointer;
+    }
+
+    .breath-finish-btn:hover {
+      background: linear-gradient(to right, #4ade80, #bef264);
+      transform: translateY(-1px);
+    }
+
+    .breath-finish-btn:active {
+      transform: translateY(0) scale(0.97);
+    }
+
+    /* S-shaped tube in side panel */
+    .breath-tube-svg {
+      position: absolute;
+      inset: 0;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .breath-tube-glow {
+      filter: drop-shadow(0 0 12px rgba(52,211,153,0.65));
+    }
+
+
+    /* =========================================================
+       [STYLE_CHUNK_2_TRIVIA_AND_SLOT]
+       Add ALL Trivia/Slot-specific styles here later:
+       - Answer tiles, category tiles
+       - Slot machine reels (vertical scroll)
+       - Score popups during trivia
+       - Lifeline badges, etc.
+       ========================================================= */
+    
+    /* Trivia category tiles */
+    .trivia-category-tile {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    
+    .trivia-category-tile:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    
+    .trivia-category-tile:active {
+      transform: translateY(0) scale(0.98);
+    }
+    
+    /* Trivia answer tiles */
+    .trivia-answer-tile {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    
+    .trivia-answer-tile:hover {
+      transform: scale(1.03);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    }
+    
+    .trivia-answer-tile.correct {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.5), rgba(163, 230, 53, 0.4));
+      border-color: rgba(34, 197, 94, 0.8);
+    }
+    
+    .trivia-answer-tile.incorrect {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.4), rgba(127, 29, 29, 0.3));
+      border-color: rgba(239, 68, 68, 0.6);
+    }
+    
+    /* Slot machine reels */
+    .slot-reel {
+      width: 60px;
+      height: 80px;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      background: rgba(15, 23, 42, 0.8);
+      position: relative;
+    }
+    
+    .slot-reel-inner {
+      position: absolute;
+      width: 100%;
+      transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
+    .slot-symbol {
+      width: 100%;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-center;
+      font-size: 2.5rem;
+    }
+    
+    /* Lifeline badges */
+    .lifeline-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Debug panel */
+    .debug-panel {
+      position: fixed;
+      bottom: 80px;
+      right: 16px;
+      width: 320px;
+      max-height: 400px;
+      overflow-y: auto;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      color: #a5f3fc;
+      z-index: 9999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    }
+    
+    .debug-panel h3 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: #22d3ee;
+    }
+    
+    .debug-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .debug-label {
+      color: #94a3b8;
+    }
+    
+    .debug-value {
+      color: #4ade80;
+      font-weight: 600;
+    }
+    
+    .debug-error {
+      color: #f87171;
+      padding: 6px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+    
+    /* Phase colored backgrounds with low opacity */
+    .phase-bg-light {
+      background: radial-gradient(circle at center, rgba(255, 107, 107, 0.15), transparent);
+    }
+    
+    .phase-bg-breath {
+      background: radial-gradient(circle at center, rgba(163, 230, 53, 0.12), transparent);
+    }
+    
+    .phase-bg-trivia {
+      background: radial-gradient(circle at center, rgba(96, 165, 250, 0.12), transparent);
+    }
+
+  </style>
+</head>
+<body class="bg-black">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ========================================================= */
+    /* DEBUG flag and helper                                     */
+    /* ========================================================= */
+    const DEBUG = true;
+
+    function debugLog(...args) {
+      if (DEBUG) console.debug(...args);
+    }
+
+    /* ========================================================= */
+    /* Safe JSON parsing helper                                  */
+    /* ========================================================= */
+    /**
+     * Robustly parse AI-generated content that might be:
+     * - Already an object
+     * - A clean JSON string
+     * - A JSON string wrapped in markdown code blocks or extra text
+     * Returns parsed object or null on failure.
+     */
+    function safeParseAIContent(rawContent, ctx = "AI content") {
+      // Already an object
+      if (typeof rawContent === "object" && rawContent !== null) {
+        return rawContent;
+      }
+
+      // Not a string, can't parse
+      if (typeof rawContent !== "string") {
+        console.warn(`[safeParseAIContent] ${ctx}: rawContent is not a string or object`, rawContent);
+        return null;
+      }
+
+      // Try direct parse first
+      try {
+        return JSON.parse(rawContent);
+      } catch (directErr) {
+        // Direct parse failed, try extracting JSON substring
+        debugLog(`[safeParseAIContent] ${ctx}: direct parse failed, attempting extraction`);
+      }
+
+      // Attempt to extract JSON between first '{' and last '}'
+      try {
+        const firstBrace = rawContent.indexOf("{");
+        const lastBrace = rawContent.lastIndexOf("}");
+        
+        if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+          console.warn(`[safeParseAIContent] ${ctx}: no valid JSON braces found`);
+          return null;
+        }
+
+        const extracted = rawContent.substring(firstBrace, lastBrace + 1);
+        const parsed = JSON.parse(extracted);
+        debugLog(`[safeParseAIContent] ${ctx}: successfully extracted and parsed JSON`);
+        return parsed;
+      } catch (extractErr) {
+        console.warn(`[safeParseAIContent] ${ctx}: parse failed after extraction`, extractErr);
+        return null;
+      }
+    }
+
+    /* =========================================================
+       Global Trivia Engine: Themes, Levels, API Calls
+       Source: ported + adapted from triviatimer.html :contentReference[oaicite:0]{index=0}
+       - THEMES: level 1/2/3 conceptual categories
+       - OPENTDB_CATS: category IDs for fallback
+       - Validation helpers for question length/structure
+       - JSON schemas for OpenAI batch & QC
+       - Pure API helpers for OpenAI, Gemini, OpenTDB
+       - Normalisation helpers to a unified internal format:
+           {
+             level: 1|2|3,
+             category: string,
+             color: string,
+             questions: [
+               {
+                 question: string,
+                 difficulty: "easy"|"medium"|"hard",
+                 options: string[],
+                 correctAnswer: string
+               }
+             ]
+           }
+       ========================================================= */
+
+    /* ---------- Visual palette for trivia themes ---------- */
+    /* This is for CATEGORY tiles, not cloud palettes */
+    const TRIVIA_PASTEL_COLORS = [
+      'bg-rose-200/50 text-gray-900 border-rose-300/50',
+      'bg-pink-200/50 text-gray-900 border-pink-300/50',
+      'bg-fuchsia-200/50 text-gray-900 border-fuchsia-300/50',
+      'bg-purple-200/50 text-gray-900 border-purple-300/50',
+      'bg-violet-200/50 text-gray-900 border-violet-300/50',
+      'bg-indigo-200/50 text-gray-900 border-indigo-300/50',
+      'bg-blue-200/50 text-gray-900 border-blue-300/50',
+      'bg-sky-200/50 text-gray-900 border-sky-300/50',
+      'bg-cyan-200/50 text-gray-900 border-cyan-300/50',
+      'bg-teal-200/50 text-gray-900 border-teal-300/50',
+      'bg-emerald-200/50 text-gray-900 border-emerald-300/50',
+      'bg-green-200/50 text-gray-900 border-green-300/50',
+      'bg-lime-200/50 text-gray-900 border-lime-300/50',
+      'bg-yellow-200/50 text-gray-900 border-yellow-300/50',
+      'bg-amber-200/50 text-gray-900 border-amber-300/50',
+      'bg-orange-200/50 text-gray-900 border-orange-300/50'
+    ];
+
+    function pickRandomPastel() {
+      return TRIVIA_PASTEL_COLORS[
+        Math.floor(Math.random() * TRIVIA_PASTEL_COLORS.length)
+      ];
+    }
+
+    /* ---------- Conceptual THEMES by level (from triviatimer) ---------- */
+
+    const THEMES = {
+      level1: [
+        "Airplanes", "Animals", "Apps", "Athletes", "Beaches", "Birds",
+        "Bodies", "Bricks", "Bridges", "Capitals", "Channels", "Cities",
+        "Cocktails", "Colors", "Countries", "Curves", "Caves", "Deserts",
+        "Desserts", "Documentaries", "Doors", "Dreams", "Drinks", "Echoes",
+        "Elements", "Faces", "Fabrics", "Fields", "Films", "Flames",
+        "Flowers", "Forests", "Forms", "Fountains", "Fruits", "Gardens",
+        "Grooves", "Houses", "Instruments", "Islands", "Jewelry", "Keys",
+        "Lakes", "Languages", "Leaves", "Lights", "Lines", "Matches",
+        "Metals", "Minerals", "Mirrors", "Moons", "Mountains", "Movies",
+        "Music", "Notes", "Oceans", "Paintings", "Paths", "Peaks",
+        "Piers", "Pets", "Planets", "Plays", "Poems", "Planes", "Pools",
+        "Posts", "Recipes", "Reflections", "Rivers", "Roads", "Rocks",
+        "Rooms", "Seasons", "Shows", "Shops", "Signs", "Skies", "Songs",
+        "Sparks", "Sports", "Stars", "Stories", "Streams", "Suns",
+        "Trees", "Towers", "Waves", "Winds"
+      ],
+      level2: [
+        "Adventures", "Allies", "Angles", "Auras", "Ballrooms", "Beats",
+        "Blooms", "Bonds", "Branches", "Breezes", "Bridges", "Camps",
+        "Canals", "Chains", "Channels", "Chords", "Circles", "Clues",
+        "Codes", "Colors", "Comics", "Cosmos", "Crafts", "Cultures",
+        "Customs", "Cycles", "Diaries", "Doors", "Echoes", "Edges",
+        "Energies", "Exhibits", "Faces", "Feeds", "Festivals", "Flags",
+        "Flips", "Forests", "Galleries", "Glimmer", "Grooves", "Habits",
+        "Harbors", "Horizons", "Illusions", "Journeys", "Knots", "Layers",
+        "Leaders", "Legends", "Links", "Locales", "Looks", "Markets",
+        "Masks", "Masters", "Messages", "Moods", "Motions", "Moves",
+        "Notes", "Patterns", "Paths", "Petals", "Pings", "Players",
+        "Ports", "Posts", "Pubs", "Pups", "Pavilions", "Quests",
+        "Rainbows", "Records", "Reflections", "Rituals", "Routes",
+        "Scenes", "Shades", "Shapes", "Shores", "Signals", "Stories",
+        "Streams", "Styles", "Symbols", "Tales", "Textures", "Tides",
+        "Towns", "Traditions", "Trends", "Twists", "Valleys", "Vibes",
+        "Wolves", "Zones"
+      ],
+      level3: [
+        "Archives", "Aesthetics", "Anthologies", "Arcana", "Armories",
+        "Armies", "Artifacts", "Ateliers", "Battalions", "Biomes",
+        "Blossoms", "Boroughs", "Cabarets", "Castles", "Catalogs",
+        "Cathedrals", "Ceremonies", "Chambers", "Circuits", "Clusters",
+        "Conflicts", "Councils", "Currents", "Customs", "Desires",
+        "Dynasties", "Echoes", "Elements", "Embers", "Empires",
+        "Emporiums", "Estates", "Factions", "Fantasies", "Festivals",
+        "Forges", "Frontiers", "Guilds", "Guildhalls", "Harbors",
+        "Heritage", "Histories", "Icons", "Libraries", "Lore", "Manor",
+        "Manuscripts", "Markets", "Marshes", "Masters", "Menageries",
+        "Monasteries", "Monoliths", "Monuments", "Myths", "Nebulas",
+        "Networks", "Observatories", "Orders", "Orbits", "Pantheons",
+        "Parishes", "Periods", "Phases", "Ports", "Provinces", "Realms",
+        "Refractions", "Regions", "Resonance", "Riddles", "Rituals",
+        "Roots", "Sagas", "Sanctuaries", "Sectors", "Shadows",
+        "Solstice", "Sparks", "Spirals", "Storms", "Subcultures",
+        "Symposiums", "Symbols", "Temples", "Tones", "Traditions",
+        "Tribunals", "Twilights", "Universes", "Vibration", "Vortexes",
+        "Vaults", "Whispers", "Zeniths"
+      ]
+    };
+
+    /* ---------- OpenTDB category IDs used as backup ---------- */
+
+    const OPENTDB_CATS = [9, 10, 11, 12, 17, 18, 19, 21, 22, 23, 27];
+
+    /* ---------- Validation: question & options length ---------- */
+
+    function validateQuestionLength(q) {
+      // Input structure can be AI style or OpenTDB style; we normalise check.
+      const questionText = q.question || q.q || "";
+      if (questionText.length > 100) return false;
+
+      const maxAnswerLen = 20;
+
+      // AI-style
+      if (q.correctAnswer && typeof q.correctAnswer === "string") {
+        if (q.correctAnswer.length > maxAnswerLen) return false;
+      }
+      if (Array.isArray(q.options)) {
+        if (!q.options.every((opt) => typeof opt === "string" && opt.length <= maxAnswerLen)) {
+          return false;
+        }
+      }
+
+      // OpenTDB-style
+      if (q.correct_answer && typeof q.correct_answer === "string") {
+        if (q.correct_answer.length > maxAnswerLen) return false;
+      }
+      if (Array.isArray(q.incorrect_answers)) {
+        if (!q.incorrect_answers.every((opt) => typeof opt === "string" && opt.length <= maxAnswerLen)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    /* ---------- JSON schemas (OpenAI) from triviatimer ---------- */
+
+    const TRIVIA_BATCH_SCHEMA = {
+      name: "trivia_batch",
+      schema: {
+        type: "object",
+        properties: {
+          level1: {
+            type: "array",
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              type: "object",
+              properties: {
+                level: { type: "integer", const: 1 },
+                category: { type: "string" },
+                questions: {
+                  type: "array",
+                  minItems: 4,
+                  maxItems: 4,
+                  items: {
+                    type: "object",
+                    properties: {
+                      question: { type: "string", maxLength: 100 },
+                      difficulty: { type: "string", const: "easy" },
+                      options: {
+                        type: "array",
+                        minItems: 3,
+                        maxItems: 3,
+                        items: { type: "string", maxLength: 20 }
+                      },
+                      correctAnswer: { type: "string", maxLength: 20 }
+                    },
+                    required: ["question", "difficulty", "options", "correctAnswer"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["level", "category", "questions"],
+              additionalProperties: false
+            }
+          },
+          level2: {
+            type: "array",
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              type: "object",
+              properties: {
+                level: { type: "integer", const: 2 },
+                category: { type: "string" },
+                questions: {
+                  type: "array",
+                  minItems: 4,
+                  maxItems: 4,
+                  items: {
+                    type: "object",
+                    properties: {
+                      question: { type: "string", maxLength: 100 },
+                      difficulty: { type: "string", const: "medium" },
+                      options: {
+                        type: "array",
+                        minItems: 4,
+                        maxItems: 4,
+                        items: { type: "string", maxLength: 20 }
+                      },
+                      correctAnswer: { type: "string", maxLength: 20 }
+                    },
+                    required: ["question", "difficulty", "options", "correctAnswer"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["level", "category", "questions"],
+              additionalProperties: false
+            }
+          },
+          level3: {
+            type: "array",
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              type: "object",
+              properties: {
+                level: { type: "integer", const: 3 },
+                category: { type: "string" },
+                questions: {
+                  type: "array",
+                  minItems: 4,
+                  maxItems: 4,
+                  items: {
+                    type: "object",
+                    properties: {
+                      question: { type: "string", maxLength: 100 },
+                      difficulty: { type: "string", enum: ["medium", "hard"] },
+                      options: {
+                        type: "array",
+                        minItems: 5,
+                        maxItems: 6,
+                        items: { type: "string", maxLength: 20 }
+                      },
+                      correctAnswer: { type: "string", maxLength: 20 }
+                    },
+                    required: ["question", "difficulty", "options", "correctAnswer"],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ["level", "category", "questions"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["level1", "level2", "level3"],
+        additionalProperties: false
+      },
+      strict: true
+    };
+
+    const QC_SCHEMA = {
+      name: "quality_check",
+      schema: {
+        type: "object",
+        properties: {
+          categoryAnalysis: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                categoryIndex: {
+                  type: "integer",
+                  description: "Index of the category in the input list (0-4)"
+                },
+                weakQuestionIndices: {
+                  type: "array",
+                  items: { type: "integer" },
+                  description:
+                    "Indices of questions (0-3) that are vague, incorrect, bad formatting, or ambiguous."
+                }
+              },
+              required: ["categoryIndex", "weakQuestionIndices"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["categoryAnalysis"],
+        additionalProperties: false
+      },
+      strict: true
+    };
+
+    function validateTriviaBatch(batch) {
+      function checkLevel(expectedLevel, arr) {
+        if (!Array.isArray(arr)) return;
+        arr.forEach((cat) => {
+          if (!Array.isArray(cat.questions) || cat.questions.length !== 4) {
+            throw new Error(`Level ${expectedLevel} category must have 4 questions`);
+          }
+        });
+      }
+      checkLevel(1, batch.level1);
+      checkLevel(2, batch.level2);
+      checkLevel(3, batch.level3);
+    }
+
+    /* ---------- Normalisation helpers ---------- */
+
+    // Convert the OpenAI batch into our internal category-pool shape
+    function normaliseOpenAIBatchToPools(batch) {
+      // Result: { 1: Category[], 2: Category[], 3: Category[] }
+      const pools = { 1: [], 2: [], 3: [] };
+
+      [1, 2, 3].forEach((level) => {
+        const key = `level${level}`;
+        const arr = batch[key] || [];
+        arr.forEach((cat) => {
+          const safeQs = (cat.questions || []).filter(validateQuestionLength);
+          if (!safeQs.length) return;
+          pools[level].push({
+            level,
+            category: cat.category,
+            color: pickRandomPastel(),
+            questions: safeQs.map((q) => ({
+              question: q.question,
+              difficulty: q.difficulty || (level === 1 ? "easy" : level === 2 ? "medium" : "hard"),
+              options: q.options || [],
+              correctAnswer: q.correctAnswer
+            }))
+          });
+        });
+      });
+
+      return pools;
+    }
+
+    // Merge newly generated pools into an existing categoryPools object
+    function mergePools(existingPools, newPools) {
+      const merged = { 1: [], 2: [], 3: [] };
+      [1, 2, 3].forEach((lvl) => {
+        const base = existingPools && existingPools[lvl] ? existingPools[lvl] : [];
+        const extra = newPools && newPools[lvl] ? newPools[lvl] : [];
+        merged[lvl] = [...base, ...extra];
+      });
+      return merged;
+    }
+
+    /* ---------- OpenAI trivia generation & QC (pure helpers) ---------- */
+
+    async function generateTriviaBatchWithOpenAI(openaiKey, l1Cats, l2Cats, l3Cats) {
+      if (!openaiKey) {
+        return null; // Caller decides fallback (Gemini/OpenTDB)
+      }
+
+      const systemPrompt =
+        "You are a trivia question generator. " +
+        "You must strictly follow the supplied JSON schema. " +
+        "Level 1: easy, 3 options. Level 2: medium, 4 options. " +
+        "Level 3: medium/hard, 5–6 options. " +
+        "Max question length: 100 characters. Max option length: 20 characters.";
+
+      const userPrompt =
+        `Generate a single batch of trivia. For each level, produce exactly 2 categories and 4 questions per category.\n\n` +
+        `Level 1 categories: ${l1Cats.join(", ")}.\n` +
+        `Level 2 categories: ${l2Cats.join(", ")}.\n` +
+        `Level 3 categories: ${l3Cats.join(", ")}.\n\n` +
+        `Return JSON matching the 'trivia_batch' schema.`;
+
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: TRIVIA_BATCH_SCHEMA
+            }
+          })
+        });
+
+        if (!res.ok) {
+          console.error("OpenAI HTTP error", res.status);
+          return null;
+        }
+
+        const data = await res.json();
+        const rawContent = data.choices?.[0]?.message?.content;
+        if (!rawContent) {
+          console.error("OpenAI: no message content");
+          return null;
+        }
+
+        debugLog("[generateTriviaBatchWithOpenAI] Received rawContent from OpenAI");
+        const batch = safeParseAIContent(rawContent, "OpenAI trivia batch");
+        if (!batch) {
+          console.error("OpenAI: failed to parse batch content");
+          return null;
+        }
+
+        validateTriviaBatch(batch);
+        return normaliseOpenAIBatchToPools(batch);
+      } catch (err) {
+        console.error("OpenAI trivia batch error:", err);
+        return null;
+      }
+    }
+
+    // OpenAI QC for categories (structure-level only; pure helper)
+    async function qualityCheckCategoriesWithOpenAI(openaiKey, categoriesForQC) {
+      if (!openaiKey || !categoriesForQC || !categoriesForQC.length) {
+        return [];
+      }
+
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a trivia question quality-control agent." },
+              {
+                role: "user",
+                content:
+                  "You are given up to 5 categories, each with 4 questions. " +
+                  "For each category, return indices (0–3) of weak questions " +
+                  "(vague, incorrect, ambiguous, formatting issues, etc.)." +
+                  "\n\n" +
+                  JSON.stringify(categoriesForQC)
+              }
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: QC_SCHEMA
+            }
+          })
+        });
+
+        if (!res.ok) {
+          console.error("OpenAI QC HTTP error", res.status);
+          return [];
+        }
+
+        const data = await res.json();
+        const rawContent = data.choices?.[0]?.message?.content;
+        if (!rawContent) return [];
+
+        debugLog("[qualityCheckCategoriesWithOpenAI] Received rawContent from OpenAI");
+        const qcResult = safeParseAIContent(rawContent, "OpenAI QC");
+        if (!qcResult) {
+          console.warn("OpenAI QC: failed to parse QC result");
+          return [];
+        }
+
+        return qcResult.categoryAnalysis || [];
+      } catch (err) {
+        console.error("OpenAI QC error:", err);
+        return [];
+      }
+    }
+
+    /* ---------- Gemini helpers (pure) ---------- */
+
+    // Generic call to Gemini's JSON-style endpoint
+    async function callGeminiJSON(geminiKey, prompt) {
+      if (!geminiKey) return null;
+
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          }
+        );
+        if (!response.ok) {
+          console.error("Gemini HTTP error", response.status);
+          return null;
+        }
+        const data = await response.json();
+        const payload = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!payload) return null;
+
+        debugLog("[callGeminiJSON] Received payload from Gemini");
+        return safeParseAIContent(payload, "Gemini JSON");
+      } catch (err) {
+        console.error("Gemini JSON error:", err);
+        return null;
+      }
+    }
+
+    // Generate 4 category names for a custom topic
+    async function generateCategoriesWithGemini(geminiKey, topic) {
+      const prompt =
+        `Generate 4 distinct trivia sub-category names related to the topic '${topic}'.\n` +
+        `Output JSON: { "categories": ["string", "string", "string", "string"] }`;
+      const result = await callGeminiJSON(geminiKey, prompt);
+      if (!result || !Array.isArray(result.categories)) return [];
+      return result.categories;
+    }
+
+    // Generate questions for a set of categories at a particular level
+    async function generateQuestionsWithGemini(geminiKey, categories, level) {
+      const lvl = level || 1;
+      const prompt =
+        `Generate 4 multiple-choice questions for EACH of these categories: ${categories.join(", ")}.\n` +
+        `Level ${lvl} difficulty (1=easy, 2=medium, 3=medium/hard).\n` +
+        `Max QUESTION length: 100 characters. Max ANSWER length: 20 characters.\n` +
+        `Output JSON array: [\n` +
+        `  {\n` +
+        `    "category": "string",\n` +
+        `    "questions": [\n` +
+        `      { "question": "string", "correctAnswer": "string", "options": ["..."] },\n` +
+        `      ... (4 questions per category)\n` +
+        `    ]\n` +
+        `  }\n` +
+        `]\n`;
+      const result = await callGeminiJSON(geminiKey, prompt);
+      if (!result || !Array.isArray(result)) return [];
+
+      const poolsByLevel = { 1: [], 2: [], 3: [] };
+      const safeLevel = lvl < 1 ? 1 : lvl > 3 ? 3 : lvl;
+
+      result.forEach((cat) => {
+        const qs = (cat.questions || []).filter(validateQuestionLength);
+        if (!qs.length) return;
+        poolsByLevel[safeLevel].push({
+          level: safeLevel,
+          category: cat.category,
+          color: pickRandomPastel(),
+          questions: qs.map((q) => ({
+            question: q.question,
+            difficulty: safeLevel === 1 ? "easy" : safeLevel === 2 ? "medium" : "hard",
+            options: q.options || [],
+            correctAnswer: q.correctAnswer
+          }))
+        });
+      });
+
+      return poolsByLevel;
+    }
+
+    // Multi-select category generation (for special rounds)
+    async function generateMultiSelectWithGemini(geminiKey) {
+      const prompt =
+        "Generate 2 special 'Multi-Select' categories. " +
+        "Examples: Prime Numbers, Capital Cities, Planets, Mammals, Oscar Winners.\n" +
+        "For each, provide:\n" +
+        "  - category (string)\n" +
+        "  - correct: array of 3–8 correct strings (max 20 chars)\n" +
+        "  - wrong: array of strings to bring total (correct+wrong) to at least 16\n" +
+        "Return JSON array: [{\"category\": \"...\", \"correct\": [...], \"wrong\": [...]}]";
+      const result = await callGeminiJSON(geminiKey, prompt);
+      if (!result || !Array.isArray(result)) return [];
+      return result;
+    }
+
+    /* ---------- OpenTDB helpers (pure) ---------- */
+
+    async function fetchOpenTDBCategory(level) {
+      const difficulty = level === 1 ? "easy" : level === 2 ? "medium" : "hard";
+      const catId = OPENTDB_CATS[Math.floor(Math.random() * OPENTDB_CATS.length)];
+      try {
+        const res = await fetch(
+          `https://opentdb.com/api.php?amount=10&category=${catId}&difficulty=${difficulty}&type=multiple`
+        );
+        const data = await res.json();
+        if (!data.results || !data.results.length) return null;
+
+        const raw = data.results.filter((q) =>
+          validateQuestionLength({
+            question: q.question,
+            correct_answer: q.correct_answer,
+            incorrect_answers: q.incorrect_answers
+          })
+        );
+
+        if (raw.length < 4) return null;
+
+        // Safe extraction of category name: use filtered array first, fallback to original, then fallback to default
+        let cleanName = "Unknown Category";
+        if (raw.length > 0 && raw[0].category) {
+          cleanName = raw[0].category.split(":").pop().trim();
+        } else if (data.results.length > 0 && data.results[0].category) {
+          cleanName = data.results[0].category.split(":").pop().trim();
+        } else {
+          cleanName = `Category-${catId}`;
+        }
+
+        const questions = raw.slice(0, 4).map((q) => {
+          const allOpts = [...q.incorrect_answers, q.correct_answer].sort(
+            () => Math.random() - 0.5
+          );
+          return {
+            question: q.question,
+            difficulty,
+            options: allOpts,
+            correctAnswer: q.correct_answer
+          };
+        });
+
+        return {
+          level,
+          category: cleanName,
+          color: pickRandomPastel(),
+          questions
+        };
+      } catch (err) {
+        console.error("OpenTDB fetch error:", err);
+        return null;
+      }
+    }
+
+    // Fetch multiple OpenTDB categories for levels 1–3 to top up pools
+    async function fetchOpenTDBPools(targetCountsByLevel) {
+      // targetCountsByLevel like {1: desiredCount, 2: desiredCount, 3: desiredCount}
+      const pools = { 1: [], 2: [], 3: [] };
+
+      for (let level = 1; level <= 3; level++) {
+        const targetCount = targetCountsByLevel[level] || 0;
+        let attempts = 0;
+        while (pools[level].length < targetCount && attempts < targetCount * 3) {
+          const cat = await fetchOpenTDBCategory(level);
+          if (cat) pools[level].push(cat);
+          attempts++;
+        }
+      }
+
+      return pools;
+    }
+
+    /* ---------- Zen Insight helper (pure) ---------- */
+
+    async function generateZenInsightWithGemini(geminiKey, score, streak) {
+      if (!geminiKey) return "";
+      const prompt =
+        `Generate a very short (max 15 words), philosophical, encouraging 'Zen Insight' ` +
+        `for a player who has a score of ${score} and streak of ${streak}. ` +
+        `Theme: Focus, Flow, Light, Breathing.\n\n` +
+        `Return JSON: { "insight": "string" }`;
+      const result = await callGeminiJSON(geminiKey, prompt);
+      if (result && typeof result.insight === "string") {
+        return result.insight;
+      }
+      return "";
+    }
+
+
+    /* =========================================================
+       [SCRIPT_CHUNK_0_CONSTANTS_AND_ENUMS]
+       This skeleton defines only what it actually needs.
+       Later, we’ll EXTEND this with a larger constants/enums chunk
+       (breath timings, scoring config, lifeline configs, etc.).
+       ========================================================= */
+
+    const PHASES = {
+      SETUP: "SETUP",
+      LIGHT: "LIGHT",               // initial get-ready light phase
+      PRE_BREATH: "PRE_BREATH",     // cloud generation phase
+      WAIT_BREATH_START: "WAIT_BREATH_START", // pre-breath done; waiting for Start Breath
+      BREATH: "BREATH",             // BreathEngine runs inhale/hold/exhale loop
+      TRIVIA_CATEGORY_SELECT: "TRIVIA_CATEGORY_SELECT",
+      TRIVIA: "TRIVIA",
+      MULTI_SELECT: "MULTI_SELECT",
+      TRIVIA_LIGHT: "TRIVIA_LIGHT"  // 15s red overlay after trivia
+    };
+
+    const FIRST_LIGHT_SECONDS = 20; // fixed
+    const PREBREATH_SECONDS   = 20; // fixed
+
+    /* =========================================================
+       [SCRIPT_CHUNK_1_BREATH_ENGINE]
+       Later we will paste:
+       - BreathEngine state (shapes, tube stack, depletesLeft, etc.)
+       - Breath cycle logic (Inhale/Hold/Exhale timers)
+       - Integration hooks between phase and BreathEngine
+       DO NOT reference any BreathEngine functions below this line yet.
+       ========================================================= */
+    /* ===== BreathEngine constants & helpers ===== */
+
+    const BREATH_CANVAS_WIDTH = 1000;
+    const BREATH_CANVAS_HEIGHT = 600;
+
+    // Tube mouth: bottom-left of the 1000×600 region
+    const TUBE_MOUTH_X_MIN = 0;
+    const TUBE_MOUTH_X_MAX = 20;       // only ~20px overlap into panel
+    const TUBE_MOUTH_Y_MIN = 480;
+    const TUBE_MOUTH_Y_MAX = 600;
+
+    // Breath cycle durations (seconds)
+    const INHALE_DURATION = 5;
+    const HOLD_DURATION   = 3;
+    const EXHALE_DURATION = 4;
+    const BREATH_CYCLE_DURATION = INHALE_DURATION + HOLD_DURATION + EXHALE_DURATION;
+
+    // depletesLeft behaviour:
+    // - starts at 30 at INHALE start
+    // - goes down by 1 every 0.2s
+    // - reaches 20 when 3s of inhale left
+    // - reaches 10 when 1s of inhale left
+    // - reaches 0 one second into the HOLD phase
+    const DEPLETES_INITIAL = 30;
+    const DEPLETES_STEP    = 1;
+    const DEPLETES_INTERVAL = 0.2;   // seconds
+
+    // Inhale delay formula:
+    // delayMs = (x / 10 - K + opacity) * n, clamped to [0, 2000]
+    // with K = 6 as specified.
+    const INHALE_DELAY_K = 6;
+    const INHALE_DELAY_MAX_MS = 2000;
+
+    // Tube throttling:
+    // At most 1 entry per 0.01s, 1 exit per 0.01s
+    const TUBE_ENTRY_MIN_INTERVAL_MS = 10;
+    const TUBE_EXIT_MIN_INTERVAL_MS  = 10;
+
+    // Spawn parameters for pre-breath (REDUCED for better performance)
+    const PREBREATH_SPAWN_INTERVAL = 0.04;  // ~25 shapes/sec → ~500 over 20s (reduced from 50/sec)
+    const PREBREATH_MAX_SHAPES = 600;  // Reduced from 1100 for better performance
+
+    // Spawn throttling for PREBREATH phase
+    // Maximum spawns per second to prevent overwhelming the rendering engine
+    const MAX_SPAWN_PER_SEC = 30;  // Hard limit: 30 shapes/second max (reduced from 60)
+    // Note: Actual spawn rate is controlled by PREBREATH_SPAWN_INTERVAL (0.04s = 25/sec)
+    // and enforced via engine.prebreathSpawnAccumulator in the RAF loop
+
+    // Opacity range for shapes (as per scoring decision)
+    const SHAPE_OPACITY_MIN = 10;
+    const SHAPE_OPACITY_MAX = 60;
+
+    // Shape sizes
+    const SHAPE_WIDTH_MIN = 30;
+    const SHAPE_WIDTH_MAX = 80;
+    const SHAPE_HEIGHT_MIN = 30;
+    const SHAPE_HEIGHT_MAX = 60;
+
+    // Clouds & Rainbows color palette - soft, pastel colors for cloud-like shapes
+    const BREATH_COLOR_GROUPS_FALLBACK = [
+      {
+        name: "CloudWhite",
+        colors: ["#FFFFFF", "#F0F8FF", "#E6F3FF", "#DBE9F4", "#D4E7F7"]
+      },
+      {
+        name: "RainbowRed",
+        colors: ["#FF6B6B", "#FFB6B9", "#FFC8C8", "#FFD6D6", "#FFE4E4"]
+      },
+      {
+        name: "RainbowOrange",
+        colors: ["#FFB86C", "#FFCC99", "#FFD6AD", "#FFE0C2", "#FFEAD6"]
+      },
+      {
+        name: "RainbowYellow",
+        colors: ["#FFEAA7", "#FFF3CC", "#FFF6D9", "#FFF9E6", "#FFFCF2"]
+      },
+      {
+        name: "RainbowGreen",
+        colors: ["#A3E635", "#C0F070", "#D0F58C", "#E0FAA8", "#F0FFC4"]
+      },
+      {
+        name: "RainbowCyan",
+        colors: ["#67E8F9", "#8EEDFB", "#A5F1FC", "#BCF5FD", "#D3F9FE"]
+      },
+      {
+        name: "RainbowBlue",
+        colors: ["#60A5FA", "#8BBFFC", "#A5CCFD", "#BFD9FE", "#D9E6FF"]
+      },
+      {
+        name: "RainbowPurple",
+        colors: ["#C4B5FD", "#D5C9FE", "#E0D7FE", "#EBE5FF", "#F6F3FF"]
+      },
+      {
+        name: "RainbowPink",
+        colors: ["#F9A8D4", "#FCBFE0", "#FDD0E8", "#FEE1F0", "#FFF2F8"]
+      }
+    ];
+
+    const BREATH_SHAPE_TYPES = ["blob", "egg", "tv", "curved"];
+
+    function breathRandRange(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function breathRandInt(min, maxInclusive) {
+      return Math.floor(min + Math.random() * (maxInclusive - min + 1));
+    }
+
+    function breathPickColor() {
+      const groups = BREATH_COLOR_GROUPS_FALLBACK;
+      const g = groups[Math.floor(Math.random() * groups.length)];
+      const c = g.colors[Math.floor(Math.random() * g.colors.length)];
+      return { group: g.name, color: c };
+    }
+
+    function breathAABBOverlap(s, x, y, w, h) {
+      const sL = s.x - s.w / 2;
+      const sR = s.x + s.w / 2;
+      const sT = s.y - s.h / 2;
+      const sB = s.y + s.h / 2;
+
+      const nL = x - w / 2;
+      const nR = x + w / 2;
+      const nT = y - h / 2;
+      const nB = y + h / 2;
+
+      return !(nR < sL || nL > sR || nB < sT || nT > sB);
+    }
+
+    /* ----- Shape creation & clustering for pre-breath ----- */
+
+    function createInitialCluster(engine) {
+      // Ensure engine has nextClusterId, default to 1 if missing
+      if (typeof engine.nextClusterId !== 'number') {
+        engine.nextClusterId = 1;
+      }
+
+      const { group, color } = breathPickColor();
+      const cluster = {
+        id: engine.nextClusterId++,  // Use engine.nextClusterId++ instead of hard-coded id:1
+        vx: breathRandRange(-8, 8),
+        vy: breathRandRange(-24, -6), // gentle upward bias (negative vy)
+        colorGroup: group,
+        baseColor: color
+      };
+      engine.clusters.push(cluster);
+      return cluster;
+    }
+
+    function spawnBreathShape(engine) {
+      // Defensive guards: ensure engine is defined and has required properties
+      if (!engine) {
+        console.warn("[spawnBreathShape] engine is undefined or null");
+        return;
+      }
+
+      // Ensure engine has required properties with defaults
+      if (!Array.isArray(engine.shapes)) {
+        console.warn("[spawnBreathShape] engine.shapes is missing, initializing to []");
+        engine.shapes = [];
+      }
+      if (!Array.isArray(engine.clusters)) {
+        console.warn("[spawnBreathShape] engine.clusters is missing, initializing to []");
+        engine.clusters = [];
+      }
+      if (typeof engine.nextShapeId !== 'number') {
+        console.warn("[spawnBreathShape] engine.nextShapeId is missing, initializing to 1");
+        engine.nextShapeId = 1;
+      }
+      if (typeof engine.nextClusterId !== 'number') {
+        console.warn("[spawnBreathShape] engine.nextClusterId is missing, initializing to 1");
+        engine.nextClusterId = 1;
+      }
+
+      if (engine.shapes.length >= PREBREATH_MAX_SHAPES) return;
+
+      const shapeType = BREATH_SHAPE_TYPES[Math.floor(Math.random() * BREATH_SHAPE_TYPES.length)];
+      const w = breathRandRange(SHAPE_WIDTH_MIN, SHAPE_WIDTH_MAX);
+      const h = breathRandRange(SHAPE_HEIGHT_MIN, SHAPE_HEIGHT_MAX);
+      const opacity = breathRandInt(SHAPE_OPACITY_MIN, SHAPE_OPACITY_MAX);
+      const n = breathRandInt(1, 3);
+
+      // Spawn mostly in top half, avoiding edges a little
+      let x = breathRandRange(w / 2 + 5, BREATH_CANVAS_WIDTH - w / 2 - 5);
+      let y = breathRandRange(h / 2 + 5, BREATH_CANVAS_HEIGHT / 2 - h / 2 - 5);
+
+      const engineClusters = engine.clusters;
+      const nextId = engine.nextShapeId++;
+      let clusterId = null;
+      let vx = 0;
+      let vy = 0;
+      let color = "";
+      let colorGroup = "";
+
+      if (engineClusters.length === 0) {
+        // First cluster
+        const cl = createInitialCluster(engine);
+        clusterId = cl.id;
+        vx = cl.vx;
+        vy = cl.vy;
+        color = cl.baseColor;
+        colorGroup = cl.colorGroup;
+      } else {
+        const joinPrev = Math.random() < 0.8;
+        const shapes = engine.shapes;
+
+        if (joinPrev && shapes.length > 0) {
+          // Join previous cluster
+          const prevShape = shapes[shapes.length - 1];
+          const cl = engineClusters.find((c) => c.id === prevShape.clusterId) || engineClusters[0];
+          clusterId = cl.id;
+          vx = cl.vx;
+          vy = cl.vy;
+          color = cl.baseColor;
+          colorGroup = cl.colorGroup;
+
+          const signX = Math.random() < 0.5 ? -1 : 1;
+          const signY = Math.random() < 0.5 ? -1 : 1;
+          x = prevShape.x + signX * (prevShape.h / 2 + 2 * n);
+          y = prevShape.y + signY * (2 * prevShape.w / 3 - n);
+        } else {
+          // Attempt to start new cluster
+          const { group, color: col } = breathPickColor();
+          // Use engine.nextClusterId for safe, consistent ID assignment
+          let clId = engine.nextClusterId++;
+          let newCluster = {
+            id: clId,
+            vx: breathRandRange(-8, 8),
+            vy: breathRandRange(-24, -6),
+            colorGroup: group,
+            baseColor: col
+          };
+
+          x = breathRandRange(w / 2 + 5, BREATH_CANVAS_WIDTH - w / 2 - 5);
+          y = breathRandRange(h / 2 + 5, BREATH_CANVAS_HEIGHT / 2 - h / 2 - 5);
+
+          const overlappingShape = engine.shapes.find((s) => breathAABBOverlap(s, x, y, w, h));
+
+          if (overlappingShape) {
+            // If overlapping existing cluster, join that cluster instead
+            const cl =
+              engineClusters.find((c) => c.id === overlappingShape.clusterId) ||
+              engineClusters[0];
+            clusterId = cl.id;
+            vx = cl.vx;
+            vy = cl.vy;
+            color = cl.baseColor;
+            colorGroup = cl.colorGroup;
+          } else {
+            engineClusters.push(newCluster);
+            clusterId = newCluster.id;
+            vx = newCluster.vx;
+            vy = newCluster.vy;
+            color = newCluster.baseColor;
+            colorGroup = newCluster.colorGroup;
+          }
+        }
+      }
+
+      // Clamp inside spawn band
+      x = Math.max(w / 2, Math.min(BREATH_CANVAS_WIDTH - w / 2, x));
+      y = Math.max(h / 2, Math.min(BREATH_CANVAS_HEIGHT / 2 - h / 2, y));
+
+      const shape = {
+        id: nextId,
+        x,
+        y,
+        w,
+        h,
+        vx,
+        vy,
+        baseVx: vx,
+        baseVy: vy,
+        opacity,
+        initialOpacity: opacity,
+        n,
+        shapeType,
+        color,
+        colorGroup,
+        state: "field", // "field" | "queued" | "inTube" | "absorbed" | "exiting" | "removed"
+        inhaleDelayMs: 0,
+        inhaleActivated: false,
+        slipActive: false,
+        slipEndTime: 0,
+        tubeEnterTimeMs: null,
+        opacityAtEntry: null,
+        fullyAbsorbed: false,
+        absorbTimeSec: null,
+        opacityAfterTube: null,
+        exhaleExitTimeSec: null,
+        exhaleParams: null, // { upProfile, upBias, wobbleAmp, wobbleFreq, swirlPhase }
+      };
+
+      engine.shapes.push(shape);
+    }
+
+    /* ----- Breath engine state helper ----- */
+
+    function createBreathEngineState() {
+      return {
+        shapes: [],
+        clusters: [],
+        tubeStack: [],        // LIFO stack of shapes in tube
+        exitQueue: [],        // shapes scheduled to exit, LIFO processed with 0.01s throttle
+        pendingAbsorptions: [], // {timeSec, amount, shapeId}
+        spawnAccumulator: 0,
+        nextShapeId: 1,
+
+        simTimeSec: 0,
+        lastTimestampMs: null,
+
+        // Breath sub-phase (internal to BREATH)
+        breathPhase: "IDLE",   // "IDLE" | "PRE_BREATH" | "INHALE" | "HOLD" | "EXHALE"
+        breathPhaseTimeSec: 0,
+        breathCycleCount: 0,
+
+        depletesLeft: 0,
+        depleteAccumSec: 0,
+        inhaleStartMs: 0,
+
+        lastTubeEntryMs: 0,
+        lastTubeExitMs: 0,
+
+        holdDampApplied: false,
+
+        breathStartMs: null
+      };
+    }
+
+    /**
+     * Factory initializer for BreathEngine with all required properties.
+     * 
+     * NOTE: This is a minimal factory that provides essential shape/cluster properties
+     * and IDs needed for defensive guards in spawnBreathShape and createInitialCluster.
+     * For full engine state with animation loop properties, use createBreathEngineState().
+     * 
+     * This factory is useful when you need to ensure an engine object has the minimum
+     * properties to safely call shape spawning functions without errors.
+     * 
+     * Ensures engine has: shapes, clusters, nextShapeId, nextClusterId, 
+     * depletesLeft, lastTubeEntryMs, lastTubeExitMs, and prebreathSpawnAccumulator.
+     */
+    function createBreathEngine() {
+      return {
+        shapes: [],
+        clusters: [],
+        nextShapeId: 1,
+        nextClusterId: 1,
+        depletesLeft: DEPLETES_INITIAL,
+        lastTubeEntryMs: 0,
+        lastTubeExitMs: 0,
+        prebreathSpawnAccumulator: 0
+      };
+    }
+
+    /* ----- Inhale / Hold / Exhale cycle management ----- */
+
+    function startInhalePhase(engine, nowMs) {
+      engine.breathPhase = "INHALE";
+      engine.breathPhaseTimeSec = 0;
+      engine.depletesLeft = DEPLETES_INITIAL;
+      engine.depleteAccumSec = 0;
+      engine.inhaleStartMs = nowMs;
+      engine.holdDampApplied = false;
+
+      // Reset per-shape inhale delays
+      for (const shape of engine.shapes) {
+        if (shape.state !== "field") continue;
+        const delayMsRaw = (shape.x / 10 - INHALE_DELAY_K + shape.opacity) * shape.n;
+        const delayMs = Math.max(0, Math.min(INHALE_DELAY_MAX_MS, delayMsRaw));
+        shape.inhaleDelayMs = delayMs;
+        shape.inhaleActivated = false;
+        shape.slipActive = false;
+        shape.slipEndTime = 0;
+      }
+    }
+
+    function startHoldPhase(engine) {
+      engine.breathPhase = "HOLD";
+      engine.breathPhaseTimeSec = 0;
+      engine.holdDampApplied = false;
+    }
+
+    function startExhalePhase(engine, nowSec) {
+      engine.breathPhase = "EXHALE";
+      engine.breathPhaseTimeSec = 0;
+
+      // Schedule exits for shapes currently in tubeStack.
+      // Exits are LIFO; we will pop from tubeStack as we schedule them.
+      let delayCursor = 0;
+      while (engine.tubeStack.length > 0) {
+        const shape = engine.tubeStack.pop();
+        if (!shape) break;
+        const extraDelay = Math.random() * 2; // 0–2s exhale delay
+        shape.state = "exiting";
+        shape.exhaleExitTimeSec = nowSec + delayCursor + extraDelay;
+
+        // Exhale motion parameters depend on size & opacity
+        const area = shape.w * shape.h;
+        const baseVxRaw = 600 - 2 * shape.opacity - area / 10;
+        const baseVx = Math.max(60, Math.min(380, baseVxRaw)); // clamp to keep it visually reasonable
+
+        const vy0Raw = 480 - (shape.opacity * shape.opacity) / 10 - shape.h - shape.w;
+        const baseVy = vy0Raw / 10; // scale down so it's not insane
+
+        const upProfile = 1 - (shape.opacity / SHAPE_OPACITY_MAX); // smaller/low-opacity rise more strongly
+        const upBias = (Math.random() * 2 - 1); // [-1, 1]
+        const wobbleAmp = breathRandRange(10, 40);
+        const wobbleFreq = breathRandRange(0.3, 1.2);
+        const swirlPhase = Math.random() * Math.PI * 2;
+
+        shape.exhaleParams = {
+          baseVx,
+          baseVy,
+          upProfile,
+          upBias,
+          wobbleAmp,
+          wobbleFreq,
+          swirlPhase,
+          exhaleStartSec: shape.exhaleExitTimeSec // we treat exit time as t0 for wobble
+        };
+
+        engine.exitQueue.push(shape);
+        delayCursor += 0.01; // schedule possible exit every 0.01s
+      }
+    }
+
+    function updateBreathPhase(engine, dtSec, nowMs) {
+      if (engine.breathPhase === "IDLE") {
+        // do nothing
+        return;
+      }
+
+      engine.breathPhaseTimeSec += dtSec;
+
+      if (engine.breathPhase === "INHALE") {
+        // Manage depletesLeft over INHALE + first second of HOLD
+        engine.depleteAccumSec += dtSec;
+        while (engine.depleteAccumSec >= DEPLETES_INTERVAL && engine.depletesLeft > 0) {
+          engine.depleteAccumSec -= DEPLETES_INTERVAL;
+          engine.depletesLeft = Math.max(0, engine.depletesLeft - DEPLETES_STEP);
+        }
+
+        if (engine.breathPhaseTimeSec >= INHALE_DURATION) {
+          // Transition to HOLD
+          const overflow = engine.breathPhaseTimeSec - INHALE_DURATION;
+          startHoldPhase(engine);
+          engine.breathPhaseTimeSec = overflow;
+        }
+      } else if (engine.breathPhase === "HOLD") {
+        // Continue depletesLeft dropping only for first second of HOLD
+        if (engine.breathPhaseTimeSec <= 1 && engine.depletesLeft > 0) {
+          engine.depleteAccumSec += dtSec;
+          while (engine.depleteAccumSec >= DEPLETES_INTERVAL && engine.depletesLeft > 0) {
+            engine.depleteAccumSec -= DEPLETES_INTERVAL;
+            engine.depletesLeft = Math.max(0, engine.depletesLeft - DEPLETES_STEP);
+          }
+        }
+
+        if (engine.breathPhaseTimeSec >= HOLD_DURATION) {
+          const overflow = engine.breathPhaseTimeSec - HOLD_DURATION;
+          // Start EXHALE
+          startExhalePhase(engine, engine.simTimeSec + overflow);
+        }
+      } else if (engine.breathPhase === "EXHALE") {
+        if (engine.breathPhaseTimeSec >= EXHALE_DURATION) {
+          // Cycle completed; start new INHALE
+          engine.breathCycleCount += 1;
+          const overflow = engine.breathPhaseTimeSec - EXHALE_DURATION;
+          startInhalePhase(engine, nowMs);
+          engine.breathPhaseTimeSec = overflow;
+        }
+      }
+    }
+
+    /* ----- Tube entry & absorption ----- */
+
+    function tryQueueTubeEntry(engine, shape, nowMs) {
+      if (shape.state !== "field") return;
+      if (
+        shape.x < TUBE_MOUTH_X_MIN ||
+        shape.x > TUBE_MOUTH_X_MAX ||
+        shape.y < TUBE_MOUTH_Y_MIN ||
+        shape.y > TUBE_MOUTH_Y_MAX
+      ) {
+        return;
+      }
+      const now = nowMs;
+      if (now - engine.lastTubeEntryMs < TUBE_ENTRY_MIN_INTERVAL_MS) {
+        // Already queued/entered very recently – do nothing this frame (effectively queue in space)
+        return;
+      }
+
+      // Queue for tube; shape will be pushed into tubeStack in this same frame.
+      engine.lastTubeEntryMs = now;
+      shape.state = "queued";
+      shape.tubeEnterTimeMs = now;
+      shape.opacityAtEntry = shape.opacity;
+
+      // Absorption calculation uses current depletesLeft
+      const drain = engine.depletesLeft;
+      const opacityAtEntry = shape.opacity;
+
+      if (drain >= opacityAtEntry) {
+        // Fully absorbed; never exits.
+        shape.fullyAbsorbed = true;
+        shape.state = "absorbed";
+
+        const absorbDelaySec = 0.2 * opacityAtEntry; // as requested: 0.2 × opacity_at_entry seconds
+        const absorbTimeSec = engine.simTimeSec + absorbDelaySec;
+        shape.absorbTimeSec = absorbTimeSec;
+
+        engine.pendingAbsorptions.push({
+          timeSec: absorbTimeSec,
+          amount: shape.initialOpacity, // scoring uses original opacity
+          shapeId: shape.id,
+          x: shape.x,
+          y: shape.y
+        });
+
+        // The shape is effectively gone from the field now; we don't push into tubeStack.
+      } else {
+        // Partially depleted; will exit at EXHALE with reduced opacity
+        const newOpacity = opacityAtEntry - drain;
+        shape.opacityAfterTube = newOpacity;
+        shape.fullyAbsorbed = false;
+        // Pushed into tubeStack as last-in; hidden in field.
+        shape.state = "inTube";
+        engine.tubeStack.push(shape);
+      }
+    }
+
+    /* ----- Shape updates for each outer phase ----- */
+
+    function updatePreBreathMotion(engine, dtSec) {
+      for (const shape of engine.shapes) {
+        if (shape.state !== "field") continue;
+
+        // Base drift
+        shape.x += shape.vx * dtSec;
+        shape.y += shape.vy * dtSec;
+
+        // Small random perturbations for cloud-like feel
+        shape.vx += breathRandRange(-4, 4) * dtSec;
+        shape.vy += breathRandRange(-8, 8) * dtSec;
+
+        // Clamp speeds
+        const maxSpeed = 60;
+        const speedSq = shape.vx * shape.vx + shape.vy * shape.vy;
+        if (speedSq > maxSpeed * maxSpeed) {
+          const s = Math.sqrt(speedSq);
+          const f = maxSpeed / s;
+          shape.vx *= f;
+          shape.vy *= f;
+        }
+
+        // Edge behaviour
+        const left = shape.x - shape.w / 2;
+        const right = shape.x + shape.w / 2;
+        const top = shape.y - shape.h / 2;
+        const bottom = shape.y + shape.h / 2;
+
+        if (left < 0 || right > BREATH_CANVAS_WIDTH) {
+          if (Math.random() < 0.5) {
+            // direction flip with half speed (approximately 180°)
+            shape.vx = -shape.vx * 0.5;
+            shape.vy = shape.vy * 0.5;
+          } else {
+            shape.vx = -shape.vx;
+          }
+        }
+        if (top < 0 || bottom > BREATH_CANVAS_HEIGHT) {
+          if (Math.random() < 0.5) {
+            shape.vx = shape.vx * 0.5;
+            shape.vy = -shape.vy * 0.5;
+          } else {
+            shape.vy = -shape.vy;
+          }
+        }
+
+        // Bring back fully inside bounds if slightly out
+        shape.x = Math.max(shape.w / 2, Math.min(BREATH_CANVAS_WIDTH - shape.w / 2, shape.x));
+        shape.y = Math.max(shape.h / 2, Math.min(BREATH_CANVAS_HEIGHT / 2 - shape.h / 2, shape.y));
+      }
+    }
+
+    function updateInhaleHoldMotion(engine, dtSec, nowMs) {
+      const elapsedSinceInhaleMs = nowMs - engine.inhaleStartMs;
+
+      // On first frame of HOLD, apply strong damping for non-tube shapes
+      if (engine.breathPhase === "HOLD" && !engine.holdDampApplied) {
+        for (const shape of engine.shapes) {
+          if (shape.state === "field") {
+            shape.vx *= 0.1;
+            shape.vy *= 0.1;
+          }
+        }
+        engine.holdDampApplied = true;
+      }
+
+      for (const shape of engine.shapes) {
+        if (shape.state !== "field") continue;
+
+        // Inhale delay
+        const elapsedMs = elapsedSinceInhaleMs;
+        if (!shape.inhaleActivated) {
+          if (elapsedMs >= shape.inhaleDelayMs) {
+            shape.inhaleActivated = true;
+            if (Math.random() < 0.5) {
+              shape.slipActive = true;
+              shape.slipEndTime = engine.simTimeSec + breathRandRange(0.5, 1.0);
+            } else {
+              shape.slipActive = false;
+            }
+          } else {
+            // Not yet activated; still drift gently
+            shape.x += shape.vx * dtSec;
+            shape.y += shape.vy * dtSec;
+            continue;
+          }
+        }
+
+        if (shape.slipActive && engine.simTimeSec < shape.slipEndTime && engine.breathPhase === "INHALE") {
+          // Horizontal-left slip with small downward component (canvas down = +y)
+          shape.vx = -breathRandRange(40, 80);
+          shape.vy = breathRandRange(8, 18);
+        } else {
+          // Re-orient gradually toward tube mouth
+          const targetX = breathRandRange(TUBE_MOUTH_X_MIN + 5, TUBE_MOUTH_X_MAX - 2);
+          const targetY = breathRandRange(TUBE_MOUTH_Y_MIN + 10, TUBE_MOUTH_Y_MAX - 10);
+
+          const dx = targetX - shape.x;
+          const dy = targetY - shape.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+          // Base speed tuned so shapes reach tube over multiple breaths if needed
+          const baseSpeed = 90 + (SHAPE_OPACITY_MAX - shape.opacity) * 2; // smaller/fainter → faster
+          const desiredVx = (dx / dist) * baseSpeed;
+          const desiredVy = (dy / dist) * baseSpeed;
+
+          const maxDelta = 250 * dtSec; // ±25 per 0.1s
+          const dvx = desiredVx - shape.vx;
+          const dvy = desiredVy - shape.vy;
+
+          shape.vx += Math.max(-maxDelta, Math.min(maxDelta, dvx));
+          shape.vy += Math.max(-maxDelta, Math.min(maxDelta, dvy));
+        }
+
+        // Integrate motion
+        shape.x += shape.vx * dtSec;
+        shape.y += shape.vy * dtSec;
+
+        // Keep inside main region
+        shape.x = Math.max(shape.w / 2, Math.min(BREATH_CANVAS_WIDTH - shape.w / 2, shape.x));
+        shape.y = Math.max(shape.h / 2, Math.min(BREATH_CANVAS_HEIGHT - shape.h / 2, shape.y));
+
+        // Tube entry allowed during INHALE and HOLD
+        if (engine.breathPhase === "INHALE" || engine.breathPhase === "HOLD") {
+          tryQueueTubeEntry(engine, shape, nowMs);
+        }
+      }
+    }
+
+    function updateExhaleMotion(engine, dtSec) {
+      const nowSec = engine.simTimeSec;
+
+      // Process exits with 0.01s throttle
+      if (engine.exitQueue.length > 0) {
+        const lastExitMs = engine.lastTubeExitMs;
+        const nowMs = performance.now();
+        if (nowMs - lastExitMs >= TUBE_EXIT_MIN_INTERVAL_MS) {
+          // Find shape(s) that are due to exit now or already overdue.
+          const readyIndex = engine.exitQueue.findIndex(
+            (shape) => shape.exhaleExitTimeSec !== null && shape.exhaleExitTimeSec <= nowSec
+          );
+          if (readyIndex !== -1) {
+            const shape = engine.exitQueue.splice(readyIndex, 1)[0];
+            // Reinsert near tube mouth
+            shape.state = "field";
+            shape.x = breathRandRange(TUBE_MOUTH_X_MIN + 8, TUBE_MOUTH_X_MAX + 40);
+            shape.y = breathRandRange(TUBE_MOUTH_Y_MIN + 10, TUBE_MOUTH_Y_MAX - 10);
+            shape.opacity = shape.opacityAfterTube != null ? shape.opacityAfterTube : shape.opacity;
+            shape.opacity = Math.max(1, shape.opacity);
+            shape.tubeEnterTimeMs = null;
+            shape.opacityAtEntry = null;
+            shape.fullyAbsorbed = false;
+            shape.absorbTimeSec = null;
+            shape.opacityAfterTube = null;
+
+            // Apply exhale base velocities
+            const p = shape.exhaleParams || {
+              baseVx: 180,
+              baseVy: 40,
+              upProfile: 0.5,
+              upBias: 0,
+              wobbleAmp: 20,
+              wobbleFreq: 0.7,
+              swirlPhase: 0,
+              exhaleStartSec: nowSec
+            };
+
+            shape.vx = p.baseVx;
+            shape.vy = p.baseVy;
+            shape.exhaleParams = p;
+
+            engine.lastTubeExitMs = nowMs;
+          }
+        }
+      }
+
+      // Move exhaling shapes with global upward curvature and wobble
+      for (const shape of engine.shapes) {
+        if (shape.state !== "field") continue;
+        if (!shape.exhaleParams) continue;
+
+        const p = shape.exhaleParams;
+        const t = Math.max(0, nowSec - p.exhaleStartSec);
+
+        // Upward acceleration: stronger for higher upProfile, modulated by upBias
+        const baseUpAccel = -20 - 40 * p.upProfile;
+        const biasFactor = 1 + 0.6 * p.upBias; // shapes may dip a bit first or rise quickly
+        const ay = baseUpAccel * biasFactor;
+
+        // Slight horizontal drag
+        const ax = -shape.vx * 0.12;
+
+        shape.vx += ax * dtSec;
+        shape.vy += ay * dtSec;
+
+        // Wobble: sinusoidal sideways + slight vertical wobble
+        const wobble = p.wobbleAmp;
+        const omega = 2 * Math.PI * p.wobbleFreq;
+        const sinTerm = Math.sin(omega * t + p.swirlPhase);
+        const cosTerm = Math.cos(omega * t + p.swirlPhase);
+
+        shape.vx += (wobble * 0.4 * sinTerm) * dtSec;
+        shape.vy += (wobble * 0.2 * cosTerm) * dtSec;
+
+        // Integrate
+        shape.x += shape.vx * dtSec;
+        shape.y += shape.vy * dtSec;
+
+        // Keep some within bounds but allow some to rise off top/right
+        const margin = 40;
+        if (shape.x < -margin || shape.x > BREATH_CANVAS_WIDTH + margin ||
+            shape.y < -margin || shape.y > BREATH_CANVAS_HEIGHT + margin) {
+          // Once fully gone, remove the shape completely
+          shape.state = "removed";
+        }
+      }
+    }
+
+    /* ----- Absorption scoring events ----- */
+
+    function processAbsorptionEvents(engine, nowSec, addScore, pushPopup) {
+      if (!engine.pendingAbsorptions.length) return;
+      const remaining = [];
+      for (const evt of engine.pendingAbsorptions) {
+        if (evt.timeSec <= nowSec) {
+          // Award score
+          if (typeof addScore === "function") {
+            addScore(evt.amount);
+          }
+          if (typeof pushPopup === "function") {
+            pushPopup(evt.amount, evt.x, evt.y);
+          }
+          // Mark shape as removed
+          const shape = engine.shapes.find((s) => s.id === evt.shapeId);
+          if (shape) shape.state = "removed";
+        } else {
+          remaining.push(evt);
+        }
+      }
+      engine.pendingAbsorptions = remaining;
+    }
+
+    /* ----- Rendering ----- */
+
+    function drawBreathShapes(ctx, engine) {
+      ctx.clearRect(0, 0, BREATH_CANVAS_WIDTH, BREATH_CANVAS_HEIGHT);
+
+      // Make background transparent to show video
+      // No background fill - video will show through
+
+      // Tube mouth highlight zone (very subtle, more transparent)
+      ctx.save();
+      const tubeGrad = ctx.createLinearGradient(
+        TUBE_MOUTH_X_MIN, TUBE_MOUTH_Y_MIN,
+        TUBE_MOUTH_X_MAX + 40, TUBE_MOUTH_Y_MAX
+      );
+      tubeGrad.addColorStop(0, "rgba(45,212,191,0.15)");  // Reduced opacity
+      tubeGrad.addColorStop(1, "rgba(15,23,42,0)");
+      ctx.fillStyle = tubeGrad;
+      ctx.fillRect(
+        TUBE_MOUTH_X_MIN,
+        TUBE_MOUTH_Y_MIN - 20,
+        (TUBE_MOUTH_X_MAX + 40) - TUBE_MOUTH_X_MIN,
+        (TUBE_MOUTH_Y_MAX + 40) - (TUBE_MOUTH_Y_MIN - 20)
+      );
+      ctx.restore();
+
+      // Draw shapes that are in the field
+      for (const shape of engine.shapes) {
+        if (shape.state !== "field") continue;
+        if (shape.opacity <= 0.5) continue;
+
+        const alpha = Math.max(0.05, Math.min(0.6, shape.opacity / 100));
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = shape.color;
+        ctx.shadowColor = shape.color;
+        ctx.shadowBlur = 18;
+
+        const x = shape.x;
+        const y = shape.y;
+        const w = shape.w;
+        const h = shape.h;
+
+        ctx.beginPath();
+        if (shape.shapeType === "tv") {
+          const r = Math.min(w, h) * 0.45;
+          const left = x - w / 2;
+          const right = x + w / 2;
+          const top = y - h / 2;
+          const bottom = y + h / 2;
+          ctx.moveTo(left + r, top);
+          ctx.lineTo(right - r, top);
+          ctx.quadraticCurveTo(right, top, right, top + r);
+          ctx.lineTo(right, bottom - r);
+          ctx.quadraticCurveTo(right, bottom, right - r, bottom);
+          ctx.lineTo(left + r, bottom);
+          ctx.quadraticCurveTo(left, bottom, left, bottom - r);
+          ctx.lineTo(left, top + r);
+          ctx.quadraticCurveTo(left, top, left + r, top);
+        } else if (shape.shapeType === "egg") {
+          ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
+        } else if (shape.shapeType === "curved") {
+          ctx.moveTo(x - w * 0.4, y);
+          ctx.bezierCurveTo(
+            x - w * 0.6, y - h * 0.6,
+            x + w * 0.6, y - h * 0.8,
+            x + w * 0.4, y
+          );
+          ctx.bezierCurveTo(
+            x + w * 0.6, y + h * 0.4,
+            x - w * 0.4, y + h * 0.7,
+            x - w * 0.4, y
+          );
+        } else {
+          // "blob" – an organic blobby shape
+          ctx.moveTo(x, y - h / 2);
+          ctx.bezierCurveTo(
+            x + w * 0.5, y - h * 0.6,
+            x + w * 0.7, y,
+            x, y + h * 0.5
+          );
+          ctx.bezierCurveTo(
+            x - w * 0.7, y,
+            x - w * 0.5, y - h * 0.6,
+            x, y - h / 2
+          );
+        }
+
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    /* ----- React component: BreathEnginePanel ----- */
+
+    const BreathEnginePanel = ({ phase, onStartBreath, onFinishBreath, addScore }) => {
+      const canvasRef = React.useRef(null);
+      const containerRef = React.useRef(null);
+
+      const engineRef = React.useRef(createBreathEngineState());
+      const phaseRef = React.useRef(phase);
+
+      const [breathPhaseLabel, setBreathPhaseLabel] = React.useState("PRE-BREATH");
+      const [breathCycles, setBreathCycles] = React.useState(0);
+      const [scorePopups, setScorePopups] = React.useState([]);
+
+      // Track breath start time to compute duration on Finish
+      const breathStartMsRef = React.useRef(null);
+
+      // Helper: push a new score popup
+      const pushScorePopup = (amount, x, y) => {
+        if (!containerRef.current) return;
+        const id = Date.now() + Math.random();
+        const px = (x / BREATH_CANVAS_WIDTH) * 100;
+        const py = (y / BREATH_CANVAS_HEIGHT) * 100;
+        setScorePopups((prev) => [
+          ...prev,
+          { id, amount, left: px, top: py }
+        ]);
+        setTimeout(() => {
+          setScorePopups((prev) => prev.filter((p) => p.id !== id));
+        }, 1300);
+      };
+
+      // Outer phase changes: PRE_BREATH -> WAIT_BREATH_START -> BREATH
+      React.useEffect(() => {
+        const engine = engineRef.current;
+        const prevOuter = phaseRef.current;
+        phaseRef.current = phase;
+
+        if (phase === PHASES.PRE_BREATH && prevOuter !== PHASES.PRE_BREATH) {
+          // Reset for a new pre-breath cycle
+          engineRef.current = createBreathEngineState();
+          const e = engineRef.current;
+          e.breathPhase = "PRE_BREATH";
+          setBreathPhaseLabel("PRE-BREATH");
+          setBreathCycles(0);
+          breathStartMsRef.current = null;
+        }
+
+        if (phase === PHASES.BREATH && prevOuter !== PHASES.BREATH) {
+          const nowMs = performance.now();
+          const e = engineRef.current;
+          e.breathStartMs = nowMs;
+          breathStartMsRef.current = nowMs;
+          startInhalePhase(e, nowMs);
+          setBreathPhaseLabel("INHALE");
+        }
+
+        if (phase !== PHASES.BREATH && prevOuter === PHASES.BREATH) {
+          // Outer left BREATH; reset internal sub-phase
+          const e = engineRef.current;
+          e.breathPhase = "IDLE";
+          setBreathPhaseLabel("IDLE");
+        }
+      }, [phase]);
+
+      // Main animation loop
+      React.useEffect(() => {
+        let rafId = null;
+        const engine = engineRef.current;
+
+        const loop = (timestampMs) => {
+          const e = engineRef.current;
+          if (e.lastTimestampMs == null) {
+            e.lastTimestampMs = timestampMs;
+            rafId = requestAnimationFrame(loop);
+            return;
+          }
+
+          const dtMs = timestampMs - e.lastTimestampMs;
+          e.lastTimestampMs = timestampMs;
+          const dtSec = dtMs / 1000;
+
+          // Update sim time
+          e.simTimeSec += dtSec;
+
+          const outerPhase = phaseRef.current;
+
+          // ===== PREBREATH spawning (RAF-driven) =====
+          // Spawn during PRE_BREATH only, throttled by PREBREATH_SPAWN_INTERVAL (0.02s = 50 shapes/sec).
+          // MAX_SPAWN_PER_SEC (60) provides a hard limit to prevent overwhelming the renderer.
+          // The accumulator pattern ensures consistent spawn rate across varying frame rates.
+          // For alternative implementations, consider a dedicated prebreathRAFLoop() that:
+          //   - Runs only during PRE_BREATH phase
+          //   - Uses engine.prebreathSpawnAccumulator for time-based throttling
+          //   - Enforces MAX_SPAWN_PER_SEC by capping spawns per frame
+          if (outerPhase === PHASES.PRE_BREATH) {
+            e.spawnAccumulator += dtSec;
+            while (e.spawnAccumulator >= PREBREATH_SPAWN_INTERVAL) {
+              e.spawnAccumulator -= PREBREATH_SPAWN_INTERVAL;
+              if (e.shapes.length >= PREBREATH_MAX_SHAPES) break;
+              spawnBreathShape(e);
+            }
+          }
+
+          // Pre-breath drift
+          if (
+            outerPhase === PHASES.PRE_BREATH ||
+            outerPhase === PHASES.WAIT_BREATH_START
+          ) {
+            updatePreBreathMotion(e, dtSec);
+          }
+
+          // Breath cycle INHALE/HOLD/EXHALE
+          if (outerPhase === PHASES.BREATH) {
+            updateBreathPhase(e, dtSec, timestampMs);
+
+            // Update label & cycle count on transitions
+            const bp = e.breathPhase;
+            if (bp === "INHALE" && breathPhaseLabel !== "INHALE") {
+              setBreathPhaseLabel("INHALE");
+            } else if (bp === "HOLD" && breathPhaseLabel !== "HOLD") {
+              setBreathPhaseLabel("HOLD");
+            } else if (bp === "EXHALE" && breathPhaseLabel !== "EXHALE") {
+              setBreathPhaseLabel("EXHALE");
+            }
+
+            if (e.breathCycleCount !== breathCycles) {
+              setBreathCycles(e.breathCycleCount);
+            }
+
+            if (bp === "INHALE" || bp === "HOLD") {
+              updateInhaleHoldMotion(e, dtSec, timestampMs);
+            } else if (bp === "EXHALE") {
+              updateExhaleMotion(e, dtSec);
+            }
+          }
+
+          // Process absorption events (score & popups)
+          processAbsorptionEvents(e, e.simTimeSec, addScore, pushScorePopup);
+
+          // Clean out removed shapes
+          e.shapes = e.shapes.filter((s) => s.state !== "removed");
+
+          // Render
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const ctx = canvas.getContext("2d");
+            drawBreathShapes(ctx, e);
+          }
+
+          rafId = requestAnimationFrame(loop);
+        };
+
+        rafId = requestAnimationFrame(loop);
+        return () => {
+          if (rafId) cancelAnimationFrame(rafId);
+        };
+      }, [addScore, breathPhaseLabel, breathCycles]);
+
+      // Finish Breath handler
+      const handleFinishBreath = () => {
+        const engine = engineRef.current;
+        const nowMs = performance.now();
+        const startMs = breathStartMsRef.current || nowMs;
+        const durationSec = (nowMs - startMs) / 1000;
+
+        const stats = {
+          durationSec,
+          cyclesCompleted: engine.breathCycleCount,
+          shapesSpawned: engine.shapes.length + engine.pendingAbsorptions.length + engine.tubeStack.length,
+          shapesRemainingInField: engine.shapes.filter((s) => s.state === "field").length,
+          shapesAbsorbedThisSession: engine.pendingAbsorptions.length
+        };
+
+        // Clear shapes for next round
+        engineRef.current = createBreathEngineState();
+        setScorePopups([]);
+
+        if (typeof onFinishBreath === "function") {
+          onFinishBreath(stats);
+        }
+      };
+
+      return (
+        <div ref={containerRef} className="relative w-full h-full">
+          <canvas
+            ref={canvasRef}
+            className="breath-canvas"
+            width={BREATH_CANVAS_WIDTH}
+            height={BREATH_CANVAS_HEIGHT}
+          />
+
+          {/* Breath sub-phase label */}
+          {phase === PHASES.PRE_BREATH && (
+            <div className="breath-phase-label">PRE-BREATH</div>
+          )}
+          {phase === PHASES.WAIT_BREATH_START && (
+            <div className="breath-phase-label">READY</div>
+          )}
+          {phase === PHASES.BREATH && (
+            <div className="breath-phase-label">{breathPhaseLabel}</div>
+          )}
+
+          {/* Breath cycle counter */}
+          {phase === PHASES.BREATH && (
+            <div className="breath-cycle-chip">
+              Cycle {breathCycles + 1}
+            </div>
+          )}
+
+          {/* Start Breath button (only in WAIT_BREATH_START) */}
+          {phase === PHASES.WAIT_BREATH_START && typeof onStartBreath === "function" && (
+            <button
+              onClick={onStartBreath}
+              className="absolute inset-0 flex items-center justify-center"
+            >
+              <span className="px-6 py-2 rounded-full bg-emerald-400 text-black font-bold text-sm shadow-lg hover:bg-emerald-300 active:scale-95">
+                Start Breath
+              </span>
+            </button>
+          )}
+
+          {/* Finish Breath button during BREATH */}
+          {phase === PHASES.BREATH && (
+            <button
+              className="breath-finish-btn"
+              onClick={handleFinishBreath}
+            >
+              Finish Breath
+            </button>
+          )}
+
+          {/* Score popups */}
+          {scorePopups.map((p) => (
+            <div
+              key={p.id}
+              className="breath-score-popup"
+              style={{
+                left: `${p.left}%`,
+                top: `${p.top}%`
+              }}
+            >
+              +{p.amount}
+            </div>
+          ))}
+        </div>
+      );
+    };
+
+    /* =========================================================
+       [SCRIPT_CHUNK_2_TRIVIA_ENGINE_AND_APIS]
+       Complete trivia engine implementation with:
+       - Trivia pool manager (maintains category pools for levels 1-3)
+       - Intelligent staggered API calls (OpenAI → Gemini → OpenTDB fallback)
+       - Throttling, backoff, and failsafes
+       - Validation and QC that removes/replaces weak questions
+       - Robust startup sequence that preloads trivia before first cycle
+       ========================================================= */
+
+    // TriviaPoolManager: Manages category pools, fetching, and QC
+    class TriviaPoolManager {
+      constructor(openaiKey, geminiKey) {
+        this.openaiKey = openaiKey;
+        this.geminiKey = geminiKey;
+        
+        // Category pools by level: {1: Category[], 2: Category[], 3: Category[]}
+        this.categoryPools = { 1: [], 2: [], 3: [] };
+        
+        // Target pool sizes (minimum categories per level)
+        this.targetPoolSize = { 1: 10, 2: 10, 3: 10 };
+        
+        // Fetch state
+        this.isFetching = false;
+        this.lastFetchTime = null;
+        this.fetchErrors = [];
+        this.currentProvider = null;  // 'openai', 'gemini', 'opentdb', or null
+        
+        // Throttling: minimum time between fetches (ms)
+        this.minFetchInterval = 5000;  // 5 seconds
+        
+        // Backoff state
+        this.backoffMs = 0;
+        this.maxBackoffMs = 60000;  // 1 minute max
+        
+        // Stats
+        this.totalFetched = 0;
+        this.successfulFetches = 0;
+        this.failedFetches = 0;
+      }
+      
+      // Check if pools need top-up
+      needsTopUp() {
+        return (
+          this.categoryPools[1].length < this.targetPoolSize[1] ||
+          this.categoryPools[2].length < this.targetPoolSize[2] ||
+          this.categoryPools[3].length < this.targetPoolSize[3]
+        );
+      }
+      
+      // Get pool status for debug display
+      getStatus() {
+        return {
+          level1Count: this.categoryPools[1].length,
+          level2Count: this.categoryPools[2].length,
+          level3Count: this.categoryPools[3].length,
+          isFetching: this.isFetching,
+          lastFetchTime: this.lastFetchTime,
+          currentProvider: this.currentProvider,
+          errors: this.fetchErrors.slice(-3),  // Last 3 errors
+          totalFetched: this.totalFetched,
+          successRate: this.successfulFetches / Math.max(1, this.totalFetched)
+        };
+      }
+      
+      // Top up pools with staggered API fallback: OpenAI → Gemini → OpenTDB
+      async topUpPools() {
+        const now = Date.now();
+        
+        // Throttle: don't fetch too frequently
+        if (this.lastFetchTime && (now - this.lastFetchTime) < this.minFetchInterval) {
+          debugLog("[TriviaPoolManager] Throttled: too soon since last fetch");
+          return;
+        }
+        
+        // Backoff: if we failed recently, wait longer
+        if (this.backoffMs > 0 && (now - this.lastFetchTime) < this.backoffMs) {
+          debugLog(`[TriviaPoolManager] Backing off: waiting ${this.backoffMs}ms`);
+          return;
+        }
+        
+        if (this.isFetching) {
+          debugLog("[TriviaPoolManager] Already fetching, skipping");
+          return;
+        }
+        
+        this.isFetching = true;
+        this.lastFetchTime = now;
+        this.totalFetched++;
+        
+        try {
+          // Try OpenAI first
+          if (this.openaiKey) {
+            debugLog("[TriviaPoolManager] Trying OpenAI...");
+            this.currentProvider = 'openai';
+            const result = await this.fetchFromOpenAI();
+            if (result) {
+              this.onFetchSuccess(result);
+              return;
+            }
+          }
+          
+          // Fallback to Gemini
+          if (this.geminiKey) {
+            debugLog("[TriviaPoolManager] Fallback to Gemini...");
+            this.currentProvider = 'gemini';
+            const result = await this.fetchFromGemini();
+            if (result) {
+              this.onFetchSuccess(result);
+              return;
+            }
+          }
+          
+          // Final fallback to OpenTDB
+          debugLog("[TriviaPoolManager] Final fallback to OpenTDB...");
+          this.currentProvider = 'opentdb';
+          const result = await this.fetchFromOpenTDB();
+          if (result) {
+            this.onFetchSuccess(result);
+            return;
+          }
+          
+          // All providers failed
+          this.onFetchFailure("All providers failed");
+          
+        } catch (err) {
+          this.onFetchFailure(err.message || "Unknown error");
+        } finally {
+          this.isFetching = false;
+        }
+      }
+      
+      onFetchSuccess(newPools) {
+        // Merge new pools into existing
+        this.categoryPools = mergePools(this.categoryPools, newPools);
+        this.successfulFetches++;
+        this.backoffMs = 0;  // Reset backoff on success
+        this.currentProvider = null;
+        debugLog("[TriviaPoolManager] Fetch success! Pool sizes:", {
+          level1: this.categoryPools[1].length,
+          level2: this.categoryPools[2].length,
+          level3: this.categoryPools[3].length
+        });
+      }
+      
+      onFetchFailure(error) {
+        this.failedFetches++;
+        this.fetchErrors.push({ time: new Date().toISOString(), error });
+        
+        // Exponential backoff
+        if (this.backoffMs === 0) {
+          this.backoffMs = 5000;  // Start with 5s
+        } else {
+          this.backoffMs = Math.min(this.backoffMs * 2, this.maxBackoffMs);
+        }
+        
+        console.error("[TriviaPoolManager] Fetch failed:", error, `Backing off ${this.backoffMs}ms`);
+      }
+      
+      async fetchFromOpenAI() {
+        if (!this.openaiKey) return null;
+        
+        // Pick 2 categories for each level
+        const l1Cats = [];
+        const l2Cats = [];
+        const l3Cats = [];
+        
+        for (let i = 0; i < 2; i++) {
+          l1Cats.push(THEMES.level1[Math.floor(Math.random() * THEMES.level1.length)]);
+          l2Cats.push(THEMES.level2[Math.floor(Math.random() * THEMES.level2.length)]);
+          l3Cats.push(THEMES.level3[Math.floor(Math.random() * THEMES.level3.length)]);
+        }
+        
+        const result = await generateTriviaBatchWithOpenAI(this.openaiKey, l1Cats, l2Cats, l3Cats);
+        return result;  // Already normalized to pools format
+      }
+      
+      async fetchFromGemini() {
+        if (!this.geminiKey) return null;
+        
+        // Generate categories for level 1-3
+        const pools = { 1: [], 2: [], 3: [] };
+        
+        for (let level = 1; level <= 3; level++) {
+          const themeKey = `level${level}`;
+          const themes = THEMES[themeKey] || [];
+          const randomThemes = [];
+          for (let i = 0; i < 2; i++) {
+            randomThemes.push(themes[Math.floor(Math.random() * themes.length)]);
+          }
+          
+          const result = await generateQuestionsWithGemini(this.geminiKey, randomThemes, level);
+          if (result && result[level]) {
+            pools[level] = result[level];
+          }
+        }
+        
+        return pools;
+      }
+      
+      async fetchFromOpenTDB() {
+        // Fetch 2 categories per level from OpenTDB
+        const pools = await fetchOpenTDBPools({ 1: 2, 2: 2, 3: 2 });
+        return pools;
+      }
+      
+      // Quality check: review categories and remove weak questions
+      async qualityCheckAndRefine() {
+        if (!this.openaiKey) return;  // QC requires OpenAI
+        
+        // Check each level's categories
+        for (let level = 1; level <= 3; level++) {
+          const categories = this.categoryPools[level];
+          if (categories.length === 0) continue;
+          
+          // Sample up to 5 categories for QC
+          const sampled = categories.slice(0, Math.min(5, categories.length));
+          
+          try {
+            const qcResults = await qualityCheckCategoriesWithOpenAI(this.openaiKey, sampled);
+            
+            // Process QC results: remove weak questions
+            for (const analysis of qcResults) {
+              const catIndex = analysis.categoryIndex;
+              if (catIndex < 0 || catIndex >= sampled.length) continue;
+              
+              const category = sampled[catIndex];
+              const weakIndices = new Set(analysis.weakQuestionIndices || []);
+              
+              // Filter out weak questions
+              const originalCount = category.questions.length;
+              category.questions = category.questions.filter((q, idx) => !weakIndices.has(idx));
+              
+              if (category.questions.length < originalCount) {
+                debugLog(`[TriviaPoolManager] QC removed ${originalCount - category.questions.length} weak questions from level ${level} category`);
+              }
+              
+              // If too few questions remain, remove the entire category
+              if (category.questions.length < 3) {
+                const globalIdx = this.categoryPools[level].indexOf(category);
+                if (globalIdx !== -1) {
+                  this.categoryPools[level].splice(globalIdx, 1);
+                  debugLog(`[TriviaPoolManager] Removed entire category due to insufficient questions`);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("[TriviaPoolManager] QC failed:", err);
+          }
+        }
+      }
+      
+      // Get categories for a specific level (for trivia round)
+      getCategoriesForLevel(level, count = 6) {
+        const pool = this.categoryPools[level] || [];
+        if (pool.length === 0) return [];
+        
+        // Shuffle and take 'count' categories
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, Math.min(count, shuffled.length));
+      }
+      
+      // Consume a category (remove it from pool after use)
+      consumeCategory(level, categoryName) {
+        const pool = this.categoryPools[level] || [];
+        const idx = pool.findIndex(cat => cat.category === categoryName);
+        if (idx !== -1) {
+          pool.splice(idx, 1);
+          debugLog(`[TriviaPoolManager] Consumed category "${categoryName}" from level ${level}`);
+        }
+      }
+    }
+
+    /* =========================================================
+       [SCRIPT_CHUNK_3_SLOT_MACHINE_AND_LIFELINES]
+       Slot machine with passive autospin and lifeline accumulation:
+       - Spins every 5 seconds automatically
+       - Accumulates lifelines (50-50, Skip, Hint) over time
+       - No unhealthy score draining
+       ========================================================= */
+
+    // Slot machine symbols
+    const SLOT_SYMBOLS = ['🍒', '🍋', '🍊', '🍇', '🍉', '⭐', '💎', '🔔'];
+    
+    // Lifeline types
+    const LIFELINE_TYPES = {
+      FIFTY_FIFTY: { id: '50-50', label: '50-50', icon: '✂️', description: 'Remove 2 wrong answers' },
+      SKIP: { id: 'skip', label: 'Skip', icon: '⏭️', description: 'Skip this question' },
+      HINT: { id: 'hint', label: 'Hint', icon: '💡', description: 'Get a hint' }
+    };
+    
+    // SlotMachine component
+    const SlotMachine = ({ onLifelineEarned }) => {
+      const [reels, setReels] = React.useState(['🍒', '🍋', '🍊']);
+      const [isSpinning, setIsSpinning] = React.useState(false);
+      const [lastSpin, setLastSpin] = React.useState(Date.now());
+      
+      const spinInterval = 5000;  // 5 seconds
+      
+      // Autospin every 5 seconds
+      React.useEffect(() => {
+        const interval = setInterval(() => {
+          if (!isSpinning) {
+            spin();
+          }
+        }, spinInterval);
+        
+        return () => clearInterval(interval);
+      }, [isSpinning]);
+      
+      const spin = () => {
+        setIsSpinning(true);
+        setLastSpin(Date.now());
+        
+        // Spin animation
+        const spinDuration = 1000;
+        const newReels = [
+          SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)],
+          SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)],
+          SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)]
+        ];
+        
+        setTimeout(() => {
+          setReels(newReels);
+          setIsSpinning(false);
+          
+          // Check for lifeline win
+          checkWin(newReels);
+        }, spinDuration);
+      };
+      
+      const checkWin = (reels) => {
+        // 3 of a kind: earn a lifeline
+        if (reels[0] === reels[1] && reels[1] === reels[2]) {
+          const types = Object.values(LIFELINE_TYPES);
+          const lifeline = types[Math.floor(Math.random() * types.length)];
+          if (typeof onLifelineEarned === 'function') {
+            onLifelineEarned(lifeline.id);
+          }
+        }
+        // 2 of a kind: smaller chance for lifeline
+        else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) {
+          if (Math.random() < 0.3) {  // 30% chance
+            const types = Object.values(LIFELINE_TYPES);
+            const lifeline = types[Math.floor(Math.random() * types.length)];
+            if (typeof onLifelineEarned === 'function') {
+              onLifelineEarned(lifeline.id);
+            }
+          }
+        }
+      };
+      
+      return (
+        <div className="flex gap-2 items-center">
+          {reels.map((symbol, idx) => (
+            <div key={idx} className="slot-reel">
+              <div className={`slot-reel-inner ${isSpinning ? 'animate-spin' : ''}`}>
+                <div className="slot-symbol">{symbol}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    };
+    
+    // TriviaPanel component for category selection and question rounds
+    const TriviaPanel = ({ 
+      phase, 
+      level, 
+      categories, 
+      currentQuestion, 
+      onCategorySelect, 
+      onAnswerSelect,
+      lifelines,
+      onUseLifeline,
+      triviaTimer
+    }) => {
+      const [selectedAnswer, setSelectedAnswer] = React.useState(null);
+      const [revealedAnswer, setRevealedAnswer] = React.useState(false);
+      const [removedOptions, setRemovedOptions] = React.useState(new Set());
+      
+      // Category selection phase
+      if (phase === PHASES.TRIVIA_CATEGORY_SELECT && categories && categories.length > 0) {
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center p-6">
+            <h2 className="text-3xl font-bold text-white mb-4 text-shadow-soft">
+              Select a Category - Level {level}
+            </h2>
+            <div className="grid grid-cols-3 gap-4 w-full max-w-4xl">
+              {categories.map((cat, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onCategorySelect(cat)}
+                  className={`trivia-category-tile p-6 rounded-2xl border-2 ${cat.color} text-center`}
+                >
+                  <div className="text-xl font-bold">{cat.category}</div>
+                  <div className="text-sm mt-2 opacity-75">{cat.questions.length} questions</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      
+      // Question phase
+      if (phase === PHASES.TRIVIA && currentQuestion) {
+        const handleAnswerClick = (option) => {
+          if (revealedAnswer) return;  // Already answered
+          
+          setSelectedAnswer(option);
+          setRevealedAnswer(true);
+          
+          setTimeout(() => {
+            onAnswerSelect(option);
+            setSelectedAnswer(null);
+            setRevealedAnswer(false);
+            setRemovedOptions(new Set());
+          }, 1500);
+        };
+        
+        const handleFiftyFifty = () => {
+          if (lifelines['50-50'] > 0) {
+            // Remove 2 wrong answers
+            const wrongOptions = currentQuestion.options.filter(
+              opt => opt !== currentQuestion.correctAnswer && !removedOptions.has(opt)
+            );
+            const toRemove = wrongOptions.slice(0, 2);
+            setRemovedOptions(new Set([...removedOptions, ...toRemove]));
+            onUseLifeline('50-50');
+          }
+        };
+        
+        const visibleOptions = currentQuestion.options.filter(opt => !removedOptions.has(opt));
+        
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center p-6">
+            {/* Timer */}
+            {triviaTimer > 0 && (
+              <div className="mb-4 text-4xl font-black text-white text-shadow-soft">
+                {triviaTimer}s
+              </div>
+            )}
+            
+            {/* Question */}
+            <div className="text-2xl font-bold text-white mb-8 text-center max-w-3xl text-shadow-soft">
+              {currentQuestion.question}
+            </div>
+            
+            {/* Lifelines */}
+            <div className="mb-6 flex gap-2">
+              {lifelines['50-50'] > 0 && (
+                <button
+                  onClick={handleFiftyFifty}
+                  className="lifeline-badge bg-blue-500/30 hover:bg-blue-500/50"
+                  disabled={revealedAnswer}
+                >
+                  <span>{LIFELINE_TYPES.FIFTY_FIFTY.icon}</span>
+                  <span>×{lifelines['50-50']}</span>
+                </button>
+              )}
+              {lifelines.skip > 0 && (
+                <button
+                  onClick={() => onUseLifeline('skip')}
+                  className="lifeline-badge bg-yellow-500/30 hover:bg-yellow-500/50"
+                  disabled={revealedAnswer}
+                >
+                  <span>{LIFELINE_TYPES.SKIP.icon}</span>
+                  <span>×{lifelines.skip}</span>
+                </button>
+              )}
+            </div>
+            
+            {/* Answer options */}
+            <div className="grid grid-cols-2 gap-4 w-full max-w-3xl">
+              {visibleOptions.map((option, idx) => {
+                const isCorrect = option === currentQuestion.correctAnswer;
+                const isSelected = option === selectedAnswer;
+                const tileClass = revealedAnswer && isCorrect ? 'correct' : 
+                                  revealedAnswer && isSelected && !isCorrect ? 'incorrect' : '';
+                
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswerClick(option)}
+                    className={`trivia-answer-tile p-6 rounded-xl border-2 border-white/20 bg-slate-800/30 text-white font-semibold text-lg ${tileClass}`}
+                    disabled={revealedAnswer}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
+      
+      return null;
+    };
+
+
+    /* =========================================================
+       APP – Skeleton with:
+       - Layout (top bar, side panel, play area, bottom bar)
+       - API key inputs
+       - Video playlist & controls
+       - Phase scaffolding SETUP → LIGHT → PRE_BREATH → WAIT_BREATH_START → BREATH
+       ========================================================= */
+
+    const App = () => {
+      /* ---------- Phases & base timers ---------- */
+
+      const [phase, setPhase] = useState(PHASES.SETUP);
+
+      // phaseTimer is only used for LIGHT and PRE_BREATH in this skeleton.
+      const [phaseTimer, setPhaseTimer] = useState(0);
+      const phaseTimerRef = useRef(null);
+
+      /* ---------- Video playlist & player ---------- */
+
+      const [playlist, setPlaylist] = useState([]);
+      const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+      const [isMuted, setIsMuted] = useState(false);
+      const videoRef = useRef(null);
+
+      /* ---------- API keys ---------- */
+
+      const [openaiKey, setOpenaiKey] = useState(
+        () => localStorage.getItem("openai_api_key") || ""
+      );
+      const [geminiKey, setGeminiKey] = useState(
+        () => localStorage.getItem("gemini_api_key") || ""
+      );
+
+      /* ---------- Global score (wired to engines) ---------- */
+
+      const [score, setScore] = useState(0);
+      
+      /* ---------- Trivia state ---------- */
+      const [triviaLevel, setTriviaLevel] = useState(1);
+      const [triviaCategories, setTriviaCategories] = useState([]);
+      const [currentCategory, setCurrentCategory] = useState(null);
+      const [currentQuestion, setCurrentQuestion] = useState(null);
+      const [questionIndex, setQuestionIndex] = useState(0);
+      const [triviaTimer, setTriviaTimer] = useState(0);
+      const triviaTimerRef = useRef(null);
+      
+      /* ---------- Lifelines ---------- */
+      const [lifelines, setLifelines] = useState({
+        '50-50': 0,
+        'skip': 0,
+        'hint': 0
+      });
+      
+      /* ---------- Trivia Pool Manager ---------- */
+      const triviaPoolManagerRef = useRef(null);
+      
+      // Initialize trivia pool manager when keys change
+      useEffect(() => {
+        if (openaiKey || geminiKey) {
+          triviaPoolManagerRef.current = new TriviaPoolManager(openaiKey, geminiKey);
+          debugLog("[App] TriviaPoolManager initialized");
+          
+          // Start initial pool loading
+          triviaPoolManagerRef.current.topUpPools();
+        }
+      }, [openaiKey, geminiKey]);
+      
+      // Continuous pool top-up (every 10 seconds)
+      useEffect(() => {
+        const interval = setInterval(() => {
+          if (triviaPoolManagerRef.current && triviaPoolManagerRef.current.needsTopUp()) {
+            debugLog("[App] Auto top-up triggered");
+            triviaPoolManagerRef.current.topUpPools();
+          }
+        }, 10000);  // 10 seconds
+        
+        return () => clearInterval(interval);
+      }, []);
+      
+      /* ---------- Debug panel ---------- */
+      const [showDebug, setShowDebug] = useState(DEBUG);
+      
+      const DebugPanel = () => {
+        const [poolStatus, setPoolStatus] = useState(null);
+        
+        useEffect(() => {
+          const interval = setInterval(() => {
+            if (triviaPoolManagerRef.current) {
+              setPoolStatus(triviaPoolManagerRef.current.getStatus());
+            }
+          }, 1000);
+          
+          return () => clearInterval(interval);
+        }, []);
+        
+        if (!showDebug || !poolStatus) return null;
+        
+        return (
+          <div className="debug-panel">
+            <div className="flex justify-between items-center mb-2">
+              <h3>🔧 Debug Panel</h3>
+              <button 
+                onClick={() => setShowDebug(false)}
+                className="text-xs px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/40"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="debug-row">
+              <span className="debug-label">Phase:</span>
+              <span className="debug-value">{phase}</span>
+            </div>
+            
+            <div className="debug-row">
+              <span className="debug-label">Score:</span>
+              <span className="debug-value">{score}</span>
+            </div>
+            
+            <h3 className="mt-3">Trivia Pools</h3>
+            <div className="debug-row">
+              <span className="debug-label">Level 1:</span>
+              <span className="debug-value">{poolStatus.level1Count} categories</span>
+            </div>
+            <div className="debug-row">
+              <span className="debug-label">Level 2:</span>
+              <span className="debug-value">{poolStatus.level2Count} categories</span>
+            </div>
+            <div className="debug-row">
+              <span className="debug-label">Level 3:</span>
+              <span className="debug-value">{poolStatus.level3Count} categories</span>
+            </div>
+            
+            <h3 className="mt-3">Fetch Status</h3>
+            <div className="debug-row">
+              <span className="debug-label">Fetching:</span>
+              <span className="debug-value">{poolStatus.isFetching ? 'Yes' : 'No'}</span>
+            </div>
+            <div className="debug-row">
+              <span className="debug-label">Provider:</span>
+              <span className="debug-value">{poolStatus.currentProvider || 'None'}</span>
+            </div>
+            <div className="debug-row">
+              <span className="debug-label">Success Rate:</span>
+              <span className="debug-value">{(poolStatus.successRate * 100).toFixed(0)}%</span>
+            </div>
+            <div className="debug-row">
+              <span className="debug-label">Last Fetch:</span>
+              <span className="debug-value">
+                {poolStatus.lastFetchTime 
+                  ? `${Math.floor((Date.now() - poolStatus.lastFetchTime) / 1000)}s ago`
+                  : 'Never'}
+              </span>
+            </div>
+            
+            {poolStatus.errors.length > 0 && (
+              <>
+                <h3 className="mt-3">Recent Errors</h3>
+                {poolStatus.errors.map((err, idx) => (
+                  <div key={idx} className="debug-error text-xs">
+                    {err.error}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        );
+      };
+
+      /* ---------- Round tracking (breath + trivia cycles) ---------- */
+
+      const [roundIndex, setRoundIndex] = useState(0);
+
+      /* =========================================================
+         API Key Handlers
+         ========================================================= */
+
+      const handleOpenAIKeyChange = (e) => {
+        const val = e.target.value;
+        setOpenaiKey(val);
+        localStorage.setItem("openai_api_key", val);
+      };
+
+      const handleGeminiKeyChange = (e) => {
+        const val = e.target.value;
+        setGeminiKey(val);
+        localStorage.setItem("gemini_api_key", val);
+      };
+
+      /* =========================================================
+         Video Handlers
+         ========================================================= */
+
+      const handleFileChange = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+
+        const urls = files.map((f) => URL.createObjectURL(f));
+        setPlaylist((prev) => {
+          const next = [...prev, ...urls];
+          // If this is the very first time we add videos, reset index to 0
+          if (prev.length === 0 && next.length > 0) {
+            setCurrentVideoIdx(0);
+          }
+          return next;
+        });
+      };
+
+      const handleVideoEnd = () => {
+        if (!playlist.length) return;
+        setCurrentVideoIdx((idx) => (idx + 1) % playlist.length);
+      };
+
+      const toggleMute = () => {
+        setIsMuted((m) => !m);
+      };
+
+      const togglePlayPause = () => {
+        if (!videoRef.current) return;
+        if (videoRef.current.paused) {
+          videoRef.current.play().catch(() => {/* autoplay block – user can press Play */});
+        } else {
+          videoRef.current.pause();
+        }
+      };
+
+      const seekRelative = (seconds) => {
+        if (!videoRef.current) return;
+        const v = videoRef.current;
+        const target = Math.max(0, v.currentTime + seconds);
+        v.currentTime = target;
+      };
+
+      /* =========================================================
+         Phase Timer: LIGHT (20s) → PRE_BREATH (20s) → WAIT_BREATH_START
+
+         IMPORTANT:
+         - We only handle this "outer" timing here.
+         - In later chunks, BreathEngine & TriviaEngine will add
+           their own timers (for inhale/hold/exhale, trivia countdown, etc.)
+         ========================================================= */
+
+      useEffect(() => {
+        // Clear any existing timer whenever phase changes
+        if (phaseTimerRef.current) {
+          clearInterval(phaseTimerRef.current);
+          phaseTimerRef.current = null;
+        }
+
+        if (phase === PHASES.LIGHT) {
+          setPhaseTimer(FIRST_LIGHT_SECONDS);
+          phaseTimerRef.current = setInterval(() => {
+            setPhaseTimer((t) => {
+              if (t <= 1) {
+                clearInterval(phaseTimerRef.current);
+                phaseTimerRef.current = null;
+                setPhase(PHASES.PRE_BREATH);
+                return 0;
+              }
+              return t - 1;
+            });
+          }, 1000);
+        } else if (phase === PHASES.PRE_BREATH) {
+          setPhaseTimer(PREBREATH_SECONDS);
+          phaseTimerRef.current = setInterval(() => {
+            setPhaseTimer((t) => {
+              if (t <= 1) {
+                clearInterval(phaseTimerRef.current);
+                phaseTimerRef.current = null;
+                setPhase(PHASES.WAIT_BREATH_START);
+                return 0;
+              }
+              return t - 1;
+            });
+          }, 1000);
+        } else {
+          // Other phases: phaseTimer is not used by this skeleton.
+          setPhaseTimer(0);
+        }
+
+        return () => {
+          if (phaseTimerRef.current) {
+            clearInterval(phaseTimerRef.current);
+          }
+        };
+      }, [phase]);
+
+      /* =========================================================
+         Session Start & Basic Phase Transitions
+         ========================================================= */
+
+      const startSession = () => {
+        if (!playlist.length) {
+          alert("Please add at least one video file before starting the session.");
+          return;
+        }
+
+        // Reset global stats
+        setScore(0);
+        setRoundIndex(0);
+
+        // Reset and play video
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(() => {
+            // Browser may block autoplay; user can hit Play manually.
+          });
+        }
+
+        // Enter initial LIGHT phase
+        setPhase(PHASES.LIGHT);
+      };
+
+      const handleStartBreathClick = () => {
+        // NOTE:
+        // In later chunks, this will:
+        // - Start BreathEngine’s inhale/hold/exhale loop
+        // - Track breath duration to define trivia time
+        // For now, just move to BREATH phase.
+        setPhase(PHASES.BREATH);
+      };
+      
+      /* =========================================================
+         Trivia Phase Handlers
+         ========================================================= */
+      
+      const handleBreathFinish = (stats) => {
+        debugLog("[App] Breath finished with stats:", stats);
+        
+        // Determine trivia level based on rounds (1→2→3, then cycle)
+        const level = ((roundIndex % 3) + 1);
+        setTriviaLevel(level);
+        
+        // Get categories for this level
+        if (triviaPoolManagerRef.current) {
+          const cats = triviaPoolManagerRef.current.getCategoriesForLevel(level, 6);
+          if (cats.length > 0) {
+            setTriviaCategories(cats);
+            setPhase(PHASES.TRIVIA_CATEGORY_SELECT);
+          } else {
+            // No categories available, skip to next round
+            console.warn("[App] No trivia categories available, skipping");
+            setRoundIndex(r => r + 1);
+            setPhase(PHASES.LIGHT);
+          }
+        }
+      };
+      
+      const handleCategorySelect = (category) => {
+        debugLog("[App] Category selected:", category.category);
+        setCurrentCategory(category);
+        setQuestionIndex(0);
+        
+        if (category.questions && category.questions.length > 0) {
+          setCurrentQuestion(category.questions[0]);
+          setTriviaTimer(30);  // 30 seconds per question
+          setPhase(PHASES.TRIVIA);
+          
+          // Start trivia timer
+          if (triviaTimerRef.current) {
+            clearInterval(triviaTimerRef.current);
+          }
+          triviaTimerRef.current = setInterval(() => {
+            setTriviaTimer(t => {
+              if (t <= 1) {
+                // Time's up - move to next question
+                handleAnswerSelect(null);
+                return 0;
+              }
+              return t - 1;
+            });
+          }, 1000);
+        }
+      };
+      
+      const handleAnswerSelect = (answer) => {
+        // Stop timer
+        if (triviaTimerRef.current) {
+          clearInterval(triviaTimerRef.current);
+          triviaTimerRef.current = null;
+        }
+        
+        // Check if correct
+        const isCorrect = answer === currentQuestion?.correctAnswer;
+        if (isCorrect) {
+          // Award points based on difficulty and time remaining
+          const basePoints = triviaLevel === 1 ? 10 : triviaLevel === 2 ? 20 : 30;
+          const timeBonus = Math.floor(triviaTimer * 2);
+          setScore(s => s + basePoints + timeBonus);
+        }
+        
+        // Move to next question or finish category
+        const nextIdx = questionIndex + 1;
+        if (currentCategory && nextIdx < currentCategory.questions.length) {
+          setQuestionIndex(nextIdx);
+          setCurrentQuestion(currentCategory.questions[nextIdx]);
+          setTriviaTimer(30);
+          
+          // Restart timer
+          triviaTimerRef.current = setInterval(() => {
+            setTriviaTimer(t => {
+              if (t <= 1) {
+                handleAnswerSelect(null);
+                return 0;
+              }
+              return t - 1;
+            });
+          }, 1000);
+        } else {
+          // Category complete
+          finishTriviaRound();
+        }
+      };
+      
+      const finishTriviaRound = () => {
+        // Consume the category
+        if (triviaPoolManagerRef.current && currentCategory) {
+          triviaPoolManagerRef.current.consumeCategory(triviaLevel, currentCategory.category);
+        }
+        
+        // Move to next round
+        setRoundIndex(r => r + 1);
+        setCurrentCategory(null);
+        setCurrentQuestion(null);
+        setTriviaCategories([]);
+        
+        // Transition: TRIVIA_LIGHT (15s) → PRE_BREATH
+        setPhase(PHASES.TRIVIA_LIGHT);
+        setPhaseTimer(15);
+        
+        if (phaseTimerRef.current) {
+          clearInterval(phaseTimerRef.current);
+        }
+        phaseTimerRef.current = setInterval(() => {
+          setPhaseTimer(t => {
+            if (t <= 1) {
+              clearInterval(phaseTimerRef.current);
+              phaseTimerRef.current = null;
+              setPhase(PHASES.PRE_BREATH);
+              return 0;
+            }
+            return t - 1;
+          });
+        }, 1000);
+      };
+      
+      const handleLifelineEarned = (lifelineId) => {
+        debugLog("[App] Lifeline earned:", lifelineId);
+        setLifelines(prev => ({
+          ...prev,
+          [lifelineId]: (prev[lifelineId] || 0) + 1
+        }));
+      };
+      
+      const handleUseLifeline = (lifelineId) => {
+        if (lifelines[lifelineId] > 0) {
+          debugLog("[App] Using lifeline:", lifelineId);
+          setLifelines(prev => ({
+            ...prev,
+            [lifelineId]: prev[lifelineId] - 1
+          }));
+          
+          if (lifelineId === 'skip') {
+            // Skip this question
+            handleAnswerSelect(null);
+          }
+        }
+      };
+
+      /* =========================================================
+         Derived Labels (for UI only, no game logic here)
+         ========================================================= */
+
+      const phaseLabel = (() => {
+        switch (phase) {
+          case PHASES.SETUP:
+            return "Setup";
+          case PHASES.LIGHT:
+            return "Light – Get Ready";
+          case PHASES.PRE_BREATH:
+            return "Pre-Breath – Generating Clouds";
+          case PHASES.WAIT_BREATH_START:
+            return "Ready – Start Breath";
+          case PHASES.BREATH:
+            return "Breath Sequence";
+          case PHASES.TRIVIA_CATEGORY_SELECT:
+            return "Category Select";
+          case PHASES.TRIVIA:
+            return "Trivia Round";
+          case PHASES.MULTI_SELECT:
+            return "Multi-Select Round";
+          case PHASES.TRIVIA_LIGHT:
+            return "Light – Transition";
+          default:
+            return "";
+        }
+      })();
+
+      // Side panel's main timer: only show during LIGHT & PRE_BREATH for now.
+      const sideTimerLabel = (() => {
+        if (phase === PHASES.LIGHT || phase === PHASES.PRE_BREATH) {
+          return `${phaseTimer}s`;
+        }
+        return "";
+      })();
+
+      /* =========================================================
+         Layout
+         ========================================================= */
+
+      return (
+        <div className="w-screen h-screen flex flex-col bg-black text-white">
+          {/* ================= TOP BAR ================= */}
+          <div className="h-[10vh] flex items-center justify-between px-4 bg-gradient-to-b from-black to-slate-900/90 border-b border-white/10">
+            {/* Left: Slot-machine region above side panel (fixed 256px) */}
+            <div className="w-[256px] flex items-center justify-center">
+              {/* [HTML_CHUNK_SLOT_MACHINE]
+                  Later: slot machine reels go here (vertical scrolling emoji panels).
+                  For now, just an empty box with subtle border. */}
+              <div className="w-full max-w-[220px] h-12 rounded-xl border border-slate-700/80 bg-slate-950/70 flex items-center justify-center text-xs text-slate-500">
+                Slot lifelines (to be implemented)
+              </div>
+            </div>
+
+            {/* Center: phase label / instruction text */}
+            <div className="flex-1 flex items-center justify-center px-4">
+              <div className="text-center">
+                <div className="text-[10px] font-semibold tracking-[0.25em] uppercase text-slate-400 mb-1">
+                  {phaseLabel || "Focus Flow"}
+                </div>
+                <div className="text-lg font-semibold text-shadow-soft">
+                  {phase === PHASES.SETUP && "Add videos and API keys, then start the session."}
+                  {phase === PHASES.LIGHT && "Light phase – breathe, look, and get ready."}
+                  {phase === PHASES.PRE_BREATH && "Pre-breath – clouds will generate in the panel."}
+                  {phase === PHASES.WAIT_BREATH_START && "Tap Start Breath when you’re ready to begin the cycle."}
+                  {phase === PHASES.BREATH && "Breath sequence will run here (Inhale / Hold / Exhale)."}
+                  {(phase === PHASES.TRIVIA || phase === PHASES.TRIVIA_CATEGORY_SELECT || phase === PHASES.MULTI_SELECT) &&
+                    "Trivia phase will use this same play area (answers and categories)."}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: small info / future inventory */}
+            <div className="w-[256px] flex flex-col items-end justify-center text-[11px] text-slate-400">
+              <div>Round <span className="font-semibold ml-1">{roundIndex}</span></div>
+              {/* [HTML_CHUNK_LIFELINE_INVENTORY]
+                  Later: show collected lifelines & status here. */}
+            </div>
+          </div>
+
+          {/* ================= MAIN AREA ================= */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* ----- Left Side Panel (256px) + S-shaped tube ----- */}
+            <div className="w-[256px] h-full flex flex-col bg-gradient-to-b from-slate-950 to-slate-900 border-r border-white/10 relative overflow-hidden">
+              {/* S-shaped tube graphic */}
+              <svg
+                className="breath-tube-svg breath-tube-glow"
+                viewBox="0 0 256 900"
+                preserveAspectRatio="xMidYMid slice"
+              >
+                <defs>
+                  <linearGradient id="breath-tube-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6EE7B7" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="#22C55E" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="#0F766E" stopOpacity="0.7" />
+                  </linearGradient>
+                </defs>
+                {/* backplate glow */}
+                <path
+                  d="M220 900
+         C 80 780, 80 540, 220 420
+         C 80 300, 80 160, 220 40"
+                  fill="none"
+                  stroke="rgba(15,118,110,0.35)"
+                  strokeWidth="60"
+                  strokeLinecap="round"
+                />
+                {/* main tube */}
+                <path
+                  d="M220 900
+         C 80 780, 80 540, 220 420
+         C 80 300, 80 160, 220 40"
+                  fill="none"
+                  stroke="url(#breath-tube-grad)"
+                  strokeWidth="34"
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              {/* Top tile: main phase/timer panel */}
+              <div className="flex-1 p-2 flex items-center justify-center">
+                <div className="glass-panel rounded-xl w-full h-full flex flex-col items-center justify-center px-3">
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400 font-bold mb-1">
+                    Phase
+                  </div>
+                  <div className="text-base font-semibold mb-2 text-slate-50 text-center">
+                    {phaseLabel || "—"}
+                  </div>
+                  {sideTimerLabel && (
+                    <>
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">
+                        Time Left
+                      </div>
+                      <div className={`mt-1 text-5xl font-black ${phaseTimer <= 5 && phaseTimer > 0 ? "text-red-400" : "text-slate-50"}`}>
+                        {sideTimerLabel}
+                      </div>
+                    </>
+                  )}
+                  {!sideTimerLabel && (
+                    <div className="text-[11px] text-slate-500 mt-2 text-center">
+                      Timed phase not active.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Middle tile: context */}
+              <div className="p-2">
+                <div className="glass-panel rounded-xl w-full h-24 flex flex-col items-center justify-center px-3">
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-bold mb-1">
+                    Context
+                  </div>
+                  <div className="text-[11px] text-slate-200 text-center leading-snug">
+                    {phase === PHASES.SETUP && "Configure your keys and load videos below."}
+                    {phase === PHASES.LIGHT && "Video is playing with a light/red overlay (visual warmup)."}
+                    {phase === PHASES.PRE_BREATH && "Clouds will spawn here in the Breath panel (next chunk)."}
+                    {phase === PHASES.WAIT_BREATH_START && "Press Start Breath in the main panel when ready."}
+                    {phase === PHASES.BREATH && "BreathEngine controls shape motion and scoring."}
+                    {(phase === PHASES.TRIVIA || phase === PHASES.TRIVIA_CATEGORY_SELECT) &&
+                      "TriviaEngine will manage categories, questions, and scoring."}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom tile: global score */}
+              <div className="p-2 pb-3">
+                <div className="rounded-xl w-full h-20 bg-emerald-500/15 border border-emerald-300/40 flex flex-col items-center justify-center">
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-emerald-200 font-bold">
+                    Score
+                  </div>
+                  <div className="mt-1 text-2xl font-black text-emerald-300">
+                    {score.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-emerald-200/70 mt-0.5">
+                    (Breath + Trivia – wired later)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ----- Main Play Area (to the right of side panel) ----- */}
+            <div className="flex-1 h-full relative overflow-hidden bg-black">
+              {/* Background video */}
+              {playlist.length > 0 ? (
+                <video
+                  ref={videoRef}
+                  src={playlist[currentVideoIdx]}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  muted={isMuted}
+                  autoPlay={false}
+                  onEnded={handleVideoEnd}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-sm">
+                  Add at least one video file in the bottom bar to begin.
+                </div>
+              )}
+
+              {/* Dark overlay to keep UI readable */}
+              <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+
+              {/* Red / fiery overlay during light phases (visual only, logic is above) */}
+              {(phase === PHASES.LIGHT || phase === PHASES.TRIVIA_LIGHT) && (
+                <div className="absolute inset-0 bg-red-900/40 mix-blend-screen pointer-events-none" />
+              )}
+
+              {/* Main 4×6 grid where both Breath and Trivia live */}
+              <div className="absolute inset-0 p-4">
+                <div className="w-full h-full grid grid-cols-4 grid-rows-6 gap-3">
+                  {/* ================= BREATH PANEL =================
+                      Occupies the 1000×600 simulation region (conceptually),
+                      mapped into the 4×6 grid. Only visible in breath-related
+                      phases.
+                  */}
+                  {(phase === PHASES.PRE_BREATH ||
+                    phase === PHASES.WAIT_BREATH_START ||
+                    phase === PHASES.BREATH) && (
+                    <div className="col-span-4 row-span-6 flex items-center justify-center">
+                      <div
+                        id="breath-panel"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-emerald-300/40 rounded-3xl bg-gradient-to-b from-emerald-950/90 to-slate-950/95 flex items-center justify-center relative overflow-hidden"
+                      >
+                        {/* BreathEngine fully mounted here */}
+                        <BreathEnginePanel
+                          phase={phase}
+                          onStartBreath={() => {
+                            // Outer phase transition into BREATH
+                            setPhase(PHASES.BREATH);
+                          }}
+                          onFinishBreath={(stats) => {
+                            console.log("Breath finished:", stats);
+                            // Clear clouds already handled inside BreathEnginePanel.
+                            // Increment round counter and proceed to trivia phase (to be implemented later).
+                            setRoundIndex((r) => r + 1);
+                            setPhase(PHASES.TRIVIA_CATEGORY_SELECT);
+                          }}
+                          addScore={(points) => setScore((s) => s + points)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ================= TRIVIA PANEL =================
+                      This same area is reused for trivia answer tiles and
+                      category selection. We'll fill this in the trivia chunk.
+                  */}
+                  {(phase === PHASES.TRIVIA_CATEGORY_SELECT ||
+                    phase === PHASES.TRIVIA ||
+                    phase === PHASES.MULTI_SELECT) && (
+                    <div className="col-span-4 row-span-6 flex items-center justify-center">
+                      <div
+                        id="trivia-panel"
+                        className="w-[1000px] h-[600px] max-w-full max-h-full border border-sky-300/40 rounded-3xl bg-gradient-to-b from-sky-950/90 to-slate-950/95 relative overflow-hidden"
+                      >
+                        {/* [HTML_CHUNK_TRIVIA_CONTENT]
+                            Later: category tiles, answer tiles, multi-select grid. */}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Setup & idle visuals when neither breath nor trivia are active */}
+                  {phase === PHASES.SETUP && (
+                    <div className="col-span-4 row-span-6 flex items-center justify-center">
+                      <div className="text-slate-300 text-sm text-center max-w-md">
+                        Load your video(s) and API keys below, then press{" "}
+                        <span className="font-semibold">Start Session</span>.
+                        <br />
+                        Flow: Light (20s) → Pre-Breath (20s) → Start Breath → Breath loop → Trivia (later chunks).
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ================= BOTTOM BAR ================= */}
+          <div className="h-[10vh] bg-black/95 border-t border-white/10 flex items-center justify-between px-4 gap-4 text-xs">
+            {/* Left: API keys */}
+            <div className="flex items-center gap-2">
+              <label className="text-slate-400">OpenAI</label>
+              <input
+                type="password"
+                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 w-48"
+                value={openaiKey}
+                onChange={handleOpenAIKeyChange}
+                placeholder="sk-..."
+              />
+              <label className="ml-3 text-slate-400">Gemini</label>
+              <input
+                type="password"
+                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 w-48"
+                value={geminiKey}
+                onChange={handleGeminiKeyChange}
+                placeholder="AIza..."
+              />
+            </div>
+
+            {/* Middle: video input & transport controls */}
+            <div className="flex items-center gap-2">
+              <label className="text-slate-400 mr-1">Video(s)</label>
+              <input
+                type="file"
+                multiple
+                accept="video/*"
+                onChange={handleFileChange}
+                className="text-slate-200 text-xs"
+              />
+              <button
+                onClick={togglePlayPause}
+                className="ml-2 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold"
+              >
+                Play / Pause
+              </button>
+              <button
+                onClick={() => seekRelative(-60)}
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200"
+              >
+                -1m
+              </button>
+              <button
+                onClick={() => seekRelative(60)}
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200"
+              >
+                +1m
+              </button>
+              <button
+                onClick={toggleMute}
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200"
+              >
+                {isMuted ? "Unmute" : "Mute"}
+              </button>
+            </div>
+
+            {/* Right: session controls */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={startSession}
+                className="px-4 py-2 rounded-full bg-emerald-500 text-black font-bold text-xs hover:bg-emerald-400 shadow-lg active:scale-95"
+                disabled={!playlist.length}
+              >
+                Start Session
+              </button>
+              {phase !== PHASES.SETUP && (
+                <button
+                  onClick={() => setPhase(PHASES.SETUP)}
+                  className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 font-semibold text-[11px] hover:bg-slate-700 active:scale-95"
+                >
+                  Reset to Setup
+                </button>
+              )}
+              {!playlist.length && (
+                <div className="text-[11px] text-red-400 ml-2">
+                  Add at least one video to enable Start.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Mount React app
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
